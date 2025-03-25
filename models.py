@@ -14,13 +14,21 @@ class Equipment(Base):
     artnum = Column(String, default=False)
     etype = Column(String, default=False)
 
+class Department(Base):
+    __tablename__ = "departments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    users = relationship("User", back_populates="department")
+
 class User(Base):
     """Represents a user who can rent equipment."""
     __tablename__ = "users"
 
     id_us = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
-    dep = Column(String, default=False) # department
+    id_dep = Column(Integer, ForeignKey("departments.id"))
+    department = relationship("Department", back_populates="users")
 
 class Rental(Base):
     """Represents an equipment rental event."""

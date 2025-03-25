@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models import Equipment, User, Rental
+from models import Equipment, User, Rental, Department
 from typing import List, Optional
 import datetime
 
@@ -41,10 +41,53 @@ def delete_equipment(db: Session, equipment_id: int) -> bool:
         return True
     return False
 
+# Department CRUD operations
+def create_department(db: Session, name: str) -> Department:
+    """Create new department"""
+    department = Department(name=name)
+    db.add(department)
+    db.commit()
+    db.refresh(department)
+    return department
+
+def get_department(db: Session, department_id: int) -> Optional[Department]:
+    """Get department by ID"""
+    return db.query(Department).filter(Department.id == department_id).first()
+
+def get_department_by_name(db: Session, name: str) -> Optional[Department]:
+    """Get department by name"""
+    return db.query(Department).filter(Department.name == name).first()
+
+def get_all_departments(db: Session) -> List[Department]:
+    """Get all departments"""
+    return db.query(Department).all()
+
+def update_department(db: Session, department_id: int, name: str) -> Optional[Department]:
+    """Update department"""
+    department = get_department(db, department_id)
+    if department:
+        department.name = name
+        db.commit()
+        db.refresh(department)
+    return department
+
+def delete_department(db: Session, department_id: int) -> bool:
+    """Delete department"""
+    department = get_department(db, department_id)
+    if department:
+        db.delete(department)
+        db.commit()
+        return True
+    return False
+
 # User CRUD operations
-def create_user(db: Session, name: str, dep: str = None) -> User:
+def create_user(db: Session, name: str, dep: str) -> User:
     """Create new user"""
-    user = User(name=name, dep=dep)
+    department = get_department_by_name(db, dep)
+    if not department:
+        raise ValueError(f"Department {dep} not found")
+    
+    user = User(name=name, id_dep=department.id)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -63,7 +106,11 @@ def update_user(db: Session, user_id: int, name: str = None, dep: str = None) ->
     user = get_user(db, user_id)
     if user:
         if name: user.name = name
-        if dep: user.dep = dep
+        if dep:
+            department = get_department_by_name(db, dep)
+            if not department:
+                raise ValueError(f"Department {dep} not found")
+            user.id_dep = department.id
         db.commit()
         db.refresh(user)
     return user
