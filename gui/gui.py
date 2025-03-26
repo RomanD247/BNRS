@@ -1,24 +1,27 @@
 from nicegui import ui
+from t_guidial import create_gui
+from gui_adduser import show_add_user_dialog
 
 def main():
-    with ui.row().style('height: 100vh'):
-        with ui.column().style('width: 200px; background-color: #f0f0f0; padding: 10px;'):
-            ui.button('Rent', on_click=lambda: ui.notify('Rent clicked'))
-            ui.button('Return', on_click=lambda: ui.notify('Return clicked'))
-            ui.button('Edit database', on_click=lambda: ui.notify('Edit database clicked'))
+    with ui.row().style('height: 100vh;'):
+        with ui.column().style('width: 300px; background-color: #f0f0f0; padding: 10px; align-items: center;'):
+            ui.button('Rent', on_click=lambda: ui.notify('Rent clicked')).style('width: 150px; height: 150px;')
+            ui.button('Return', on_click=lambda: ui.notify('Return clicked')).style('width: 150px; height: 150px;')
+            ui.button('Edit database', on_click=lambda: ui.notify('Edit database clicked')).style('width: 150px; height: 150px;')
+            ui.button('Add Employee', on_click=show_add_user_dialog).style('width: 150px; height: 150px;')
 
-        with ui.row().style('flex: 1; padding: 10px;'):
-            with ui.column().style('flex: 10; padding-right: 10px; height: 100%;'):
-                ui.label('Rented Equipment!!').style('font-size: 18px; font-weight: bold;')
-                with ui.scroll_area().classes('w-32 h-32 border'):
-                    for i in range(10):
-                        ui.label(f'Rented Item {i+1}')
+        with ui.column():
+            ui.label(text='Rented')
+            create_gui()
+        with ui.column():
+            ui.label(text='Available')
+            create_gui()
+        with ui.column().style('width: 300px; background-color: #f0f0f0; padding: 10px; margin-top: 100px'):
+            ui.label(text='Choose category')
+            checkbox = ui.checkbox('weCat3D')
+            checkbox = ui.checkbox('ShapeDrive G4')
+            checkbox = ui.checkbox('Illumination')
 
-            with ui.column().style('flex: 1; padding-left: 10px; height: 100%;'):
-                ui.label('Available Equipment').style('font-size: 18px; font-weight: bold;')
-                with ui.scroll_area().classes('w-32 h-32 border'):
-                    for i in range(15):
-                        ui.label(f'Available Item {i+1}')
 
 if __name__ in {'__main__', '__mp_main__'}:
     main()
