@@ -4,9 +4,9 @@ from typing import List, Optional
 import datetime
 
 # Equipment CRUD operations
-def create_equipment(db: Session, name: str, serialnum: str = None, etype: str = None) -> Equipment:
+def create_equipment(db: Session, name: str, serialnum: str = None, etype_id: int = None) -> Equipment:
     """Create new equipment"""
-    equipment = Equipment(name=name, serialnum=serialnum, etype=etype)
+    equipment = Equipment(name=name, serialnum=serialnum, etype_id=etype_id)
     db.add(equipment)
     db.commit()
     db.refresh(equipment)
@@ -21,13 +21,13 @@ def get_all_equipment(db: Session) -> List[Equipment]:
     return db.query(Equipment).all()
 
 def update_equipment(db: Session, equipment_id: int, name: str = None, 
-                    serialnum: str = None, etype: str = None) -> Optional[Equipment]:
+                    serialnum: str = None, etype_id: int = None) -> Optional[Equipment]:
     """Update equipment"""
     equipment = get_equipment(db, equipment_id)
     if equipment:
         if name: equipment.name = name
         if serialnum: equipment.serialnum = serialnum
-        if etype: equipment.etype = etype
+        if etype_id: equipment.etype_id = etype_id
         db.commit()
         db.refresh(equipment)
     return equipment
@@ -91,7 +91,7 @@ def create_department(db: Session, name: str) -> Department:
 
 def get_department(db: Session, department_id: int) -> Optional[Department]:
     """Get department by ID"""
-    return db.query(Department).filter(Department.id == department_id).first()
+    return db.query(Department).filter(Department.id_dep == department_id).first()
 
 def get_department_by_name(db: Session, name: str) -> Optional[Department]:
     """Get department by name"""
@@ -126,7 +126,7 @@ def create_user(db: Session, name: str, dep: str) -> User:
     if not department:
         raise ValueError(f"Department {dep} not found")
     
-    user = User(name=name, id_dep=department.id)
+    user = User(name=name, id_dep=department.id_dep)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -166,7 +166,11 @@ def delete_user(db: Session, user_id: int) -> bool:
 # Rental CRUD operations
 def create_rental(db: Session, user_id: int, equipment_id: int) -> Rental:
     """Create new rental"""
-    rental = Rental(user_id=user_id, equipment_id=equipment_id)
+    rental = Rental(
+        user_id=user_id, 
+        equipment_id=equipment_id,
+        rental_start=datetime.datetime.now()
+    )
     db.add(rental)
     db.commit()
     db.refresh(rental)

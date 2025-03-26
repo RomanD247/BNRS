@@ -69,7 +69,7 @@ def show_add_equipment_dialog():
             if not etype:
                 ui.notify(f'Equipment type {etype_name} not found!', type='error')
                 return
-            create_equipment(db, name=name, serialnum=serialnum, etype=etype)
+            create_equipment(db, name=name, serialnum=serialnum, etype_id=etype.id_et)
             ui.notify(f'Equipment {name} added successfully!')
             dialog.close()
         except Exception as e:
