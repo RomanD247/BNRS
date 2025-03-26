@@ -15,7 +15,8 @@ An application for managing equipment rentals in an internal warehouse. Users wi
 ## 3. Main Components
 
 ### 3.1 Database
-- **Equipment:** `id_us`, `name`, `artnum`, `etype`
+- **Equipment:** `id_us`, `name`, `serialnum`, `etype`
+- **Departments** `id_et`, `name`,
 - **Users:** `id_eq`, `name`, `dep`
 - **Rentals:** `id_re`, `equipment_id`, `user_id`, `rental_start`, `rental_end`
 

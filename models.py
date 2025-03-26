@@ -11,13 +11,22 @@ class Equipment(Base):
 
     id_eq = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
-    artnum = Column(String, default=False)
-    etype = Column(String, default=False)
+    serialnum = Column(String, default=False)
+    etype_id = Column(Integer, ForeignKey("etypes.id_et"))
+    etype = relationship("Etype", back_populates="equipments")
+
+class Etype(Base):
+    """Represents equipment type."""
+    __tablename__ = "etypes"
+
+    id_et = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    equipments = relationship("Equipment", back_populates="etype")
 
 class Department(Base):
     __tablename__ = "departments"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id_dep = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     users = relationship("User", back_populates="department")
 
@@ -27,7 +36,7 @@ class User(Base):
 
     id_us = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
-    id_dep = Column(Integer, ForeignKey("departments.id"))
+    id_dep = Column(Integer, ForeignKey("departments.id_dep"))
     department = relationship("Department", back_populates="users")
 
 class Rental(Base):

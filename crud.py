@@ -1,12 +1,12 @@
 from sqlalchemy.orm import Session
-from models import Equipment, User, Rental, Department
+from models import Equipment, User, Rental, Department, Etype
 from typing import List, Optional
 import datetime
 
 # Equipment CRUD operations
-def create_equipment(db: Session, name: str, artnum: str = None, etype: str = None) -> Equipment:
+def create_equipment(db: Session, name: str, serialnum: str = None, etype: str = None) -> Equipment:
     """Create new equipment"""
-    equipment = Equipment(name=name, artnum=artnum, etype=etype)
+    equipment = Equipment(name=name, serialnum=serialnum, etype=etype)
     db.add(equipment)
     db.commit()
     db.refresh(equipment)
@@ -21,12 +21,12 @@ def get_all_equipment(db: Session) -> List[Equipment]:
     return db.query(Equipment).all()
 
 def update_equipment(db: Session, equipment_id: int, name: str = None, 
-                    artnum: str = None, etype: str = None) -> Optional[Equipment]:
+                    serialnum: str = None, etype: str = None) -> Optional[Equipment]:
     """Update equipment"""
     equipment = get_equipment(db, equipment_id)
     if equipment:
         if name: equipment.name = name
-        if artnum: equipment.artnum = artnum
+        if serialnum: equipment.serialnum = serialnum
         if etype: equipment.etype = etype
         db.commit()
         db.refresh(equipment)
@@ -37,6 +37,45 @@ def delete_equipment(db: Session, equipment_id: int) -> bool:
     equipment = get_equipment(db, equipment_id)
     if equipment:
         db.delete(equipment)
+        db.commit()
+        return True
+    return False
+
+# Etype CRUD operations
+def create_etype(db: Session, name: str) -> Etype:
+    """Create new equipment type"""
+    etype = Etype(name=name)
+    db.add(etype)
+    db.commit()
+    db.refresh(etype)
+    return etype
+
+def get_etype(db: Session, etype_id: int) -> Optional[Etype]:
+    """Get equipment type by ID"""
+    return db.query(Etype).filter(Etype.id_et == etype_id).first()
+
+def get_etype_by_name(db: Session, name: str) -> Optional[Etype]:
+    """Get equipment type by name"""
+    return db.query(Etype).filter(Etype.name == name).first()
+
+def get_all_etypes(db: Session) -> List[Etype]:
+    """Get all equipment types"""
+    return db.query(Etype).all()
+
+def update_etype(db: Session, etype_id: int, name: str) -> Optional[Etype]:
+    """Update equipment type"""
+    etype = get_etype(db, etype_id)
+    if etype:
+        etype.name = name
+        db.commit()
+        db.refresh(etype)
+    return etype
+
+def delete_etype(db: Session, etype_id: int) -> bool:
+    """Delete equipment type"""
+    etype = get_etype(db, etype_id)
+    if etype:
+        db.delete(etype)
         db.commit()
         return True
     return False
@@ -161,3 +200,14 @@ def get_user_rentals(db: Session, user_id: int) -> List[Rental]:
 def get_equipment_renters(db: Session, equipment_id: int) -> List[User]:
     """Get all users who have rented specific equipment"""
     return db.query(User).join(Rental).filter(Rental.equipment_id == equipment_id).distinct().all()
+
+def get_available_equipment(db: Session) -> List[Equipment]:
+    """Get all available equipment (not currently rented)"""
+    # Get all equipment that either:
+    # 1. Has no rentals at all
+    # 2. Has only completed rentals (rental_end is not None)
+    return db.query(Equipment).filter(
+        ~Equipment.id_eq.in_(
+            db.query(Rental.equipment_id).filter(Rental.rental_end == None)
+        )
+    ).all()
