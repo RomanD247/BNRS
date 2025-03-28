@@ -8,114 +8,127 @@ from database import SessionLocal
 
 db = SessionLocal()
 
-def available_equipment_list():
-    def rent_equipment(equipment, equipment_list):
-        users = get_all_users(db)
-        selected_user = None
-        
-        def on_user_select(e):
-            nonlocal selected_user
-            selected_user = e.value[1]
-            
-        def on_confirm(equipment_to_rent):
-            if selected_user:
-                create_rental(db, selected_user, equipment_to_rent.id_eq)
-                ui.notify('Equipment rented successfully!')
-                dialog.close()
-                # Clear and update the equipment list
-                equipment_list.clear()
-                with equipment_list:
-                    with ui.column():
-                        for equipment in get_available_equipment(db):
-                            card = ui.card().style('width: 450px; cursor: pointer;')
-                            card.on('click', lambda _, equipment=equipment: rent_equipment(equipment, equipment_list))
-                            with card:
-                                ui.label(f"{equipment.name}")
-                                ui.label(f"Serial: {equipment.serialnum}")
-                                ui.label(f"Type: {equipment.etype.name}")
-            else:
-                ui.notify('Please select a user!', type='warning')
+# Create reactive state
+class State:
+    def __init__(self):
+        self.available_equipment = get_available_equipment(db)
+        self.rented_equipment = get_active_rentals(db)
+        self.selected_user = None
 
-        with ui.dialog().style('width: 700px') as dialog, ui.card():
-            ui.label(f"Name: {equipment.name}")
-            ui.label(f"Serial: {equipment.serialnum}")
+state = State()
+
+def create_equipment_card(equipment, is_rented=False):
+    """Create a card for equipment display"""
+    card = ui.card().style('width: 450px; cursor: pointer;')
+    
+    with card:
+        if is_rented:
+            # If it's a rental, use rental.equipment properties
+            ui.label(f"{equipment.equipment.name}")
+            ui.label(f"Serial111: {equipment.equipment.serialnum}")
+            ui.label(f"Type: {equipment.equipment.etype.name}")
+            ui.label(f"Rented by: {equipment.user.name} ({equipment.user.department.name})")
+            ui.label(f"Rented since: {equipment.rental_start.strftime('%Y-%m-%d %H:%M')}")
+        else:
+            # If it's equipment, use properties directly
+            ui.label(f"{equipment.name}")
+            ui.label(f"Serial222: {equipment.serialnum}")
             ui.label(f"Type: {equipment.etype.name}")
-            
-            ui.label('Select user:')
-            options = [(f"{user.name} ({user.department.name})", user.id_us) for user in sorted(users, key=lambda x: x.name)]
-            
-            ui.select(
-                options=options,
-                label='User',
-                with_input=True,
-                on_change=on_user_select
-            ).classes('w-full')
-            
-            ui.button("Confirm", on_click=lambda: on_confirm(equipment))
-            ui.button("Close", on_click=dialog.close)
-        dialog.open()
+    
+    return card
 
-    def create_equipment_list():
-        with ui.scroll_area().style('border: 2px solid black; padding: 10px; height: 800px; width: 500px') as scroll_area:
-            with ui.column():
-                for equipment in sorted(get_available_equipment(db), key=lambda x: x.name):
-                    card = ui.card().style('width: 450px; cursor: pointer;')
-                    card.on('click', lambda _, equipment=equipment: rent_equipment(equipment, scroll_area))
-                    with card:
-                        ui.label(f"{equipment.name}")
-                        ui.label(f"Serial: {equipment.serialnum}")
-                        ui.label(f"Type: {equipment.etype.name}")
-        return scroll_area
+def update_lists():
+    """Update both equipment lists"""
+    state.available_equipment = get_available_equipment(db)
+    state.rented_equipment = get_active_rentals(db)
+    
+    # Clear and update available equipment list
+    available_container.clear()
+    with available_container:
+        with ui.column():
+            for equipment in sorted(state.available_equipment, key=lambda x: x.name):
+                card = create_equipment_card(equipment)
+                card.on('click', lambda _, e=equipment: show_rent_dialog(e))
+    
+    # Clear and update rented equipment list
+    rented_container.clear()
+    with rented_container:
+        with ui.column():
+            for rental in sorted(state.rented_equipment, key=lambda x: x.equipment.name):
+                card = create_equipment_card(rental, is_rented=True)
+                card.on('click', lambda _, r=rental: show_return_dialog(r))
 
-    equipment_list = create_equipment_list()
-
-
-def rented_equipment_list():
-    def return_equipment(rental, equipment_list):
-        def on_confirm(rental_to_return):  # добавляем параметр
-            return_equipment(db, rental_to_return.id_re)
-            ui.notify('Equipment returned successfully!')
+def show_rent_dialog(equipment):
+    """Show dialog for renting equipment"""
+    def on_user_select(e):
+        state.selected_user = e.value[1]
+    
+    def on_confirm():
+        if state.selected_user:
+            create_rental(db, state.selected_user, equipment.id_eq)
+            ui.notify('Equipment rented successfully!')
             dialog.close()
-            # Clear and update the equipment list
-            equipment_list.clear()
-            with equipment_list:
-                with ui.column():
-                    for rental in sorted(get_active_rentals(db), key=lambda x: x.equipment.name):
-                        card = ui.card().style('width: 450px; cursor: pointer;')
-                        card.on('click', lambda _, r=rental: return_equipment(r, equipment_list))
-                        with card:
-                            ui.label(f"Equipment: {rental.equipment.name}")
-                            ui.label(f"Serial: {rental.equipment.serialnum}")
-                            ui.label(f"Type: {rental.equipment.etype.name}")
-                            ui.label(f"Rented by: {rental.user.name} ({rental.user.department.name})")
-                            ui.label(f"Rented since: {rental.rental_start.strftime('%Y-%m-%d %H:%M')}")
+            update_lists()
+        else:
+            ui.notify('Please select a user!', type='warning')
 
-        with ui.dialog().style('width: 700px') as dialog, ui.card():
-            ui.label(f"Return equipment: {rental.equipment.name}")
-            ui.label(f"Currently rented by: {rental.user.name}")
-            ui.label(f"Rented since: {rental.rental_start.strftime('%Y-%m-%d %H:%M')}")
-            
-            ui.button("Confirm Return", on_click=lambda: on_confirm(rental))  # передаем rental в функцию
-            ui.button("Close", on_click=dialog.close)
-        dialog.open()
+    with ui.dialog().style('width: 700px') as dialog, ui.card():
+        ui.label(f"Rent equipment: {equipment.name}")
+        ui.label(f"Serial: {equipment.serialnum}")
+        ui.label(f"Type: {equipment.etype.name}")
+        
+        ui.label('Select user:')
+        options = [(f"{user.name} ({user.department.name})", user.id_us) 
+                  for user in sorted(get_all_users(db), key=lambda x: x.name)]
+        
+        ui.select(
+            options=options,
+            label='User',
+            with_input=True,
+            on_change=on_user_select
+        ).classes('w-full')
+        
+        ui.button("Confirm", on_click=on_confirm)
+        ui.button("Close", on_click=dialog.close)
+    dialog.open()
 
-    def create_rented_list():
-        with ui.scroll_area().style('border: 2px solid black; padding: 10px; height: 800px; width: 500px') as scroll_area:
-            with ui.column():
-                for rental in sorted(get_active_rentals(db), key=lambda x: x.equipment.name):
-                    card = ui.card().style('width: 450px; cursor: pointer;')
-                    card.on('click', lambda _, r=rental: return_equipment(r, scroll_area))
-                    with card:
-                        ui.label(f"{rental.equipment.name}")
-                        ui.label(f"Serial: {rental.equipment.serialnum}")
-                        ui.label(f"Type: {rental.equipment.etype.name}")
-                        ui.label(f"Rented by: {rental.user.name} ({rental.user.department.name})")
-                        ui.label(f"Rented since: {rental.rental_start.strftime('%Y-%m-%d %H:%M')}")
-        return scroll_area
+def show_return_dialog(rental):
+    """Show dialog for returning equipment"""
+    def on_confirm():
+        return_equipment(db, rental.id_re)
+        ui.notify('Equipment returned successfully!')
+        dialog.close()
+        update_lists()
 
-    rented_list = create_rented_list()
+    with ui.dialog().style('width: 700px') as dialog, ui.card():
+        ui.label(f"Return equipment: {rental.equipment.name}")
+        ui.label(f"Currently rented by: {rental.user.name}")
+        ui.label(f"Rented since: {rental.rental_start.strftime('%Y-%m-%d %H:%M')}")
+        
+        ui.button("Confirm Return", on_click=on_confirm)
+        ui.button("Close", on_click=dialog.close)
+    dialog.open()
 
+# Create main layout
 with ui.row():
-    available_equipment_list()
-    rented_equipment_list()
+    # Available equipment list
+    with ui.column():
+        ui.label('Available Equipment').classes('text-h5')
+        available_container = ui.scroll_area().style('border: 2px solid black; padding: 10px; height: 800px; width: 500px')
+        with available_container:
+            with ui.column():
+                for equipment in sorted(state.available_equipment, key=lambda x: x.name):
+                    card = create_equipment_card(equipment)
+                    card.on('click', lambda _, e=equipment: show_rent_dialog(e))
+    
+    # Rented equipment list
+    with ui.column():
+        ui.label('Rented Equipment').classes('text-h5')
+        rented_container = ui.scroll_area().style('border: 2px solid black; padding: 10px; height: 800px; width: 500px')
+        with rented_container:
+            with ui.column():
+                for rental in sorted(state.rented_equipment, key=lambda x: x.equipment.name):
+                    card = create_equipment_card(rental, is_rented=True)
+                    card.on('click', lambda _, r=rental: show_return_dialog(r))
+
 ui.run()
