@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from models import Equipment, User, Rental, Department, Etype
 from typing import List, Optional
 import datetime
@@ -14,11 +14,11 @@ def create_equipment(db: Session, name: str, serialnum: str = None, etype_id: in
 
 def get_equipment(db: Session, equipment_id: int) -> Optional[Equipment]:
     """Get equipment by ID"""
-    return db.query(Equipment).filter(Equipment.id_eq == equipment_id).first()
+    return db.query(Equipment).options(joinedload(Equipment.etype)).filter(Equipment.id_eq == equipment_id).first()
 
 def get_all_equipment(db: Session) -> List[Equipment]:
     """Get all equipment"""
-    return db.query(Equipment).all()
+    return db.query(Equipment).options(joinedload(Equipment.etype)).all()
 
 def update_equipment(db: Session, equipment_id: int, name: str = None, 
                     serialnum: str = None, etype_id: int = None) -> Optional[Equipment]:
@@ -134,11 +134,11 @@ def create_user(db: Session, name: str, dep: str) -> User:
 
 def get_user(db: Session, user_id: int) -> Optional[User]:
     """Get user by ID"""
-    return db.query(User).filter(User.id_us == user_id).first()
+    return db.query(User).options(joinedload(User.department)).filter(User.id_us == user_id).first()
 
 def get_all_users(db: Session) -> List[User]:
     """Get all users"""
-    return db.query(User).all()
+    return db.query(User).options(joinedload(User.department)).all()
 
 def update_user(db: Session, user_id: int, name: str = None, dep: str = None) -> Optional[User]:
     """Update user"""
@@ -149,7 +149,7 @@ def update_user(db: Session, user_id: int, name: str = None, dep: str = None) ->
             department = get_department_by_name(db, dep)
             if not department:
                 raise ValueError(f"Department {dep} not found")
-            user.id_dep = department.id
+            user.id_dep = department.id_dep
         db.commit()
         db.refresh(user)
     return user
@@ -178,11 +178,17 @@ def create_rental(db: Session, user_id: int, equipment_id: int) -> Rental:
 
 def get_rental(db: Session, rental_id: int) -> Optional[Rental]:
     """Get rental by ID"""
-    return db.query(Rental).filter(Rental.id_re == rental_id).first()
+    return db.query(Rental)\
+        .options(joinedload(Rental.equipment).joinedload(Equipment.etype))\
+        .options(joinedload(Rental.user).joinedload(User.department))\
+        .filter(Rental.id_re == rental_id).first()
 
 def get_all_rentals(db: Session) -> List[Rental]:
     """Get all rentals"""
-    return db.query(Rental).all()
+    return db.query(Rental)\
+        .options(joinedload(Rental.equipment).joinedload(Equipment.etype))\
+        .options(joinedload(Rental.user).joinedload(User.department))\
+        .all()
 
 def return_equipment(db: Session, rental_id: int) -> Optional[Rental]:
     """Return equipment (end rental)"""
@@ -195,23 +201,56 @@ def return_equipment(db: Session, rental_id: int) -> Optional[Rental]:
 
 def get_active_rentals(db: Session) -> List[Rental]:
     """Get all active rentals (not returned)"""
-    return db.query(Rental).filter(Rental.rental_end == None).all()
+    return db.query(Rental)\
+        .options(joinedload(Rental.equipment).joinedload(Equipment.etype))\
+        .options(joinedload(Rental.user).joinedload(User.department))\
+        .filter(Rental.rental_end == None).all()
 
 def get_user_rentals(db: Session, user_id: int) -> List[Rental]:
     """Get all rentals for a specific user"""
-    return db.query(Rental).filter(Rental.user_id == user_id).all()
+    return db.query(Rental)\
+        .options(joinedload(Rental.equipment).joinedload(Equipment.etype))\
+        .filter(Rental.user_id == user_id).all()
 
 def get_equipment_renters(db: Session, equipment_id: int) -> List[User]:
     """Get all users who have rented specific equipment"""
-    return db.query(User).join(Rental).filter(Rental.equipment_id == equipment_id).distinct().all()
+    return db.query(User)\
+        .options(joinedload(User.department))\
+        .join(Rental)\
+        .filter(Rental.equipment_id == equipment_id).distinct().all()
 
 def get_available_equipment(db: Session) -> List[Equipment]:
     """Get all available equipment (not currently rented)"""
     # Get all equipment that either:
     # 1. Has no rentals at all
     # 2. Has only completed rentals (rental_end is not None)
-    return db.query(Equipment).filter(
-        ~Equipment.id_eq.in_(
-            db.query(Rental.equipment_id).filter(Rental.rental_end == None)
-        )
-    ).all()
+    return db.query(Equipment)\
+        .options(joinedload(Equipment.etype))\
+        .filter(
+            ~Equipment.id_eq.in_(
+                db.query(Rental.equipment_id).filter(Rental.rental_end == None)
+            )
+        ).all()
+
+# New function to get equipment filtered by type
+def get_available_equipment_by_type(db: Session, etype_id: int) -> List[Equipment]:
+    """Get all available equipment of a specific type"""
+    return db.query(Equipment)\
+        .options(joinedload(Equipment.etype))\
+        .filter(Equipment.etype_id == etype_id)\
+        .filter(
+            ~Equipment.id_eq.in_(
+                db.query(Rental.equipment_id).filter(Rental.rental_end == None)
+            )
+        ).all()
+
+# New function to get active rentals filtered by equipment type
+def get_active_rentals_by_equipment_type(db: Session, etype_id: int) -> List[Rental]:
+    """Get all active rentals for equipment of a specific type"""
+    return db.query(Rental)\
+        .options(joinedload(Rental.equipment).joinedload(Equipment.etype))\
+        .options(joinedload(Rental.user).joinedload(User.department))\
+        .join(Equipment)\
+        .filter(Equipment.etype_id == etype_id)\
+        .filter(Rental.rental_end == None)\
+        .all()
