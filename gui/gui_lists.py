@@ -97,14 +97,27 @@ def show_rent_dialog(equipment):
         ui.label(f"Type: {equipment.etype.name if equipment.etype else 'Unknown'}")
         
         ui.label('Select user:')
-        options = [(f"{user.name} ({user.department.name})", user.id_us) 
-                  for user in sorted(get_all_users(db), key=lambda x: x.name)]
+        
+        # Создаем словарь для отображения и хранения ID
+        users_dict = {}
+        options = []
+        
+        for user in sorted(get_all_users(db), key=lambda x: x.name):
+            display_text = f"{user.name} ({user.department.name})"
+            users_dict[display_text] = user.id_us
+            options.append(display_text)
+        
+        def on_user_select_modified(e):
+            if e.value in users_dict:
+                state.selected_user = users_dict[e.value]
+            else:
+                state.selected_user = None
         
         ui.select(
             options=options,
             label='User',
             with_input=True,
-            on_change=on_user_select
+            on_change=on_user_select_modified
         ).classes('w-full')
         
         ui.button("Confirm", on_click=on_confirm)
@@ -158,15 +171,15 @@ with ui.row():
             # Create options as simple strings (names only)
             etype_options = [etype.name for etype in etypes]
             
-            # Выпадающий список типов оборудования
+            # Equipment Type Dropdown List
             filter_select = ui.select(
                 options=etype_options,
                 label='Equipment Type',
                 on_change=filter_by_etype
-            ).style('width: 200px; margin-right: 10px;')
+            ).style('width: 200px; margin-right: 10px;').props('use-chips')
             
-            # Кнопка сброса фильтра
-            ui.button('Show All', on_click=reset_filter).style('margin-top: 20px;')
+            # Filter reset button
+            #ui.button('Show All', on_click=reset_filter).style('margin-top: 20px;')
 
 # Create lists layout
 with ui.row():
