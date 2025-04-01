@@ -2,6 +2,8 @@ from nicegui import ui
 from t_guidial import create_gui
 from gui_adduser import show_add_user_dialog
 from gui_addequip import show_add_equipment_dialog
+
+import asyncio
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -29,6 +31,15 @@ class State:
         self.etype_map = {}
 
 state = State()
+
+# Dark Mode
+dark_mode = ui.dark_mode()
+def toggle_dark_mode(button):
+    dark_mode.value = not dark_mode.value
+    if dark_mode.value:
+        button.props('icon=light_mode')
+    else:
+        button.props('icon=dark_mode')
 
 def create_equipment_card(equipment, is_rented=False):
     """Create a card for equipment display"""
@@ -106,12 +117,14 @@ def show_rent_dialog(equipment):
             users_dict[display_text] = user.id_us
             options.append(display_text)
         
-        ui.select(
-            options=options,
-            label='User',
-            with_input=True,
-            on_change=on_user_select_modified
-        ).classes('w-full')
+        with ui.row():
+            ui.select(
+                options=options,
+                label='User',
+                with_input=True,
+                on_change=on_user_select_modified
+            )#.classes('w-full')
+            ui.button('+', on_click=show_add_user_dialog)
         
         ui.button("Confirm", on_click=on_confirm)
     dialog.open()
@@ -146,6 +159,58 @@ def reset_filter():
     state.selected_etype_id = None
     update_lists()
 
+#Fuctions for password for Admin mode
+def create_password_dialog():
+    """Создает диалоги для ввода пароля и успешного входа."""
+    password_dialog = ui.dialog()
+    success_dialog = ui.dialog()
+
+    with success_dialog:
+        with ui.card():
+            ui.label('CHANGE TO OTHER FUNCTION!')
+            ui.button('OK', on_click=success_dialog.close)
+
+    with password_dialog:
+        with ui.card():
+            with ui.row().classes('w-full justify-between items-center'):
+                ui.label('Enter password:')
+                ui.button(icon='close', on_click=password_dialog.close).props('flat round')
+            password_input = ui.input(password=True)
+            ui.button('Enter', on_click=lambda: check_password(password_input))
+    
+    def check_password(input_field):
+        if input_field.value == "1234":  #Change password
+            password_dialog.close()
+            success_dialog.open()
+        else:
+            ui.notify('Wrong password', color='negative')
+        input_field.set_value('')
+    
+    return password_dialog
+
+def get_long_hold_callbacks():
+    """
+    Returns two colbacks to handle a long press:
+      - on_mouse_down: starts a timer for 3 seconds to open the dialogue.
+      - on_mouse_up: deactivates the timer if the button is released early.
+    """
+    password_dialog = create_password_dialog()
+    hold_timer = None
+
+    def start_hold(event):
+        nonlocal hold_timer
+        # Start the timer: if the button is held down for 2 seconds, a dialogue box will open.
+        hold_timer = ui.timer(2, lambda: password_dialog.open(), once=True)
+
+    def stop_hold(event):
+        nonlocal hold_timer
+        if hold_timer:
+            hold_timer.deactivate()
+            hold_timer = None
+
+    return start_hold, stop_hold
+    
+    
 def main():
     global available_container, rented_container
     
@@ -156,8 +221,8 @@ def main():
     for etype in etypes:
         state.etype_map[etype.name] = etype.id_et
 
-    with ui.row().style('height: 100vh;'):
-        with ui.column().style('width: 300px; background-color: #f0f0f0; padding: 10px; align-items: center;'):
+    with ui.row().style('height: 80vh;'):
+        with ui.column().style('width: 300px; padding: 10px; align-items: center; margin-top: 200px'):
             ui.button('Rent', on_click=lambda: ui.notify('Rent clicked')).style('width: 100px; height: 100px;')
             ui.button('Return', on_click=lambda: ui.notify('Return clicked')).style('width: 100px; height: 100px;')
             ui.button('Edit database', on_click=lambda: ui.notify('Edit database clicked')).style('width: 100px; height: 100px;')
@@ -172,14 +237,14 @@ def main():
                 filter_select = ui.select(
                     options=etype_options,
                     label='Equipment Type',
-                    on_change=filter_by_etype
+                    on_change=filter_by_etype#,                    with_input=True
                 ).style('width: 200px; margin-right: 10px;').props('use-chips')
             
             with ui.row():
                 #Available list
                 with ui.column():
                     ui.label('Available Equipment').classes('text-h5')
-                    available_container = ui.scroll_area().style('border: 2px solid black; padding: 10px; height: 800px; width: 500px')
+                    available_container = ui.scroll_area().style('border: 2px solid black; padding: 10px; height: 600px; width: 500px')
                     with available_container:
                         with ui.column():
                             for equipment in sorted(state.available_equipment, key=lambda x: x.name):
@@ -188,12 +253,25 @@ def main():
                 #Rented list
                 with ui.column():
                     ui.label('Rented Equipment').classes('text-h5')
-                    rented_container = ui.scroll_area().style('border: 2px solid black; padding: 10px; height: 800px; width: 500px')
+                    rented_container = ui.scroll_area().style('border: 2px solid black; padding: 10px; height: 600px; width: 500px')
                     with rented_container:
                         with ui.column():
                             for rental in sorted(state.rented_equipment, key=lambda x: x.equipment.name):
                                 card = create_equipment_card(rental, is_rented=True)
                                 card.on('click', lambda _, r=rental: show_return_dialog(r))
+    with ui.row().style('position: fixed; right: 25px; top: 25px;'):
+        admin_button = ui.button().props('icon=admin_panel_settings').style('width: 150px; height: 150px; opacity: 100;')
+        on_md, on_mu = get_long_hold_callbacks()
+        admin_button.on('mousedown', on_md)
+        admin_button.on('mouseup', on_mu)
+    with ui.row().style('position: fixed; right: 30px; bottom: 30px'):
+        button = ui.button(on_click=lambda: toggle_dark_mode(button))
+        # Set the initial icon
+        if dark_mode.value:
+            button.props('icon=light_mode')
+        else:
+            button.props('icon=dark_mode')
+
 
 if __name__ in {'__main__', '__mp_main__'}:
     main()

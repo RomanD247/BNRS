@@ -11,7 +11,7 @@ from models import Department
 
 db = SessionLocal()
 
-# Загружаем отделы из базы данных
+# Loading departments from the database
 def load_departments():
     departments = get_all_departments(db)
     return [dep.name for dep in departments]

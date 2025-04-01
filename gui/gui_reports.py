@@ -13,8 +13,9 @@ db = SessionLocal()
 def show_rental_statistics():
     with ui.dialog() as dialog:
         with ui.card().style('width: 1500px !important'):
-            ui.label('User Rental Statistics')
-            
+            with ui.row().classes('w-full justify-between items-center'):
+                ui.label('User Rental Statistics')
+                ui.button(icon='close', on_click=dialog.close).props('flat round')
             # Get data from database
             user_stats = get_user_rental_statistics(db)
             
@@ -34,8 +35,6 @@ def show_rental_statistics():
                 'paginationPageSize': 10,
                 'domLayout': 'autoHeight'
             })
-            
-            ui.button('Close', on_click=dialog.close).props('flat color=primary')
     dialog.open()
 
 # Create button to show the report
