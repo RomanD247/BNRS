@@ -343,13 +343,21 @@ def main():
         state.etype_map[etype.name] = etype.id_et
 
     with ui.row().style('height: 80vh;'):
-        with ui.column().style('width: 300px; padding: 10px; align-items: center; margin-top: 200px'):
-            ui.button('Rent', on_click=lambda: ui.notify('Rent clicked')).style('width: 100px; height: 100px;')
-            ui.button('Return', on_click=lambda: ui.notify('Return clicked')).style('width: 100px; height: 100px;')
-            ui.button('Edit database', on_click=lambda: ui.notify('Edit database clicked')).style('width: 100px; height: 100px;')
-            
-            # Добавляем отдельные кнопки для отчетов
+        with ui.column().style('width: 300px; padding: 10px; align-items: center; margin-top: 25px'):
+            ui.image('assets/logo.png').style('width: 50%; height: auto;')
+            with ui.card():
+                ui.label('Instructions').style('font-size: 150%; font-weight: bold')
+                ui.label('- Click on the equipment card in the available list to rent it.')
+                ui.label('- To create a new user press the "+" button in the user selection field.')
+                ui.label('- Click on the equipment card in the rented list to return it.')
+                ui.label('- Click on the filter button to filter the data by equipment type.')
 
+
+            # ui.button('Rent', on_click=lambda: ui.notify('Rent clicked')).style('width: 100px; height: 100px;')
+            # ui.button('Return', on_click=lambda: ui.notify('Return clicked')).style('width: 100px; height: 100px;')
+            # ui.button('Edit database', on_click=lambda: ui.notify('Edit database clicked')).style('width: 100px; height: 100px;')
+            
+            
 
         with ui.column():
             # Equipment type filter

@@ -62,6 +62,9 @@ def show_user_rental_statistics():
             # Получаем данные из базы данных
             user_stats = get_user_rental_statistics(db)
             
+            # Фильтруем записи с нулевым временем аренды
+            user_stats = [stat for stat in user_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
+            
             # Создаем таблицу (ui.table)
             columns = [
                 {'name': 'name', 'label': 'User Name', 'field': 'name', 'sortable': True, 'align': 'left'},
@@ -116,6 +119,9 @@ def show_equipment_type_statistics():
             
             # Получаем данные из базы данных
             type_stats = get_equipment_type_statistics(db)
+            
+            # Фильтруем записи с нулевым временем аренды
+            type_stats = [stat for stat in type_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
             
             # Создаем таблицу
             columns = [

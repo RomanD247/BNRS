@@ -404,49 +404,37 @@ def get_user_rental_statistics(db: Session) -> List[Dict]:
     .join(Department, User.id_dep == Department.id_dep)\
     .filter(User.status == True)\
     .outerjoin(subquery, User.id_us == subquery.c.user_id)\
+    .filter(subquery.c.total_seconds > 0)\
     .order_by(User.name)\
     .all()
 
     # Format results
     statistics = []
-    for name, department_name, total_seconds_float in results:
-        # Default text if no completed rentals were found for this user
-        duration_str = "Never Rented / Only Active"
-        if total_seconds_float is not None:
-            total_seconds = int(total_seconds_float)
-            if total_seconds > 0:
-                # Convert seconds to a human-readable format (d h m s)
-                days, remainder = divmod(total_seconds, 86400)
-                hours, remainder = divmod(remainder, 3600)
-                minutes, seconds = divmod(remainder, 60)
-                duration_parts = []
-                if days > 0: duration_parts.append(f"{days}d")
-                if hours > 0: duration_parts.append(f"{hours}h")
-                if minutes > 0: duration_parts.append(f"{minutes}m")
-                if seconds > 0 or not duration_parts: duration_parts.append(f"{seconds}s")
-                duration_str = " ".join(duration_parts)
-            else:
-                duration_str = "0s"
-
+    
+    for user_name, department_name, total_seconds in results:
+        # Преобразуем секунды в удобочитаемый формат
+        if total_seconds:  # Проверяем, что total_seconds не None
+            days, remainder = divmod(total_seconds, 86400)
+            hours, remainder = divmod(remainder, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            
+            duration_parts = []
+            if days > 0: duration_parts.append(f"{int(days)}d")
+            if hours > 0: duration_parts.append(f"{int(hours)}h")
+            if minutes > 0: duration_parts.append(f"{int(minutes)}m")
+            if seconds > 0 or not duration_parts: duration_parts.append(f"{int(seconds)}s")
+            
+            duration_str = " ".join(duration_parts)
+        else:
+            duration_str = "never rented"
+        
         statistics.append({
-            "name": name,
+            "name": user_name,
             "department": department_name,
             "total_rental_time": duration_str
         })
-
+    
     return statistics
-
-def get_all_departments_including_inactive(db: Session) -> List[Department]:
-    """Get all departments including inactive ones"""
-    return db.query(Department).all()
-
-def get_all_equipment_including_inactive(db: Session) -> List[Equipment]:
-    """Get all equipment including inactive ones"""
-    return db.query(Equipment).options(joinedload(Equipment.etype)).all()
-
-def get_all_etypes_including_inactive(db: Session) -> List[Etype]:
-    """Get all equipment types including inactive ones"""
-    return db.query(Etype).all()
 
 def get_equipment_type_statistics(db: Session) -> List[Dict]:
     """
@@ -506,6 +494,11 @@ def get_equipment_type_statistics(db: Session) -> List[Dict]:
     for etype_id, stats in stats_by_type.items():
         # Convert seconds to human-readable format
         total_seconds = stats["total_rental_seconds"]
+        
+        # Skip types with zero rental time
+        if total_seconds == 0:
+            continue
+            
         days, remainder = divmod(total_seconds, 86400)
         hours, remainder = divmod(remainder, 3600)
         minutes, seconds = divmod(remainder, 60)
@@ -536,3 +529,15 @@ def get_equipment_type_statistics(db: Session) -> List[Dict]:
     result.sort(key=lambda x: x["type_name"])
     
     return result
+
+def get_all_departments_including_inactive(db: Session) -> List[Department]:
+    """Get all departments including inactive ones"""
+    return db.query(Department).all()
+
+def get_all_equipment_including_inactive(db: Session) -> List[Equipment]:
+    """Get all equipment including inactive ones"""
+    return db.query(Equipment).options(joinedload(Equipment.etype)).all()
+
+def get_all_etypes_including_inactive(db: Session) -> List[Etype]:
+    """Get all equipment types including inactive ones"""
+    return db.query(Etype).all()
