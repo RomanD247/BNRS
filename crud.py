@@ -209,6 +209,8 @@ def get_active_rentals(db: Session) -> List[Rental]:
     return db.query(Rental)\
         .options(joinedload(Rental.equipment).joinedload(Equipment.etype))\
         .options(joinedload(Rental.user).joinedload(User.department))\
+        .join(Equipment)\
+        .filter(Equipment.status == True)\
         .filter(Rental.rental_end == None).all()
 
 def get_user_rentals(db: Session, user_id: int) -> List[Rental]:
@@ -231,6 +233,7 @@ def get_available_equipment(db: Session) -> List[Equipment]:
     # 2. Has only completed rentals (rental_end is not None)
     return db.query(Equipment)\
         .options(joinedload(Equipment.etype))\
+        .filter(Equipment.status == True)\
         .filter(
             ~Equipment.id_eq.in_(
                 db.query(Rental.equipment_id).filter(Rental.rental_end == None)
@@ -243,6 +246,7 @@ def get_available_equipment_by_type(db: Session, etype_id: int) -> List[Equipmen
     return db.query(Equipment)\
         .options(joinedload(Equipment.etype))\
         .filter(Equipment.etype_id == etype_id)\
+        .filter(Equipment.status == True)\
         .filter(
             ~Equipment.id_eq.in_(
                 db.query(Rental.equipment_id).filter(Rental.rental_end == None)
@@ -257,6 +261,7 @@ def get_active_rentals_by_equipment_type(db: Session, etype_id: int) -> List[Ren
         .options(joinedload(Rental.user).joinedload(User.department))\
         .join(Equipment)\
         .filter(Equipment.etype_id == etype_id)\
+        .filter(Equipment.status == True)\
         .filter(Rental.rental_end == None)\
         .all()
 
@@ -284,6 +289,7 @@ def get_equipment_rental_summary(db: Session) -> List[Dict]:
         subquery.c.total_seconds
     ).select_from(Equipment)\
     .join(Etype, Equipment.etype_id == Etype.id_et)\
+    .filter(Equipment.status == True)\
     .outerjoin(subquery, Equipment.id_eq == subquery.c.equipment_id)\
     .order_by(Equipment.name)\
     .all()
@@ -326,7 +332,13 @@ def get_active_rentals_summary(db: Session) -> List[Dict]:
     Get a summary of all active rentals with user and equipment details.
     Returns data in format suitable for GUI table.
     """
-    active_rentals = get_active_rentals(db)
+    active_rentals = db.query(Rental)\
+        .options(joinedload(Rental.equipment).joinedload(Equipment.etype))\
+        .options(joinedload(Rental.user).joinedload(User.department))\
+        .join(Equipment)\
+        .filter(Equipment.status == True)\
+        .filter(Rental.rental_end == None).all()
+        
     summary = []
     
     for rental in active_rentals:
@@ -378,6 +390,7 @@ def get_user_rental_statistics(db: Session) -> List[Dict]:
         subquery.c.total_seconds
     ).select_from(User)\
     .join(Department, User.id_dep == Department.id_dep)\
+    .filter(User.status == True)\
     .outerjoin(subquery, User.id_us == subquery.c.user_id)\
     .order_by(User.name)\
     .all()

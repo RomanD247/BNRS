@@ -277,7 +277,6 @@ def main():
             ui.button('Rent', on_click=lambda: ui.notify('Rent clicked')).style('width: 100px; height: 100px;')
             ui.button('Return', on_click=lambda: ui.notify('Return clicked')).style('width: 100px; height: 100px;')
             ui.button('Edit database', on_click=lambda: ui.notify('Edit database clicked')).style('width: 100px; height: 100px;')
-            ui.button('Add Employee', on_click=show_add_user_dialog).style('width: 100px; height: 100px;')
             ui.button('Add Equipment', on_click=lambda: show_add_equipment_dialog(filter_callback=state.update_filter_select, lists_update_callback=update_lists)).style('width: 100px; height: 100px;')
 
         with ui.column():
