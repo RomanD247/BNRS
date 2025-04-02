@@ -12,7 +12,7 @@ db = SessionLocal()
 
 def show_rental_statistics():
     with ui.dialog() as dialog:
-        with ui.card().style('width: 1500px !important'):
+        with ui.card().style:
             with ui.row().classes('w-full justify-between items-center'):
                 ui.label('User Rental Statistics')
                 ui.button(icon='close', on_click=dialog.close).props('flat round')
@@ -27,14 +27,19 @@ def show_rental_statistics():
             ]
             
             # Create the table
-            ui.aggrid({
-                'columnDefs': columns,
-                'rowData': user_stats,
-                'rowSelection': 'single',
-                'pagination': True,
-                'paginationPageSize': 10,
-                'domLayout': 'autoHeight'
-            })
+            with ui.column():
+                with ui.dropdown_button():
+                    ui.item('Item 1')
+                    ui.item('Item 2')
+                                    
+                ui.aggrid({
+                    'columnDefs': columns,
+                    'rowData': user_stats,
+                    'rowSelection': 'single',
+                    'pagination': True,
+                    'paginationPageSize': 10,
+                    'domLayout': 'autoHeight'
+                })
     dialog.open()
 
 # Create button to show the report

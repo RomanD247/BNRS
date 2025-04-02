@@ -1,6 +1,6 @@
-from gui_adduser import show_add_user_dialog
+from gui_change import edit_users_dialog
 from nicegui import ui
 
-ui.button('Add Employee', on_click=show_add_user_dialog)
-
+# А затем привяжите к кнопке:
+ui.button('Редактировать пользователей', on_click=edit_users_dialog)
 ui.run()

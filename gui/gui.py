@@ -1,5 +1,4 @@
 from nicegui import ui
-from t_guidial import create_gui
 from gui_adduser import show_add_user_dialog
 from gui_addequip import show_add_equipment_dialog
 

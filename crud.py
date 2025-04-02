@@ -140,13 +140,17 @@ def get_user(db: Session, user_id: int) -> Optional[User]:
     """Get user by ID"""
     return db.query(User).options(joinedload(User.department)).filter(User.id_us == user_id, User.status == True).first()
 
+def get_user_including_inactive(db: Session, user_id: int) -> Optional[User]:
+    """Get user by ID including inactive ones"""
+    return db.query(User).options(joinedload(User.department)).filter(User.id_us == user_id).first()
+
 def get_all_users(db: Session) -> List[User]:
     """Get all users"""
     return db.query(User).options(joinedload(User.department)).filter(User.status == True).all()
 
-def update_user(db: Session, user_id: int, name: str = None, dep: str = None, status: bool = None) -> Optional[User]:
+def update_user(db: Session, user_id: int, name: str = None, dep: str = None, status: bool = None, get_user_func=get_user) -> Optional[User]:
     """Update user"""
-    user = get_user(db, user_id)
+    user = get_user_func(db, user_id)
     if user:
         if name: user.name = name
         if dep:
@@ -167,6 +171,10 @@ def delete_user(db: Session, user_id: int) -> bool:
         db.commit()
         return True
     return False
+
+def get_all_users_including_inactive(db: Session) -> List[User]:
+    """Get all users including inactive ones"""
+    return db.query(User).options(joinedload(User.department)).all()
 
 # Rental CRUD operations
 def create_rental(db: Session, user_id: int, equipment_id: int) -> Rental:
@@ -423,3 +431,15 @@ def get_user_rental_statistics(db: Session) -> List[Dict]:
         })
 
     return statistics
+
+def get_all_departments_including_inactive(db: Session) -> List[Department]:
+    """Get all departments including inactive ones"""
+    return db.query(Department).all()
+
+def get_all_equipment_including_inactive(db: Session) -> List[Equipment]:
+    """Get all equipment including inactive ones"""
+    return db.query(Equipment).options(joinedload(Equipment.etype)).all()
+
+def get_all_etypes_including_inactive(db: Session) -> List[Etype]:
+    """Get all equipment types including inactive ones"""
+    return db.query(Etype).all()
