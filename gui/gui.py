@@ -26,9 +26,39 @@ class State:
     def __init__(self):
         self.available_equipment = get_available_equipment(db)
         self.rented_equipment = get_active_rentals(db)
+        self.users = get_all_users(db)
         self.selected_user = None
         self.selected_etype_id = None
         self.etype_map = {}
+        self.etypes = get_all_etypes(db)
+        self.filter_select = None
+    
+    def refresh_users(self):
+        """Updates the list of users from the database"""
+        self.users = get_all_users(db)
+        return self.users
+    
+    def refresh_etypes(self):
+        """Updates the list of equipment types from the database"""
+        self.etypes = get_all_etypes(db)
+        
+        # Rebuild etype_map
+        self.etype_map = {}
+        for etype in self.etypes:
+            self.etype_map[etype.name] = etype.id_et
+            
+        return self.etypes
+    
+    def update_filter_select(self):
+        """Updates the equipment type filter dropdown"""
+        # Сначала обновляем список типов из базы данных
+        self.refresh_etypes()
+        
+        if self.filter_select:
+            etype_options = [etype.name for etype in self.etypes]
+            self.filter_select.options = etype_options
+            self.filter_select.update()
+            ui.notify('Equipment type filter updated.')
 
 state = State()
 
@@ -98,6 +128,26 @@ def show_rent_dialog(equipment):
             reset_filter()
         else:
             ui.notify('Please select a user!', type='warning')
+    
+    def refresh_users_ui():
+        """Updates the user interface after updating the user list"""
+        # Updating the user list
+        users = state.refresh_users()
+        
+        # Clearing and updating the user selection field
+        nonlocal users_dict, options, user_select
+        users_dict = {}
+        options = []
+        
+        for user in sorted(users, key=lambda x: x.name):
+            display_text = f"{user.name} ({user.department.name})"
+            users_dict[display_text] = user.id_us
+            options.append(display_text)
+        
+        # Update the contents of the drop-down list
+        user_select.options = options
+        user_select.update()
+        ui.notify('The list of users has been updated.')
 
     with ui.dialog().style('width: 700px') as dialog, ui.card():
         with ui.row().classes('w-full justify-between items-center'):
@@ -112,19 +162,20 @@ def show_rent_dialog(equipment):
         users_dict = {}
         options = []
         
-        for user in sorted(get_all_users(db), key=lambda x: x.name):
+        # Use users from the state instead of directly querying the database
+        for user in sorted(state.users, key=lambda x: x.name):
             display_text = f"{user.name} ({user.department.name})"
             users_dict[display_text] = user.id_us
             options.append(display_text)
         
         with ui.row():
-            ui.select(
+            user_select = ui.select(
                 options=options,
                 label='User',
                 with_input=True,
                 on_change=on_user_select_modified
             )#.classes('w-full')
-            ui.button('+', on_click=show_add_user_dialog)
+            ui.button('+', on_click=lambda: show_add_user_dialog(refresh_users_ui))
         
         ui.button("Confirm", on_click=on_confirm)
     dialog.open()
@@ -161,7 +212,7 @@ def reset_filter():
 
 #Fuctions for password for Admin mode
 def create_password_dialog():
-    """Создает диалоги для ввода пароля и успешного входа."""
+    """Creates dialogs for entering a password and successful entry."""
     password_dialog = ui.dialog()
     success_dialog = ui.dialog()
 
@@ -215,10 +266,10 @@ def main():
     global available_container, rented_container
     
     # Get the list of equipment types once at startup
-    etypes = get_all_etypes(db)
+    state.etypes = get_all_etypes(db)
     
     # Build a mapping of etype names to their IDs
-    for etype in etypes:
+    for etype in state.etypes:
         state.etype_map[etype.name] = etype.id_et
 
     with ui.row().style('height: 80vh;'):
@@ -227,14 +278,14 @@ def main():
             ui.button('Return', on_click=lambda: ui.notify('Return clicked')).style('width: 100px; height: 100px;')
             ui.button('Edit database', on_click=lambda: ui.notify('Edit database clicked')).style('width: 100px; height: 100px;')
             ui.button('Add Employee', on_click=show_add_user_dialog).style('width: 100px; height: 100px;')
-            ui.button('Add Equipment', on_click=show_add_equipment_dialog).style('width: 100px; height: 100px;')
+            ui.button('Add Equipment', on_click=lambda: show_add_equipment_dialog(state.update_filter_select)).style('width: 100px; height: 100px;')
 
         with ui.column():
             # Equipment type filter
             with ui.column():
                 ui.label('Filter by Equipment Type:').classes('text-h6')
-                etype_options = [etype.name for etype in etypes]
-                filter_select = ui.select(
+                etype_options = [etype.name for etype in state.etypes]
+                state.filter_select = ui.select(
                     options=etype_options,
                     label='Equipment Type',
                     on_change=filter_by_etype#,                    with_input=True

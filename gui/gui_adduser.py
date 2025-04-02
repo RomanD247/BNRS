@@ -55,7 +55,7 @@ def show_add_department_dialog(main_dropdown, main_data, main_selected_label):
 
     dialog.open()
 
-def show_add_user_dialog():
+def show_add_user_dialog(callback=None):
     def add_user():
         name = name_input.value.strip()
         dep = selected_label.text.replace('Selected: ', '').strip()
@@ -67,6 +67,11 @@ def show_add_user_dialog():
         try:
             create_user(db, name=name, dep=dep)
             ui.notify(f'User {name} added to {dep}')
+            
+            # Вызываем callback функцию, если она передана
+            if callback:
+                callback()
+                
             dialog.close()
         except Exception as e:
             ui.notify(f'Error: {e}', type='error')
