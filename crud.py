@@ -96,6 +96,10 @@ def get_department(db: Session, department_id: int) -> Optional[Department]:
     """Get department by ID"""
     return db.query(Department).filter(Department.id_dep == department_id, Department.status == True).first()
 
+def get_department_including_inactive(db: Session, department_id: int) -> Optional[Department]:
+    """Get department by ID including inactive ones"""
+    return db.query(Department).filter(Department.id_dep == department_id).first()
+
 def get_department_by_name(db: Session, name: str) -> Optional[Department]:
     """Get department by name"""
     return db.query(Department).filter(Department.name == name, Department.status == True).first()
@@ -443,3 +447,92 @@ def get_all_equipment_including_inactive(db: Session) -> List[Equipment]:
 def get_all_etypes_including_inactive(db: Session) -> List[Etype]:
     """Get all equipment types including inactive ones"""
     return db.query(Etype).all()
+
+def get_equipment_type_statistics(db: Session) -> List[Dict]:
+    """
+    Get statistics for each equipment type including:
+    - Total number of equipment of this type
+    - Number of currently rented equipment
+    - Total rental time across all equipment of this type
+    Returns data in format suitable for GUI table.
+    """
+    # Get all equipment types
+    etypes = get_all_etypes(db)
+    
+    # Get all equipment
+    all_equipment = get_all_equipment(db)
+    
+    # Get active rentals
+    active_rentals = get_active_rentals(db)
+    
+    # Dictionary to store statistics by equipment type ID
+    stats_by_type = {}
+    
+    # Initialize stats for each type
+    for etype in etypes:
+        stats_by_type[etype.id_et] = {
+            "type_name": etype.name,
+            "total_equipment": 0,
+            "rented_equipment": 0,
+            "total_rental_seconds": 0
+        }
+    
+    # Count total equipment by type
+    for equipment in all_equipment:
+        if equipment.etype_id in stats_by_type:
+            stats_by_type[equipment.etype_id]["total_equipment"] += 1
+    
+    # Count rented equipment by type
+    for rental in active_rentals:
+        if rental.equipment.etype_id in stats_by_type:
+            stats_by_type[rental.equipment.etype_id]["rented_equipment"] += 1
+    
+    # Calculate total rental time for each type from completed rentals
+    completed_rentals = db.query(Rental).filter(Rental.rental_end != None).options(
+        joinedload(Rental.equipment).joinedload(Equipment.etype)
+    ).all()
+    
+    for rental in completed_rentals:
+        etype_id = rental.equipment.etype_id
+        if etype_id in stats_by_type:
+            # Calculate rental duration in seconds
+            start_time = rental.rental_start
+            end_time = rental.rental_end
+            duration = (end_time - start_time).total_seconds()
+            stats_by_type[etype_id]["total_rental_seconds"] += duration
+    
+    # Format the results
+    result = []
+    for etype_id, stats in stats_by_type.items():
+        # Convert seconds to human-readable format
+        total_seconds = stats["total_rental_seconds"]
+        days, remainder = divmod(total_seconds, 86400)
+        hours, remainder = divmod(remainder, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        
+        duration_parts = []
+        if days > 0: duration_parts.append(f"{int(days)}d")
+        if hours > 0: duration_parts.append(f"{int(hours)}h")
+        if minutes > 0: duration_parts.append(f"{int(minutes)}m")
+        if seconds > 0 or not duration_parts: duration_parts.append(f"{int(seconds)}s")
+        
+        duration_str = " ".join(duration_parts)
+        
+        # Calculate availability percentage
+        total = stats["total_equipment"]
+        available = total - stats["rented_equipment"]
+        availability_pct = (available / total * 100) if total > 0 else 100
+        
+        result.append({
+            "type_name": stats["type_name"],
+            "total_equipment": stats["total_equipment"],
+            "available_equipment": available,
+            "rented_equipment": stats["rented_equipment"],
+            "availability_percentage": f"{availability_pct:.1f}%",
+            "total_rental_time": duration_str
+        })
+    
+    # Sort by type name
+    result.sort(key=lambda x: x["type_name"])
+    
+    return result

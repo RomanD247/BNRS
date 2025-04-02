@@ -17,28 +17,30 @@ def edit_users_dialog():
     try:
         # Create a fresh session to ensure we get updated data
         with SessionLocal() as fresh_db:
-            with ui.dialog() as dialog, ui.card().classes('w-540'):
-                ui.label('Select a user to edit').classes('text-h6 q-mb-md, w-540')
+            with ui.dialog() as dialog, ui.card().style('width: 600px; height: 800px'):
+                with ui.row().classes('w-full justify-between items-center'):
+                    ui.label('Select a user to edit').classes('text-h6 q-mb-md, w-540')
+                    ui.button(icon='close', on_click=dialog.close).props('flat round')
                 
                 # Create a scroll area for the user list
-                with ui.scroll_area().classes('h-96'):
+                with ui.scroll_area().style('height: 750px'): #.classes('h-96'):
                     # Get the list of all users from the fresh DB session
                     users = crud.get_all_users_including_inactive(fresh_db)
                     
                     # Create a card for each user
                     for user in users:
                         with ui.card().classes('q-mb-sm cursor-pointer') as card:
-                            ui.label(f'Name: {user.name}').classes('text-weight-bold')
-                            ui.label(f'Department: {user.department.name}')
-                            ui.label(f'Status: {"Active" if user.status else "Inactive"}')
-                            
+                            with ui.row().classes('text-left'):
+                                ui.icon('check_box' if user.status == True else 'check_box_outline_blank').classes('text-2xl')
+                                #ui.checkbox(value=True if user.status == True else False).props('disable')
+                                with ui.column():
+                                    ui.label(f'Name: {user.name}')
+                                    ui.label(f'Department: {user.department.name}') 
                             # Separate function to create a handler for each user
                             def make_handler(u):
                                 return lambda: show_edit_form_for_user(u, dialog)
                             
                             card.on('click', make_handler(user))
-                
-                ui.button('Close', on_click=dialog.close).classes('q-mt-md')
             
             dialog.open()
         
@@ -163,32 +165,4 @@ def apply_changes(user_id, new_name, new_department, new_status, dialog, parent_
         print(f"Error in apply_changes: {str(e)}")  # for debugging
 
 
-def create_users_edit_button(container=None):
-    """
-    Creates a button to open the user edit dialog.
-    
-    Args:
-        container: Container where the button will be placed.
-                  If None, the button is added to the current UI context.
-    
-    Returns:
-        Button object
-    """
-    def safe_call_dialog(e):
-        try:
-            edit_users_dialog()
-        except Exception as e:
-            ui.notify(f'Error opening dialog: {str(e)}', color='negative')
-            print(f"Error calling dialog: {str(e)}")  # for debugging
-    
-    if container:
-        with container:
-            button = ui.button('Edit Users', 
-                              on_click=safe_call_dialog,
-                              icon='edit').classes('bg-primary')
-    else:
-        button = ui.button('Edit Users', 
-                          on_click=safe_call_dialog,
-                          icon='edit').classes('bg-primary')
-    
-    return button
+

@@ -1,6 +1,10 @@
 from nicegui import ui
 from gui_adduser import show_add_user_dialog
 from gui_addequip import show_add_equipment_dialog
+from gui_changeUser import edit_users_dialog
+from gui_changeDep import edit_departments_dialog
+from gui_changeEtype import edit_etypes_dialog
+from gui_reports import get_user_report_button, get_equipment_report_button
 
 import asyncio
 import sys
@@ -89,27 +93,29 @@ def create_equipment_card(equipment, is_rented=False):
     return card
 
 def update_lists():
-    """Update both equipment lists"""
-    if state.selected_etype_id is not None:
-        state.available_equipment = get_available_equipment_by_type(db, state.selected_etype_id)
-        state.rented_equipment = get_active_rentals_by_equipment_type(db, state.selected_etype_id)
-    else:
-        state.available_equipment = get_available_equipment(db)
-        state.rented_equipment = get_active_rentals(db)
+    """Update both equipment list UI containers based on current state data."""
+    # Data fetching is now done by the caller (full_refresh or filter_by_etype)
+    # Only update the UI here
     
-    available_container.clear()
-    with available_container:
-        with ui.column():
-            for equipment in sorted(state.available_equipment, key=lambda x: x.name):
-                card = create_equipment_card(equipment)
-                card.on('click', lambda _, e=equipment: show_rent_dialog(e))
+    # Clear and repopulate available container
+    if available_container:
+        available_container.clear()
+        with available_container:
+            with ui.column():
+                # Use data already present in the state
+                for equipment in sorted(state.available_equipment, key=lambda x: x.name):
+                    card = create_equipment_card(equipment)
+                    card.on('click', lambda _, e=equipment: show_rent_dialog(e))
     
-    rented_container.clear()
-    with rented_container:
-        with ui.column():
-            for rental in sorted(state.rented_equipment, key=lambda x: x.equipment.name):
-                card = create_equipment_card(rental, is_rented=True)
-                card.on('click', lambda _, r=rental: show_return_dialog(r))
+    # Clear and repopulate rented container
+    if rented_container:
+        rented_container.clear()
+        with rented_container:
+            with ui.column():
+                # Use data already present in the state
+                for rental in sorted(state.rented_equipment, key=lambda x: x.equipment.name):
+                    card = create_equipment_card(rental, is_rented=True)
+                    card.on('click', lambda _, r=rental: show_return_dialog(r))
 
 def show_rent_dialog(equipment):
     """Show dialog for renting equipment"""
@@ -202,14 +208,69 @@ def filter_by_etype(e):
     """Filter equipment lists by equipment type"""
     selected_name = e.value
     state.selected_etype_id = state.etype_map.get(selected_name)
+    # Fetch filtered data into state
+    if state.selected_etype_id is not None:
+        state.available_equipment = get_available_equipment_by_type(db, state.selected_etype_id)
+        state.rented_equipment = get_active_rentals_by_equipment_type(db, state.selected_etype_id)
+    else:
+        # If filter is cleared, fetch all data
+        state.available_equipment = get_available_equipment(db)
+        state.rented_equipment = get_active_rentals(db)
+    # Update UI with new state data
     update_lists()
 
 def reset_filter():
     """Reset equipment type filter to show all equipment"""
     state.selected_etype_id = None
+    # Reset the visual selection in the dropdown
+    if state.filter_select:
+        state.filter_select.set_value(None)
+    
+    # Fetch all data into state
+    state.available_equipment = get_available_equipment(db)
+    state.rented_equipment = get_active_rentals(db)
+
+    # Refresh users and etypes from DB into state
+    state.refresh_users()
+    state.refresh_etypes()
+
+    # Update the UI lists
     update_lists()
 
+# Function for full data refresh
+def full_refresh():
+    """Reloads all data from the database and updates the UI."""
+    ui.notify('Refreshing all data...')
+    
+    # Expire session cache before fetching
+    db.expire_all()
+
+    # Reset filter selection state
+    state.selected_etype_id = None
+    if state.filter_select:
+        state.filter_select.set_value(None) # Reset the dropdown visually
+
+    # Refresh users and etypes from DB into state
+    state.refresh_users()
+    state.refresh_etypes() 
+
+    # Fetch ALL equipment lists (available and rented) from DB into state
+    state.available_equipment = get_available_equipment(db)
+    state.rented_equipment = get_active_rentals(db)
+
+    # Update the UI lists (available_container and rented_container) using data now in state
+    update_lists()
+
+    # Ensure the filter dropdown options reflect the latest etypes
+    if state.filter_select:
+        etype_options = [etype.name for etype in state.etypes]
+        state.filter_select.options = etype_options
+        state.filter_select.update() # Update the UI element
+
+    ui.notify('Data refreshed successfully!', type='positive')
+
 #Fuctions for password for Admin mode
+# Admin Panel here
 def create_password_dialog():
     """Creates dialogs for entering a password and successful entry."""
     password_dialog = ui.dialog()
@@ -217,9 +278,19 @@ def create_password_dialog():
 
     with success_dialog:
         with ui.card():
-            ui.label('CHANGE TO OTHER FUNCTION!')
-            ui.button('OK', on_click=success_dialog.close)
-
+            with ui.row().classes('w-full justify-between items-center'):
+                ui.label('Admin panel').style('font-size: 150%')
+                ui.button(icon='close', on_click=success_dialog.close).props('flat round')
+            with ui.row():
+                ui.button('Edit users', on_click=edit_users_dialog).style('width:100px; height: 100px;')
+                ui.button('Edit departments', on_click=edit_departments_dialog).style('width: 100px; height: 100px;')
+                ui.button('Edit etypes', on_click=edit_etypes_dialog).style('width: 100px; height: 100px;')
+            ui.separator()
+            ui.label('Reports').style('font-size: 150%')
+            with ui.row():
+                ui.button('Add Equipment', on_click=lambda: show_add_equipment_dialog(filter_callback=state.update_filter_select, lists_update_callback=update_lists)).style('width: 100px; height: 100px;')
+                get_user_report_button().style('width: 100px; height: 100px;')
+                get_equipment_report_button().style('width: 100px; height: 100px;')
     with password_dialog:
         with ui.card():
             with ui.row().classes('w-full justify-between items-center'):
@@ -229,7 +300,7 @@ def create_password_dialog():
             ui.button('Enter', on_click=lambda: check_password(password_input))
     
     def check_password(input_field):
-        if input_field.value == "1234":  #Change password
+        if input_field.value == "1111":  #Change password
             password_dialog.close()
             success_dialog.open()
         else:
@@ -276,11 +347,13 @@ def main():
             ui.button('Rent', on_click=lambda: ui.notify('Rent clicked')).style('width: 100px; height: 100px;')
             ui.button('Return', on_click=lambda: ui.notify('Return clicked')).style('width: 100px; height: 100px;')
             ui.button('Edit database', on_click=lambda: ui.notify('Edit database clicked')).style('width: 100px; height: 100px;')
-            ui.button('Add Equipment', on_click=lambda: show_add_equipment_dialog(filter_callback=state.update_filter_select, lists_update_callback=update_lists)).style('width: 100px; height: 100px;')
+            
+            # Добавляем отдельные кнопки для отчетов
+
 
         with ui.column():
             # Equipment type filter
-            with ui.column():
+            with ui.row().classes('items-center'):
                 ui.label('Filter by Equipment Type:').classes('text-h6')
                 etype_options = [etype.name for etype in state.etypes]
                 state.filter_select = ui.select(
@@ -288,6 +361,7 @@ def main():
                     label='Equipment Type',
                     on_change=filter_by_etype#,                    with_input=True
                 ).style('width: 200px; margin-right: 10px;').props('use-chips')
+                ui.button(icon='refresh', on_click=full_refresh).props('flat round').tooltip('Refresh all data')
             
             with ui.row():
                 #Available list
