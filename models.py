@@ -13,6 +13,7 @@ class Equipment(Base):
     name = Column(String, nullable=False)
     serialnum = Column(String, default=False)
     etype_id = Column(Integer, ForeignKey("etypes.id_et"))
+    status = Column(Boolean, default=True)
     etype = relationship("Etype", back_populates="equipments")
 
 class Etype(Base):
@@ -21,6 +22,7 @@ class Etype(Base):
 
     id_et = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
+    status = Column(Boolean, default=True)
     equipments = relationship("Equipment", back_populates="etype")
 
 class Department(Base):
@@ -28,6 +30,7 @@ class Department(Base):
 
     id_dep = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
+    status = Column(Boolean, default=True)
     users = relationship("User", back_populates="department")
 
 class User(Base):
@@ -37,6 +40,7 @@ class User(Base):
     id_us = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     id_dep = Column(Integer, ForeignKey("departments.id_dep"))
+    status = Column(Boolean, default=True)
     department = relationship("Department", back_populates="users")
 
 class Rental(Base):

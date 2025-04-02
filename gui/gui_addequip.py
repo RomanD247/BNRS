@@ -17,7 +17,7 @@ def load_etypes():
 
 data = load_etypes()
 
-def show_add_etype_dialog(main_dropdown, main_data, main_selected_label, callback=None):
+def show_add_etype_dialog(main_dropdown, main_data, main_selected_label, filter_callback=None):
     def add_etype():
         new_et = new_et_input.value.strip()
         if not new_et:
@@ -41,8 +41,8 @@ def show_add_etype_dialog(main_dropdown, main_data, main_selected_label, callbac
                     ui.item(item, on_click=lambda item=item: (main_selected_label.set_text(f'{item}'))).style('width: 300px')
             
             # Call the callback to update the filter dropdown in the main interface
-            if callback:
-                callback()
+            if filter_callback:
+                filter_callback()
                 
             dialog.close()
         except Exception as e:
@@ -59,7 +59,7 @@ def show_add_etype_dialog(main_dropdown, main_data, main_selected_label, callbac
 
     dialog.open()
 
-def show_add_equipment_dialog(callback=None):
+def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
     def add_equipment():
         name = name_input.value.strip()
         serialnum = serialnum_input.value.strip()
@@ -76,6 +76,11 @@ def show_add_equipment_dialog(callback=None):
                 return
             create_equipment(db, name=name, serialnum=serialnum, etype_id=etype.id_et)
             ui.notify(f'Equipment {name} added successfully!')
+            
+            # Call the lists update callback to refresh equipment lists
+            if lists_update_callback:
+                lists_update_callback()
+                
             dialog.close()
         except Exception as e:
             ui.notify(f'Error: {e}', type='error')
@@ -96,7 +101,7 @@ def show_add_equipment_dialog(callback=None):
             with dropdown:
                 for item in data:
                     ui.item(item, on_click=lambda item=item: (selected_label.set_text(f'{item}'))).style('width: 300px')
-            ui.button(text='+', on_click=lambda: show_add_etype_dialog(dropdown, data, selected_label, callback))
+            ui.button(text='+', on_click=lambda: show_add_etype_dialog(dropdown, data, selected_label, filter_callback))
         selected_label = ui.label('You must choose equipment type!')
         ui.separator() 
         ui.button(text='Add new equipment', on_click=add_equipment).style('width: 300px; margin-left: 30px')

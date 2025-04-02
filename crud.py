@@ -7,7 +7,7 @@ from sqlalchemy import func, case
 # Equipment CRUD operations
 def create_equipment(db: Session, name: str, serialnum: str = None, etype_id: int = None) -> Equipment:
     """Create new equipment"""
-    equipment = Equipment(name=name, serialnum=serialnum, etype_id=etype_id)
+    equipment = Equipment(name=name, serialnum=serialnum, etype_id=etype_id, status=True)
     db.add(equipment)
     db.commit()
     db.refresh(equipment)
@@ -15,29 +15,30 @@ def create_equipment(db: Session, name: str, serialnum: str = None, etype_id: in
 
 def get_equipment(db: Session, equipment_id: int) -> Optional[Equipment]:
     """Get equipment by ID"""
-    return db.query(Equipment).options(joinedload(Equipment.etype)).filter(Equipment.id_eq == equipment_id).first()
+    return db.query(Equipment).options(joinedload(Equipment.etype)).filter(Equipment.id_eq == equipment_id, Equipment.status == True).first()
 
 def get_all_equipment(db: Session) -> List[Equipment]:
     """Get all equipment"""
-    return db.query(Equipment).options(joinedload(Equipment.etype)).all()
+    return db.query(Equipment).options(joinedload(Equipment.etype)).filter(Equipment.status == True).all()
 
 def update_equipment(db: Session, equipment_id: int, name: str = None, 
-                    serialnum: str = None, etype_id: int = None) -> Optional[Equipment]:
+                    serialnum: str = None, etype_id: int = None, status: bool = None) -> Optional[Equipment]:
     """Update equipment"""
     equipment = get_equipment(db, equipment_id)
     if equipment:
         if name: equipment.name = name
         if serialnum: equipment.serialnum = serialnum
         if etype_id: equipment.etype_id = etype_id
+        if status is not None: equipment.status = status
         db.commit()
         db.refresh(equipment)
     return equipment
 
 def delete_equipment(db: Session, equipment_id: int) -> bool:
-    """Delete equipment"""
+    """Soft delete equipment by setting status to False"""
     equipment = get_equipment(db, equipment_id)
     if equipment:
-        db.delete(equipment)
+        equipment.status = False
         db.commit()
         return True
     return False
@@ -45,7 +46,7 @@ def delete_equipment(db: Session, equipment_id: int) -> bool:
 # Etype CRUD operations
 def create_etype(db: Session, name: str) -> Etype:
     """Create new equipment type"""
-    etype = Etype(name=name)
+    etype = Etype(name=name, status=True)
     db.add(etype)
     db.commit()
     db.refresh(etype)
@@ -53,30 +54,31 @@ def create_etype(db: Session, name: str) -> Etype:
 
 def get_etype(db: Session, etype_id: int) -> Optional[Etype]:
     """Get equipment type by ID"""
-    return db.query(Etype).filter(Etype.id_et == etype_id).first()
+    return db.query(Etype).filter(Etype.id_et == etype_id, Etype.status == True).first()
 
 def get_etype_by_name(db: Session, name: str) -> Optional[Etype]:
     """Get equipment type by name"""
-    return db.query(Etype).filter(Etype.name == name).first()
+    return db.query(Etype).filter(Etype.name == name, Etype.status == True).first()
 
 def get_all_etypes(db: Session) -> List[Etype]:
     """Get all equipment types"""
-    return db.query(Etype).all()
+    return db.query(Etype).filter(Etype.status == True).all()
 
-def update_etype(db: Session, etype_id: int, name: str) -> Optional[Etype]:
+def update_etype(db: Session, etype_id: int, name: str = None, status: bool = None) -> Optional[Etype]:
     """Update equipment type"""
     etype = get_etype(db, etype_id)
     if etype:
-        etype.name = name
+        if name: etype.name = name
+        if status is not None: etype.status = status
         db.commit()
         db.refresh(etype)
     return etype
 
 def delete_etype(db: Session, etype_id: int) -> bool:
-    """Delete equipment type"""
+    """Soft delete equipment type by setting status to False"""
     etype = get_etype(db, etype_id)
     if etype:
-        db.delete(etype)
+        etype.status = False
         db.commit()
         return True
     return False
@@ -84,7 +86,7 @@ def delete_etype(db: Session, etype_id: int) -> bool:
 # Department CRUD operations
 def create_department(db: Session, name: str) -> Department:
     """Create new department"""
-    department = Department(name=name)
+    department = Department(name=name, status=True)
     db.add(department)
     db.commit()
     db.refresh(department)
@@ -92,30 +94,31 @@ def create_department(db: Session, name: str) -> Department:
 
 def get_department(db: Session, department_id: int) -> Optional[Department]:
     """Get department by ID"""
-    return db.query(Department).filter(Department.id_dep == department_id).first()
+    return db.query(Department).filter(Department.id_dep == department_id, Department.status == True).first()
 
 def get_department_by_name(db: Session, name: str) -> Optional[Department]:
     """Get department by name"""
-    return db.query(Department).filter(Department.name == name).first()
+    return db.query(Department).filter(Department.name == name, Department.status == True).first()
 
 def get_all_departments(db: Session) -> List[Department]:
     """Get all departments"""
-    return db.query(Department).all()
+    return db.query(Department).filter(Department.status == True).all()
 
-def update_department(db: Session, department_id: int, name: str) -> Optional[Department]:
+def update_department(db: Session, department_id: int, name: str = None, status: bool = None) -> Optional[Department]:
     """Update department"""
     department = get_department(db, department_id)
     if department:
-        department.name = name
+        if name: department.name = name
+        if status is not None: department.status = status
         db.commit()
         db.refresh(department)
     return department
 
 def delete_department(db: Session, department_id: int) -> bool:
-    """Delete department"""
+    """Soft delete department by setting status to False"""
     department = get_department(db, department_id)
     if department:
-        db.delete(department)
+        department.status = False
         db.commit()
         return True
     return False
@@ -127,7 +130,7 @@ def create_user(db: Session, name: str, dep: str) -> User:
     if not department:
         raise ValueError(f"Department {dep} not found")
     
-    user = User(name=name, id_dep=department.id_dep)
+    user = User(name=name, id_dep=department.id_dep, status=True)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -135,13 +138,13 @@ def create_user(db: Session, name: str, dep: str) -> User:
 
 def get_user(db: Session, user_id: int) -> Optional[User]:
     """Get user by ID"""
-    return db.query(User).options(joinedload(User.department)).filter(User.id_us == user_id).first()
+    return db.query(User).options(joinedload(User.department)).filter(User.id_us == user_id, User.status == True).first()
 
 def get_all_users(db: Session) -> List[User]:
     """Get all users"""
-    return db.query(User).options(joinedload(User.department)).all()
+    return db.query(User).options(joinedload(User.department)).filter(User.status == True).all()
 
-def update_user(db: Session, user_id: int, name: str = None, dep: str = None) -> Optional[User]:
+def update_user(db: Session, user_id: int, name: str = None, dep: str = None, status: bool = None) -> Optional[User]:
     """Update user"""
     user = get_user(db, user_id)
     if user:
@@ -151,15 +154,16 @@ def update_user(db: Session, user_id: int, name: str = None, dep: str = None) ->
             if not department:
                 raise ValueError(f"Department {dep} not found")
             user.id_dep = department.id_dep
+        if status is not None: user.status = status
         db.commit()
         db.refresh(user)
     return user
 
 def delete_user(db: Session, user_id: int) -> bool:
-    """Delete user"""
+    """Soft delete user by setting status to False"""
     user = get_user(db, user_id)
     if user:
-        db.delete(user)
+        user.status = False
         db.commit()
         return True
     return False
