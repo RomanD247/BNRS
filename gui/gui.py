@@ -76,19 +76,22 @@ def toggle_dark_mode(button):
 
 def create_equipment_card(equipment, is_rented=False):
     """Create a card for equipment display"""
-    card = ui.card().style('width: 450px; cursor: pointer;')
+    card = ui.card().style('width: 450px; height: 75px; cursor: pointer;')
     
     with card:
         if is_rented:
-            ui.label(f"{equipment.equipment.name}")
-            ui.label(f"Serial: {equipment.equipment.serialnum}")
-            ui.label(f"Type: {equipment.equipment.etype.name if equipment.equipment.etype else 'Unknown'}")
-            ui.label(f"Rented by: {equipment.user.name} ({equipment.user.department.name})")
-            ui.label(f"Rented since: {equipment.rental_start.strftime('%Y-%m-%d %H:%M')}")
+            with ui.row().classes('w-full justify-between items-center').style('margin-top: -10px'):
+                ui.label(f"{equipment.equipment.name}").style('font-size: 18px; font-weight: bold')
+                ui.label(f"{equipment.equipment.etype.name if equipment.equipment.etype else 'Unknown'}")
+            ui.label(f"S/N: {equipment.equipment.serialnum}").style('margin-top: -18px')
+            ui.label(f"Rented by: {equipment.user.name} ({equipment.user.department.name})").style('margin-top: -18px; margin-bottom: -10px')
+            #ui.label(f"Rented since: {equipment.rental_start.strftime('%Y-%m-%d %H:%M')}")
         else:
-            ui.label(f"{equipment.name}")
-            ui.label(f"Serial: {equipment.serialnum}")
-            ui.label(f"Type: {equipment.etype.name if equipment.etype else 'Unknown'}")
+            with ui.row().classes('w-full justify-between items-center').style('margin-top: -5px'):
+                ui.label(f"{equipment.name}").style('font-size: 18px; font-weight: bold')
+                ui.label(f"{equipment.etype.name if equipment.etype else 'Unknown'}")
+            ui.label(f"S/N: {equipment.serialnum}").style('margin-top: -12px; margin-bottom: -10px')
+            
     
     return card
 
@@ -154,12 +157,12 @@ def show_rent_dialog(equipment):
         user_select.update()
         ui.notify('The list of users has been updated.')
 
-    with ui.dialog().style('width: 700px') as dialog, ui.card():
+    with ui.dialog().style('width: 700px') as dialog, ui.card().classes('leading-none'):
         with ui.row().classes('w-full justify-between items-center'):
             ui.label(text='Rent equipment').style('font-size: 200%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
-        ui.label(f"Rent equipment: {equipment.name}")
-        ui.label(f"Serial: {equipment.serialnum}")
+        ui.label(f"{equipment.name}").style('font-weight: bold; font-size: 16px')
+        ui.label(f"S/N: {equipment.serialnum}")
         ui.label(f"Type: {equipment.etype.name if equipment.etype else 'Unknown'}")
         
         ui.label('Select user:')
@@ -334,7 +337,7 @@ def get_long_hold_callbacks():
     
 def main():
     global available_container, rented_container
-    
+    ui.query('body').style('font-family: Helvetica')
     # Get the list of equipment types once at startup
     state.etypes = get_all_etypes(db)
     
@@ -375,7 +378,7 @@ def main():
                 #Available list
                 with ui.column():
                     ui.label('Available Equipment').classes('text-h5')
-                    available_container = ui.scroll_area().style('border: 2px solid black; padding: 10px; height: 600px; width: 500px')
+                    available_container = ui.scroll_area().style('border: 2px solid black; padding: 10px; height: 700px; width: 500px')
                     with available_container:
                         with ui.column():
                             for equipment in sorted(state.available_equipment, key=lambda x: x.name):
@@ -384,7 +387,7 @@ def main():
                 #Rented list
                 with ui.column():
                     ui.label('Rented Equipment').classes('text-h5')
-                    rented_container = ui.scroll_area().style('border: 2px solid black; padding: 10px; height: 600px; width: 500px')
+                    rented_container = ui.scroll_area().style('border: 2px solid black; padding: 10px; height: 700px; width: 500px')
                     with rented_container:
                         with ui.column():
                             for rental in sorted(state.rented_equipment, key=lambda x: x.equipment.name):
