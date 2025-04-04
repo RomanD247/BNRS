@@ -157,13 +157,15 @@ def show_rent_dialog(equipment):
         user_select.update()
         ui.notify('The list of users has been updated.')
 
-    with ui.dialog().style('width: 700px') as dialog, ui.card().classes('leading-none'):
+    with ui.dialog() as dialog, ui.card().classes('leading-none').style('width: 350px'):
         with ui.row().classes('w-full justify-between items-center'):
-            ui.label(text='Rent equipment').style('font-size: 200%')
+            ui.label(text='Rent equipment').style('font-size: 150%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
-        ui.label(f"{equipment.name}").style('font-weight: bold; font-size: 16px')
+        with ui.row().classes('w-full justify-between items-center'):
+            ui.label(f"{equipment.name}").style('font-weight: bold; font-size: 16px')
+            ui.label(f"{equipment.etype.name if equipment.etype else 'Unknown'}")
         ui.label(f"S/N: {equipment.serialnum}")
-        ui.label(f"Type: {equipment.etype.name if equipment.etype else 'Unknown'}")
+        #ui.label(f"Type: {equipment.etype.name if equipment.etype else 'Unknown'}")
         
         ui.label('Select user:')
         
@@ -182,7 +184,7 @@ def show_rent_dialog(equipment):
                 label='User',
                 with_input=True,
                 on_change=on_user_select_modified
-            )#.classes('w-full')
+            ).style('width: 250px')
             ui.button('+', on_click=lambda: show_add_user_dialog(refresh_users_ui))
         
         ui.button("Confirm", on_click=on_confirm)
@@ -196,12 +198,14 @@ def show_return_dialog(rental):
         dialog.close()
         reset_filter()
 
-    with ui.dialog().style('width: 700px') as dialog, ui.card():
+    with ui.dialog() as dialog, ui.card().style('width: 350px'):
         with ui.row().classes('w-full justify-between items-center'):
             ui.label(text='Return equipment').style('font-size: 200%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
-        ui.label(f"Return equipment: {rental.equipment.name}")
-        ui.label(f"Currently rented by: {rental.user.name}")
+        with ui.row().classes('w-full justify-between items-center'):
+            ui.label(f"{rental.equipment.name}").style('font-weight: bold; font-size: 16px')
+            ui.label(f"{rental.equipment.etype.name if rental.equipment.etype else 'Unknown'}")
+        ui.html(f"Rented by: <b>{rental.user.name}</b>")
         ui.label(f"Rented since: {rental.rental_start.strftime('%Y-%m-%d %H:%M')}")
         
         ui.button("Confirm Return", on_click=on_confirm)
@@ -303,7 +307,7 @@ def create_password_dialog():
             ui.button('Enter', on_click=lambda: check_password(password_input))
     
     def check_password(input_field):
-        if input_field.value == "1111":  #Change password
+        if input_field.value == "1":  #Change password
             password_dialog.close()
             success_dialog.open()
         else:
@@ -315,7 +319,7 @@ def create_password_dialog():
 def get_long_hold_callbacks():
     """
     Returns two colbacks to handle a long press:
-      - on_mouse_down: starts a timer for 3 seconds to open the dialogue.
+      - on_mouse_down: starts a timer for 1 second to open the dialogue.
       - on_mouse_up: deactivates the timer if the button is released early.
     """
     password_dialog = create_password_dialog()
@@ -323,8 +327,8 @@ def get_long_hold_callbacks():
 
     def start_hold(event):
         nonlocal hold_timer
-        # Start the timer: if the button is held down for 2 seconds, a dialogue box will open.
-        hold_timer = ui.timer(2, lambda: password_dialog.open(), once=True)
+        # Start the timer: if the button is held down for 1 second, a dialogue box will open.
+        hold_timer = ui.timer(1, lambda: password_dialog.open(), once=True)
 
     def stop_hold(event):
         nonlocal hold_timer
@@ -337,7 +341,7 @@ def get_long_hold_callbacks():
     
 def main():
     global available_container, rented_container
-    ui.query('body').style('font-family: Helvetica')
+    ui.query('body').style('font-family: Helvetica') #Font for the whole app
     # Get the list of equipment types once at startup
     state.etypes = get_all_etypes(db)
     

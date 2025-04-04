@@ -90,7 +90,8 @@ def show_user_rental_statistics():
                     columns=columns,
                     rows=user_stats,
                     row_key='name',
-                    title='User Rental Statistics'
+                    title='User Rental Statistics',
+                    pagination={'sortBy': 'total_rental_time', 'descending': True}
                 ).classes('w-full')
                 
                 # Добавляем фильтрацию данных по отделу
@@ -145,7 +146,8 @@ def show_equipment_type_statistics():
                     columns=columns,
                     rows=type_stats,
                     row_key='type_name',
-                    title='Equipment Type Statistics'
+                    title='Equipment Type Statistics',
+                    pagination={'sortBy': 'total_rental_time', 'descending': True}
                 ).classes('w-full')
             
             # Добавляем сводку

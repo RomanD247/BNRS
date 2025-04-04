@@ -29,13 +29,13 @@ def edit_users_dialog():
                     
                     # Create a card for each user
                     for user in users:
-                        with ui.card().classes('q-mb-sm cursor-pointer') as card:
+                        with ui.card().classes('cursor-pointer').style('width: 100%;') as card:
                             with ui.row().classes('text-left'):
-                                ui.icon('check_box' if user.status == True else 'check_box_outline_blank').classes('text-2xl')
+                                ui.icon('check_box' if user.status == True else 'check_box_outline_blank').classes('text-2xl').props('color=positive')
                                 #ui.checkbox(value=True if user.status == True else False).props('disable')
                                 with ui.column():
-                                    ui.label(f'Name: {user.name}')
-                                    ui.label(f'Department: {user.department.name}') 
+                                    ui.label(f'{user.name}').style('font-size: 110%; font-weight: bold')
+                                    ui.label(f'{user.department.name}') 
                             # Separate function to create a handler for each user
                             def make_handler(u):
                                 return lambda: show_edit_form_for_user(u, dialog)

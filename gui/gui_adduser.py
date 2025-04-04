@@ -85,7 +85,7 @@ def show_add_user_dialog(callback=None):
         ui.separator()
         ui.label(text='Choose your department from the dropdown:')
         with ui.row():
-            dropdown = ui.dropdown_button('Choose department', auto_close=True, split=True)
+            dropdown = ui.dropdown_button('Choose department', auto_close=True)
             with dropdown:
                 for item in data:
                     ui.item(item, on_click=lambda item=item: (selected_label.set_text(f'{item}'))).style('width: 300px')

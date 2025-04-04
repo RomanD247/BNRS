@@ -361,13 +361,19 @@ def get_active_rentals_summary(db: Session) -> List[Dict]:
         minutes = (duration.seconds % 3600) // 60
         seconds = duration.seconds % 60
         
+        days, remainder = divmod(total_seconds, 86400)
+        hours, remainder = divmod(remainder, 3600)
+        minutes = remainder // 60
+        duration_str = f"{int(days)}:{int(hours):02}:{int(minutes):02}"
+        
+        
         # Format duration string
-        duration_parts = []
-        if days > 0: duration_parts.append(f"{days}d")
-        if hours > 0: duration_parts.append(f"{hours}h")
-        if minutes > 0: duration_parts.append(f"{minutes}m")
-        if seconds > 0 or not duration_parts: duration_parts.append(f"{seconds}s")
-        duration_str = " ".join(duration_parts)
+        # duration_parts = []
+        # if days > 0: duration_parts.append(f"{days}d")
+        # if hours > 0: duration_parts.append(f"{hours}h")
+        # if minutes > 0: duration_parts.append(f"{minutes}m")
+        # if seconds > 0 or not duration_parts: duration_parts.append(f"{seconds}s")
+        # duration_str = " ".join(duration_parts)
         
         summary.append({
             "equipment_name": rental.equipment.name,
@@ -414,17 +420,23 @@ def get_user_rental_statistics(db: Session) -> List[Dict]:
     for user_name, department_name, total_seconds in results:
         # Преобразуем секунды в удобочитаемый формат
         if total_seconds:  # Проверяем, что total_seconds не None
+            
             days, remainder = divmod(total_seconds, 86400)
             hours, remainder = divmod(remainder, 3600)
-            minutes, seconds = divmod(remainder, 60)
+            minutes = remainder // 60
+            duration_parts = f"{int(days)}:{int(hours):02}:{int(minutes):02}"
+            duration_str = duration_parts
+            # days, remainder = divmod(total_seconds, 86400)
+            # hours, remainder = divmod(remainder, 3600)
+            # minutes, seconds = divmod(remainder, 60)
             
-            duration_parts = []
-            if days > 0: duration_parts.append(f"{int(days)}d")
-            if hours > 0: duration_parts.append(f"{int(hours)}h")
-            if minutes > 0: duration_parts.append(f"{int(minutes)}m")
-            if seconds > 0 or not duration_parts: duration_parts.append(f"{int(seconds)}s")
+            # duration_parts = []
+            # if days > 0: duration_parts.append(f"{int(days)}d")
+            # if hours > 0: duration_parts.append(f"{int(hours)}h")
+            # if minutes > 0: duration_parts.append(f"{int(minutes)}m")
+            # if seconds > 0 or not duration_parts: duration_parts.append(f"{int(seconds)}s")
             
-            duration_str = " ".join(duration_parts)
+            # duration_str = " ".join(duration_parts)
         else:
             duration_str = "never rented"
         
@@ -499,17 +511,23 @@ def get_equipment_type_statistics(db: Session) -> List[Dict]:
         if total_seconds == 0:
             continue
             
+        # Convert seconds to fractional days
         days, remainder = divmod(total_seconds, 86400)
         hours, remainder = divmod(remainder, 3600)
-        minutes, seconds = divmod(remainder, 60)
+        minutes = remainder // 60
+        duration_str = f"{int(days)}:{int(hours):02}:{int(minutes):02}"
+
+        # days, remainder = divmod(total_seconds, 86400)
+        # hours, remainder = divmod(remainder, 3600)
+        # minutes, seconds = divmod(remainder, 60)
         
-        duration_parts = []
-        if days > 0: duration_parts.append(f"{int(days)}d")
-        if hours > 0: duration_parts.append(f"{int(hours)}h")
-        if minutes > 0: duration_parts.append(f"{int(minutes)}m")
-        if seconds > 0 or not duration_parts: duration_parts.append(f"{int(seconds)}s")
+        # duration_parts = []
+        # if days > 0: duration_parts.append(f"{int(days)}d")
+        # if hours > 0: duration_parts.append(f"{int(hours)}h")
+        # if minutes > 0: duration_parts.append(f"{int(minutes)}m")
+        # if seconds > 0 or not duration_parts: duration_parts.append(f"{int(seconds)}s")
         
-        duration_str = " ".join(duration_parts)
+        # duration_str = " ".join(duration_parts)
         
         # Calculate availability percentage
         total = stats["total_equipment"]
