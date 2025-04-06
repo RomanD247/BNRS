@@ -52,6 +52,7 @@ class Rental(Base):
     equipment_id = Column(Integer, ForeignKey("equipment.id_eq"))
     rental_start = Column(DateTime, default=datetime.datetime.now)
     rental_end = Column(DateTime, nullable=True)
+    comment = Column(String, nullable=True)
 
     user = relationship("User")
     equipment = relationship("Equipment")

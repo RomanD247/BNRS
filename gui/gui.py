@@ -4,7 +4,8 @@ from gui_addequip import show_add_equipment_dialog
 from gui_changeUser import edit_users_dialog
 from gui_changeDep import edit_departments_dialog
 from gui_changeEtype import edit_etypes_dialog
-from gui_reports import get_user_report_button, get_equipment_report_button
+from gui_changeEquip import edit_equipment_dialog
+from gui_reports import get_user_report_button, get_equipment_report_button, get_equipment_name_report_button, get_rental_history_button, get_department_report_button
 
 import asyncio
 import sys
@@ -130,7 +131,7 @@ def show_rent_dialog(equipment):
     
     def on_confirm():
         if state.selected_user:
-            create_rental(db, state.selected_user, equipment.id_eq)
+            create_rental(db, state.selected_user, equipment.id_eq, comment=comment_field.value)
             ui.notify('Equipment rented successfully!')
             dialog.close()
             reset_filter()
@@ -187,6 +188,9 @@ def show_rent_dialog(equipment):
             ).style('width: 250px')
             ui.button('+', on_click=lambda: show_add_user_dialog(refresh_users_ui))
         
+        ui.label('Comment (optional):')
+        comment_field = ui.textarea(label='Comment').style('width: 100%')
+        
         ui.button("Confirm", on_click=on_confirm)
     dialog.open()
 
@@ -207,6 +211,10 @@ def show_return_dialog(rental):
             ui.label(f"{rental.equipment.etype.name if rental.equipment.etype else 'Unknown'}")
         ui.html(f"Rented by: <b>{rental.user.name}</b>")
         ui.label(f"Rented since: {rental.rental_start.strftime('%Y-%m-%d %H:%M')}")
+        
+        if rental.comment:
+            ui.label("Comment:").style('margin-top: 10px; font-weight: bold')
+            ui.label(rental.comment).style('white-space: pre-wrap')
         
         ui.button("Confirm Return", on_click=on_confirm)
     dialog.open()
@@ -292,12 +300,16 @@ def create_password_dialog():
                 ui.button('Edit users', on_click=edit_users_dialog).style('width:100px; height: 100px;')
                 ui.button('Edit departments', on_click=edit_departments_dialog).style('width: 100px; height: 100px;')
                 ui.button('Edit etypes', on_click=edit_etypes_dialog).style('width: 100px; height: 100px;')
+                ui.button('Edit equipment', on_click=edit_equipment_dialog).style('width: 100px; height: 100px;')
+                ui.button('Refresh all data', icon='refresh', on_click=full_refresh).tooltip('After editing all data must be refreshed').style('width: 100px; height: 100px;')
             ui.separator()
             ui.label('Reports').style('font-size: 150%')
             with ui.row():
                 ui.button('Add Equipment', on_click=lambda: show_add_equipment_dialog(filter_callback=state.update_filter_select, lists_update_callback=update_lists)).style('width: 100px; height: 100px;')
                 get_user_report_button().style('width: 100px; height: 100px;')
                 get_equipment_report_button().style('width: 100px; height: 100px;')
+                get_equipment_name_report_button().style('width: 100px; height: 100px;')
+                get_department_report_button().style('width: 100px; height: 100px;')
     with password_dialog:
         with ui.card():
             with ui.row().classes('w-full justify-between items-center'):
@@ -358,7 +370,7 @@ def main():
                 ui.label('- To create a new user press the "+" button in the user selection field.')
                 ui.label('- Click on the equipment card in the rented list to return it.')
                 ui.label('- Click on the filter button to filter the data by equipment type.')
-
+            get_rental_history_button().style('width: 100%')
 
             # ui.button('Rent', on_click=lambda: ui.notify('Rent clicked')).style('width: 100px; height: 100px;')
             # ui.button('Return', on_click=lambda: ui.notify('Return clicked')).style('width: 100px; height: 100px;')

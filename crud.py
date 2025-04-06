@@ -181,12 +181,13 @@ def get_all_users_including_inactive(db: Session) -> List[User]:
     return db.query(User).options(joinedload(User.department)).all()
 
 # Rental CRUD operations
-def create_rental(db: Session, user_id: int, equipment_id: int) -> Rental:
+def create_rental(db: Session, user_id: int, equipment_id: int, comment: str = None) -> Rental:
     """Create new rental"""
     rental = Rental(
         user_id=user_id, 
         equipment_id=equipment_id,
-        rental_start=datetime.datetime.now()
+        rental_start=datetime.datetime.now(),
+        comment=comment
     )
     db.add(rental)
     db.commit()
@@ -366,40 +367,44 @@ def get_active_rentals_summary(db: Session) -> List[Dict]:
         minutes = remainder // 60
         duration_str = f"{int(days)}:{int(hours):02}:{int(minutes):02}"
         
-        
-        # Format duration string
-        # duration_parts = []
-        # if days > 0: duration_parts.append(f"{days}d")
-        # if hours > 0: duration_parts.append(f"{hours}h")
-        # if minutes > 0: duration_parts.append(f"{minutes}m")
-        # if seconds > 0 or not duration_parts: duration_parts.append(f"{seconds}s")
-        # duration_str = " ".join(duration_parts)
-        
         summary.append({
             "equipment_name": rental.equipment.name,
             "equipment_type": rental.equipment.etype.name,
             "user_name": rental.user.name,
             "department": rental.user.department.name,
             "rental_start": rental.rental_start.strftime("%Y-%m-%d %H:%M:%S"),
-            "current_duration": duration_str
+            "current_duration": duration_str,
+            "comment": rental.comment
         })
     
     return summary
 
-def get_user_rental_statistics(db: Session) -> List[Dict]:
+def get_user_rental_statistics(db: Session, start_date=None, end_date=None) -> List[Dict]:
     """
     Get statistics for each user including their department and total rental time.
     Returns data in format suitable for GUI table.
+    
+    Args:
+        db: Database session
+        start_date: Optional date to filter rentals on or after (datetime.datetime)
+        end_date: Optional date to filter rentals on or before (datetime.datetime)
     """
     # Subquery to calculate total seconds for completed rentals per user_id
-    subquery = db.query(
+    query = db.query(
         Rental.user_id,
         func.sum(
             (func.julianday(Rental.rental_end) - func.julianday(Rental.rental_start)) * 86400
         ).label("total_seconds")
-    ).filter(Rental.rental_end != None)\
-    .group_by(Rental.user_id)\
-    .subquery()
+    ).filter(Rental.rental_end != None)
+    
+    # Apply date filters if provided
+    if start_date:
+        query = query.filter(Rental.rental_start >= start_date)
+    if end_date:
+        query = query.filter(Rental.rental_end <= end_date)
+    
+    # Complete the query
+    subquery = query.group_by(Rental.user_id).subquery()
 
     # Main query joining User, Department, and the subquery
     results = db.query(
@@ -448,13 +453,18 @@ def get_user_rental_statistics(db: Session) -> List[Dict]:
     
     return statistics
 
-def get_equipment_type_statistics(db: Session) -> List[Dict]:
+def get_equipment_type_statistics(db: Session, start_date=None, end_date=None) -> List[Dict]:
     """
     Get statistics for each equipment type including:
     - Total number of equipment of this type
     - Number of currently rented equipment
     - Total rental time across all equipment of this type
     Returns data in format suitable for GUI table.
+    
+    Args:
+        db: Database session
+        start_date: Optional date to filter rentals on or after (datetime.datetime)
+        end_date: Optional date to filter rentals on or before (datetime.datetime)
     """
     # Get all equipment types
     etypes = get_all_etypes(db)
@@ -488,7 +498,15 @@ def get_equipment_type_statistics(db: Session) -> List[Dict]:
             stats_by_type[rental.equipment.etype_id]["rented_equipment"] += 1
     
     # Calculate total rental time for each type from completed rentals
-    completed_rentals = db.query(Rental).filter(Rental.rental_end != None).options(
+    query = db.query(Rental).filter(Rental.rental_end != None)
+    
+    # Apply date filters if provided
+    if start_date:
+        query = query.filter(Rental.rental_start >= start_date)
+    if end_date:
+        query = query.filter(Rental.rental_end <= end_date)
+    
+    completed_rentals = query.options(
         joinedload(Rental.equipment).joinedload(Equipment.etype)
     ).all()
     
@@ -559,3 +577,133 @@ def get_all_equipment_including_inactive(db: Session) -> List[Equipment]:
 def get_all_etypes_including_inactive(db: Session) -> List[Etype]:
     """Get all equipment types including inactive ones"""
     return db.query(Etype).all()
+
+def get_equipment_name_statistics(db: Session, start_date=None, end_date=None) -> List[Dict]:
+    """
+    Get statistics for each equipment name, grouping equipment with the same name.
+    Calculates total rental time for all equipment with the same name.
+    Returns data in format suitable for GUI table.
+    
+    Args:
+        db: Database session
+        start_date: Optional date to filter rentals on or after (datetime.datetime)
+        end_date: Optional date to filter rentals on or before (datetime.datetime)
+    """
+    # Subquery to calculate total seconds for completed rentals per equipment_id
+    query = db.query(
+        Rental.equipment_id,
+        func.sum(
+            (func.julianday(Rental.rental_end) - func.julianday(Rental.rental_start)) * 86400
+        ).label("total_seconds")
+    ).filter(Rental.rental_end != None)
+    
+    # Apply date filters if provided
+    if start_date:
+        query = query.filter(Rental.rental_start >= start_date)
+    if end_date:
+        query = query.filter(Rental.rental_end <= end_date)
+    
+    # Complete the query
+    subquery = query.group_by(Rental.equipment_id).subquery()
+
+    # Main query joining Equipment, Etype, and the subquery
+    results = db.query(
+        Equipment.name,
+        Etype.name.label("etype_name"),
+        func.count(Equipment.id_eq).label("equipment_count"),
+        func.sum(subquery.c.total_seconds).label("total_seconds")
+    ).select_from(Equipment)\
+    .join(Etype, Equipment.etype_id == Etype.id_et)\
+    .filter(Equipment.status == True)\
+    .outerjoin(subquery, Equipment.id_eq == subquery.c.equipment_id)\
+    .group_by(Equipment.name, Etype.name)\
+    .having(func.sum(subquery.c.total_seconds) > 0)\
+    .order_by(Equipment.name)\
+    .all()
+
+    # Format results
+    statistics = []
+    
+    for name, etype_name, equipment_count, total_seconds in results:
+        # Преобразуем секунды в удобочитаемый формат
+        if total_seconds:  # Проверяем, что total_seconds не None
+            days, remainder = divmod(total_seconds, 86400)
+            hours, remainder = divmod(remainder, 3600)
+            minutes = remainder // 60
+            duration_parts = f"{int(days)}:{int(hours):02}:{int(minutes):02}"
+            duration_str = duration_parts
+        else:
+            duration_str = "never rented"
+        
+        statistics.append({
+            "name": name,
+            "etype_name": etype_name,
+            "equipment_count": equipment_count,
+            "total_rental_time": duration_str
+        })
+    
+    return statistics
+
+def get_department_rental_statistics(db: Session, start_date=None, end_date=None) -> List[Dict]:
+    """
+    Get statistics for each department including:
+    - Total number of rentals by department
+    - Total rental time across all users in department
+    Returns data in format suitable for GUI table.
+    
+    Args:
+        db: Database session
+        start_date: Optional date to filter rentals on or after (datetime.datetime)
+        end_date: Optional date to filter rentals on or before (datetime.datetime)
+    """
+    # Subquery to calculate total seconds for completed rentals per department
+    query = db.query(
+        User.id_dep,
+        func.sum(
+            (func.julianday(Rental.rental_end) - func.julianday(Rental.rental_start)) * 86400
+        ).label("total_seconds"),
+        func.count(Rental.id_re).label("rental_count")
+    ).join(User, Rental.user_id == User.id_us)\
+    .filter(Rental.rental_end != None)
+    
+    # Apply date filters if provided
+    if start_date:
+        query = query.filter(Rental.rental_start >= start_date)
+    if end_date:
+        query = query.filter(Rental.rental_end <= end_date)
+    
+    # Complete the query
+    subquery = query.group_by(User.id_dep).subquery()
+
+    # Main query joining Department and the subquery
+    results = db.query(
+        Department.name,
+        subquery.c.rental_count,
+        subquery.c.total_seconds
+    ).select_from(Department)\
+    .outerjoin(subquery, Department.id_dep == subquery.c.id_dep)\
+    .filter(Department.status == True)\
+    .order_by(Department.name)\
+    .all()
+
+    # Format results
+    statistics = []
+    
+    for dept_name, rental_count, total_seconds in results:
+        # Convert seconds to human-readable format
+        if total_seconds:
+            days, remainder = divmod(total_seconds, 86400)
+            hours, remainder = divmod(remainder, 3600)
+            minutes = remainder // 60
+            duration_str = f"{int(days)}:{int(hours):02}:{int(minutes):02}"
+        else:
+            duration_str = "never rented"
+            rental_count = 0
+        
+        statistics.append({
+            "name": dept_name,
+            "rental_count": rental_count,
+            "total_rental_time": duration_str
+        })
+    
+    return statistics
