@@ -89,7 +89,7 @@ def show_add_user_dialog(callback=None):
             with dropdown:
                 for item in data:
                     ui.item(item, on_click=lambda item=item: (selected_label.set_text(f'{item}'))).style('width: 300px')
-            ui.button(text='+', on_click=lambda: show_add_department_dialog(dropdown, data, selected_label))
+            #ui.button(text='+', on_click=lambda: show_add_department_dialog(dropdown, data, selected_label))
         selected_label = ui.label('You must choose department!')
         ui.separator() 
         ui.button(text='Add new employee', on_click=add_user).style('width: 300px; margin-left: 30px')

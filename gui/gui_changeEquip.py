@@ -18,23 +18,25 @@ def edit_equipment_dialog():
     try:
         # Create a fresh session to ensure we get updated data
         with SessionLocal() as fresh_db:
-            with ui.dialog() as dialog, ui.card().classes('w-540'):
+            with ui.dialog() as dialog, ui.card().style('width: 600px; height: 800px'):
                 with ui.row().classes('w-full justify-between items-center'):
                     ui.label('Select equipment to edit').classes('text-h6 q-mb-md, w-540')
                     ui.button(icon='close', on_click=dialog.close).props('flat round')
                 
                 # Create a scroll area for the equipment list
-                with ui.scroll_area().classes('h-96'):
+                with ui.scroll_area().style('height: 750px'):
                     # Get the list of all equipment from the fresh DB session
                     equipment_list = crud.get_all_equipment_including_inactive(fresh_db)
                     
                     # Create a card for each equipment
                     for equipment in equipment_list:
-                        with ui.card().classes('q-mb-sm cursor-pointer') as card:
-                            ui.label(f'Name: {equipment.name}').classes('text-weight-bold')
-                            ui.label(f'Serial: {equipment.serialnum}')
-                            ui.label(f'Type: {equipment.etype.name if equipment.etype else "Unknown"}')
-                            ui.label(f'Status: {"Active" if equipment.status else "Inactive"}')
+                        with ui.card().classes('cursor-pointer').style('width: 100%;') as card:
+                            with ui.row().classes('text-left'):
+                                ui.icon('check_box' if equipment.status == True else 'check_box_outline_blank').classes(f'text-2xl {"text-green-500" if equipment.status else "text-red-500"}')
+                                with ui.column():
+                                    ui.label(f'Name: {equipment.name}').classes('text-weight-bold').style('margin-top: -10px')
+                                    ui.label(f'S/N: {equipment.serialnum}').style('margin-top: -10px')
+                                    ui.label(f'Type: {equipment.etype.name if equipment.etype else "Unknown"}').style('margin-top: -10px; margin-bottom: -10px')
                             
                             # Separate function to create a handler for each equipment
                             def make_handler(eq):

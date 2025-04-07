@@ -94,7 +94,7 @@ def show_user_rental_statistics():
                 dep_filter = ui.select(departments, value='All Departments', label='Filter by Department')
                 
                 # Выпадающее меню для фильтра даты
-                with ui.menu().classes('ml-auto') as date_menu:
+                with ui.menu().props('auto-close').classes('ml-auto') as date_menu:
                     with ui.card():
                         ui.label('Select Date Range').classes('text-h6 q-pa-md')
                         
@@ -192,7 +192,7 @@ def show_equipment_type_statistics():
     with ui.dialog() as dialog:
         with ui.card().style('max-width: none; width: 1000px'):
             with ui.row().classes('w-full justify-between items-center'):
-                ui.label('Equipment Type Statistics').classes('text-h5')
+                ui.label('Device Type Statistics').classes('text-h5')
                 ui.button(icon='close', on_click=dialog.close).props('flat round')
             
             # Переменные для хранения выбранных дат
@@ -201,7 +201,7 @@ def show_equipment_type_statistics():
             
             # Создаем таблицу
             columns = [
-                {'name': 'type_name', 'label': 'Equipment Type', 'field': 'type_name', 'sortable': True, 'align': 'left'},
+                {'name': 'type_name', 'label': 'Device Type', 'field': 'type_name', 'sortable': True, 'align': 'left'},
                 {'name': 'total_rental_time', 'label': 'Total Rental Time', 'field': 'total_rental_time', 'sortable': True, 'align': 'right'}
             ]
             
@@ -220,7 +220,7 @@ def show_equipment_type_statistics():
             
             with ui.row().classes('w-full items-center justify-center gap-4 py-4'):
                 # Выпадающее меню для фильтра даты
-                with ui.menu().classes('ml-auto') as date_menu:
+                with ui.menu().props('auto-close').classes('ml-auto') as date_menu:
                     with ui.card():
                         ui.label('Select Date Range').classes('text-h6 q-pa-md')
                         
@@ -261,7 +261,7 @@ def show_equipment_type_statistics():
                     columns=columns,
                     rows=type_stats,
                     row_key='type_name',
-                    title='Equipment Type Statistics',
+                    title='Device Type Statistics',
                     pagination={'sortBy': 'total_rental_time', 'descending': True}
                 ).classes('w-full')
                 
@@ -306,7 +306,7 @@ def show_equipment_name_statistics():
     with ui.dialog() as dialog:
         with ui.card().style('max-width: none; width: 1000px'):
             with ui.row().classes('w-full justify-between items-center'):
-                ui.label('Equipment Name Statistics').classes('text-h5')
+                ui.label('Device Name Statistics').classes('text-h5')
                 ui.button(icon='close', on_click=dialog.close).props('flat round')
             
             # Переменные для хранения выбранных дат
@@ -336,7 +336,7 @@ def show_equipment_name_statistics():
             
             with ui.row().classes('w-full items-center justify-center gap-4 py-4'):
                 # Выпадающее меню для фильтра даты
-                with ui.menu().classes('ml-auto') as date_menu:
+                with ui.menu().props('auto-close').classes('ml-auto') as date_menu:
                     with ui.card():
                         ui.label('Select Date Range').classes('text-h6 q-pa-md')
                         
@@ -568,7 +568,7 @@ def show_rental_history():
                     # Закрываем меню
                     date_menu.close()
                     # Обновляем текст кнопки фильтра
-                    date_filter_btn.text = f'Date: {start} - {end}'
+                    #date_filter_btn.text = f'Date: {start} - {end}'
             
             # Функция для очистки фильтра дат
             def date_clear():
@@ -576,7 +576,7 @@ def show_rental_history():
                 start_date = None
                 end_date = None
                 date_input.value = None
-                date_filter_btn.text = 'Date Filter'
+                #date_filter_btn.text = 'Date Filter'
                 update_data()
                 date_menu.close()
             
@@ -588,7 +588,7 @@ def show_rental_history():
                     ui.button('Reset', icon='clear', on_click=reset_filter).props('flat')
                 
                 # Выпадающее меню для фильтра даты
-                with ui.menu().classes('ml-auto') as date_menu:
+                with ui.menu().props('auto-close').classes('ml-auto') as date_menu:
                     with ui.card():
                         ui.label('Select Date Range').classes('text-h6 q-pa-md')
                         
@@ -610,7 +610,8 @@ def show_rental_history():
                             ui.button('Apply', on_click=lambda: date_apply()).props('color=primary')
                 
                 # Кнопка для открытия меню с выбором даты
-                date_filter_btn = ui.button('Date Filter', icon='event').props('outline').on_click(lambda: date_menu.open())
+                #date_filter_btn = 
+                ui.button('Date Filter', icon='event').props('outline').on_click(lambda: date_menu.open())
                 
                 # Кнопка экспорта с функциональностью
                 ui.button('Export to CSV', icon='download', on_click=lambda: export_to_csv(
@@ -672,7 +673,7 @@ def show_department_rental_statistics():
             
             with ui.row().classes('w-full items-center justify-center gap-4 py-4'):
                 # Выпадающее меню для фильтра даты
-                with ui.menu().classes('ml-auto') as date_menu:
+                with ui.menu().props('auto-close').classes('ml-auto') as date_menu:
                     with ui.card():
                         ui.label('Select Date Range').classes('text-h6 q-pa-md')
                         

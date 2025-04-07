@@ -18,19 +18,20 @@ def edit_departments_dialog():
     try:
         # Create a fresh session to ensure we get updated data
         with SessionLocal() as fresh_db:
-            with ui.dialog() as dialog, ui.card().classes('w-540'):
+            with ui.dialog() as dialog, ui.card().style('width: 600px; height: 800px'):
                 ui.label('Select a department to edit').classes('text-h6 q-mb-md, w-540')
                 
                 # Create a scroll area for the department list
-                with ui.scroll_area().classes('h-96'):
+                with ui.scroll_area().style('height: 750px'):
                     # Get the list of all departments from the fresh DB session
                     departments = crud.get_all_departments_including_inactive(fresh_db)
                     
                     # Create a card for each department
                     for department in departments:
-                        with ui.card().classes('q-mb-sm cursor-pointer') as card:
-                            ui.label(f'Name: {department.name}').classes('text-weight-bold')
-                            ui.label(f'Status: {"Active" if department.status else "Inactive"}')
+                        with ui.card().classes('cursor-pointer').style('width: 100%;') as card:
+                            with ui.row().classes('text-left'):
+                                ui.icon('check_box' if department.status == True else 'check_box_outline_blank').classes(f'text-2xl {"text-green-500" if department.status else "text-red-500"}')                                  
+                                ui.label(f'{department.name}').style('font-size: 110%; font-weight: bold')
                             
                             # Separate function to create a handler for each department
                             def make_handler(dept):
@@ -72,7 +73,7 @@ def show_edit_form_for_department(department, parent_dialog=None):
             status_value = fresh_department.status
             
             # Notify user
-            ui.notify(f'Preparing form for: {fresh_department.name}', color='info')
+            #ui.notify(f'Preparing form for: {fresh_department.name}', color='info')
             
             # Use dialog directly
             with ui.dialog() as edit_dialog, ui.card().classes('w-96'):

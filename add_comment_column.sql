@@ -1,1 +1,0 @@
-ALTER TABLE rentals ADD COLUMN comment TEXT; 

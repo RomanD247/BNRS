@@ -97,7 +97,7 @@ def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
         ui.separator()
         ui.label(text='Choose equipment type from the dropdown:')
         with ui.row():
-            dropdown = ui.dropdown_button('Choose equipment type', auto_close=True, split=True)
+            dropdown = ui.dropdown_button('Choose equipment type', auto_close=True)
             with dropdown:
                 for item in data:
                     ui.item(item, on_click=lambda item=item: (selected_label.set_text(f'{item}'))).style('width: 300px')

@@ -23,7 +23,7 @@ def edit_users_dialog():
                     ui.button(icon='close', on_click=dialog.close).props('flat round')
                 
                 # Create a scroll area for the user list
-                with ui.scroll_area().style('height: 750px'): #.classes('h-96'):
+                with ui.scroll_area().style('height: 750px'):
                     # Get the list of all users from the fresh DB session
                     users = crud.get_all_users_including_inactive(fresh_db)
                     
@@ -31,8 +31,7 @@ def edit_users_dialog():
                     for user in users:
                         with ui.card().classes('cursor-pointer').style('width: 100%;') as card:
                             with ui.row().classes('text-left'):
-                                ui.icon('check_box' if user.status == True else 'check_box_outline_blank').classes('text-2xl').props('color=positive')
-                                #ui.checkbox(value=True if user.status == True else False).props('disable')
+                                ui.icon('check_box' if user.status == True else 'check_box_outline_blank').classes(f'text-2xl {"text-green-500" if user.status else "text-red-500"}')
                                 with ui.column():
                                     ui.label(f'{user.name}').style('font-size: 110%; font-weight: bold')
                                     ui.label(f'{user.department.name}') 

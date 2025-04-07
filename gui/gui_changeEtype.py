@@ -18,21 +18,22 @@ def edit_etypes_dialog():
     try:
         # Create a fresh session to ensure we get updated data
         with SessionLocal() as fresh_db:
-            with ui.dialog() as dialog, ui.card().classes('w-540'):
+            with ui.dialog() as dialog, ui.card().style('width: 600px; height: 800px'):
                 with ui.row().classes('w-full justify-between items-center'):
                     ui.label('Select an equipment type to edit').classes('text-h6 q-mb-md, w-540')
                     ui.button(icon='close', on_click=dialog.close).props('flat round')
                 
                 # Create a scroll area for the equipment types list
-                with ui.scroll_area().classes('h-96'):
+                with ui.scroll_area().style('height: 750px'):
                     # Get the list of all equipment types from the fresh DB session
                     etypes = crud.get_all_etypes_including_inactive(fresh_db)
                     
                     # Create a card for each equipment type
                     for etype in etypes:
-                        with ui.card().classes('q-mb-sm cursor-pointer') as card:
-                            ui.label(f'Name: {etype.name}').classes('text-weight-bold')
-                            ui.label(f'Status: {"Active" if etype.status else "Inactive"}')
+                        with ui.card().classes('cursor-pointer').style('width: 100%;') as card:
+                            with ui.row().classes('text-left'):
+                                ui.icon('check_box' if etype.status == True else 'check_box_outline_blank').classes(f'text-2xl {"text-green-500" if etype.status else "text-red-500"}')
+                                ui.label(f'{etype.name}').classes('text-weight-bold')
                             
                             # Separate function to create a handler for each equipment type
                             def make_handler(et):
