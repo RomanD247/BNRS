@@ -74,9 +74,7 @@ def show_edit_form_for_user(user, parent_dialog=None):
             name_value = fresh_user.name
             department_value = fresh_user.department.name
             status_value = fresh_user.status
-            
-            # Close all open dialogs
-            ui.notify(f'Preparing form for: {fresh_user.name}', color='info')
+
             
             # Use dialog directly
             with ui.dialog() as edit_dialog, ui.card().classes('w-96'):
@@ -110,7 +108,7 @@ def show_edit_form_for_user(user, parent_dialog=None):
                     
             # Open the new dialog
             edit_dialog.open()
-            ui.notify(f'Edit form opened for user: {fresh_user.name}', color='positive')
+            #ui.notify(f'Edit form opened for user: {fresh_user.name}', color='positive')
         
     except Exception as e:
         ui.notify(f'Error opening edit form: {str(e)}', color='negative')

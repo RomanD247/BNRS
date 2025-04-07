@@ -18,28 +18,41 @@ def load_departments():
 
 data = load_departments()
 
-def show_add_department_dialog(main_dropdown, main_data, main_selected_label):
+# Function to refresh departments list from database
+def refresh_departments():
+    """Refreshes the departments list from database"""
+    global data
+    db.expire_all()  # Expire session cache
+    data = load_departments()
+    return data
+
+def show_add_department_dialog(callback=None):
+    """
+    Shows a dialog to add a new department.
+    
+    Args:
+        callback: Optional function to call after successful department creation
+    """
     def add_department():
         new_dep = new_dep_input.value.strip()
         if not new_dep:
             ui.notify('Please enter a department name!', type='warning')
             return
         
-        if new_dep in main_data:
+        if new_dep in data:
             ui.notify('This department already exists!', type='warning')
             return
             
         try:
             create_department(db, new_dep)
-            main_data.append(new_dep)
+            data.append(new_dep)
             new_dep_input.value = ''
             ui.notify(f'Department {new_dep} added successfully!')
             
-            # Update dropdown items
-            main_dropdown.clear()
-            with main_dropdown:
-                for item in main_data:
-                    ui.item(item, on_click=lambda item=item: (main_selected_label.set_text(f'{item}'))).style('width: 300px')
+            # Call the callback function if provided
+            if callback:
+                callback(new_dep)
+                
             dialog.close()
         except Exception as e:
             ui.notify(f'Error adding department: {e}', type='error')
@@ -89,7 +102,7 @@ def show_add_user_dialog(callback=None):
             with dropdown:
                 for item in data:
                     ui.item(item, on_click=lambda item=item: (selected_label.set_text(f'{item}'))).style('width: 300px')
-            #ui.button(text='+', on_click=lambda: show_add_department_dialog(dropdown, data, selected_label))
+            #ui.button(text='+', on_click=lambda: show_add_department_dialog(lambda new_dep: selected_label.set_text(f'{new_dep}')))
         selected_label = ui.label('You must choose department!')
         ui.separator() 
         ui.button(text='Add new employee', on_click=add_user).style('width: 300px; margin-left: 30px')

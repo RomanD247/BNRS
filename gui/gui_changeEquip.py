@@ -79,9 +79,7 @@ def show_edit_form_for_equipment(equipment, parent_dialog=None):
             serialnum_value = fresh_equipment.serialnum
             etype_value = fresh_equipment.etype.name if fresh_equipment.etype else None
             status_value = fresh_equipment.status
-            
-            # Notify user
-            ui.notify(f'Preparing form for: {fresh_equipment.name}', color='info')
+
             
             # Use dialog directly
             with ui.dialog() as edit_dialog, ui.card().classes('w-96'):
@@ -120,7 +118,7 @@ def show_edit_form_for_equipment(equipment, parent_dialog=None):
                     
             # Open the new dialog
             edit_dialog.open()
-            ui.notify(f'Edit form opened for equipment: {fresh_equipment.name}', color='positive')
+            #ui.notify(f'Edit form opened for equipment: {fresh_equipment.name}', color='positive')
         
     except Exception as e:
         ui.notify(f'Error opening the edit form: {str(e)}', color='negative')

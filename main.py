@@ -1,5 +1,5 @@
 from nicegui import native, ui
-from gui.gui_adduser import show_add_user_dialog, show_add_department_dialog, load_departments
+from gui.gui_adduser import show_add_user_dialog, show_add_department_dialog
 from gui.gui_addequip import show_add_equipment_dialog
 from gui.gui_changeUser import edit_users_dialog
 from gui.gui_changeDep import edit_departments_dialog
@@ -10,6 +10,7 @@ from gui.gui_reports import get_user_report_button, get_equipment_report_button,
 import asyncio
 import sys
 import os
+import time
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from crud import (
@@ -135,6 +136,9 @@ def show_rent_dialog(equipment):
             ui.notify('Equipment rented successfully!')
             dialog.close()
             reset_filter()
+            # Clear the selected user and user select field
+            state.selected_user = None
+            user_select.set_value(None)
         else:
             ui.notify('Please select a user!', type='warning')
     
@@ -189,7 +193,7 @@ def show_rent_dialog(equipment):
             ui.button('+', on_click=lambda: show_add_user_dialog(refresh_users_ui))
         
         ui.label('Comment (optional):')
-        comment_field = ui.textarea(label='Comment').style('width: 100%')
+        comment_field = ui.input(label='Comment').style('width: 100%')
         
         ui.button("Confirm", on_click=on_confirm)
     dialog.open()
@@ -255,7 +259,6 @@ def reset_filter():
 # Function for full data refresh
 def full_refresh():
     """Reloads all data from the database and updates the UI."""
-    ui.notify('Refreshing all data...')
     
     # Expire session cache before fetching
     db.expire_all()
@@ -281,6 +284,10 @@ def full_refresh():
         etype_options = [etype.name for etype in state.etypes]
         state.filter_select.options = etype_options
         state.filter_select.update() # Update the UI element
+    
+    # Refresh departments list in gui_adduser module
+    from gui import gui_adduser
+    gui_adduser.refresh_departments()
 
     ui.notify('Data refreshed successfully!', type='positive')
 
@@ -312,6 +319,9 @@ def create_password_dialog():
                 with ui.button(on_click=lambda: show_add_equipment_dialog(filter_callback=state.update_filter_select, lists_update_callback=update_lists)).style('width: 100px; height: 100px;'):
                     ui.icon('add')
                     ui.label('Add Device')
+                with ui.button(on_click=lambda: show_add_department_dialog()).style('width: 100px; height: 100px;'):
+                    ui.icon('add')
+                    ui.label('Add Department')
                 with ui.button(on_click=full_refresh).tooltip('After editing all data must be refreshed').style('width: 100px; height: 100px;'):
                     ui.icon('refresh')
                     ui.label('Refresh all data') 
@@ -342,25 +352,26 @@ def create_password_dialog():
 
 def get_long_hold_callbacks():
     """
-    Returns two colbacks to handle a long press:
-      - on_mouse_down: starts a timer for 1 second to open the dialogue.
-      - on_mouse_up: deactivates the timer if the button is released early.
+    Returns callback to handle 5 clicks within 0.4 seconds:
+      - on_click: increments counter if clicks are within time window
     """
     password_dialog = create_password_dialog()
-    hold_timer = None
+    click_count = 0
+    last_click_time = 0
 
-    def start_hold(event):
-        nonlocal hold_timer
-        # Start the timer: if the button is held down for 1 second, a dialogue box will open.
-        hold_timer = ui.timer(1, lambda: password_dialog.open(), once=True)
+    def handle_click(event):
+        nonlocal click_count, last_click_time
+        now = time.time()
+        # Если между кликами прошло более 0.4 секунд, начинаем заново
+        if now - last_click_time > 0.8:
+            click_count = 0
+        click_count += 1
+        last_click_time = now
+        if click_count >= 3:
+            password_dialog.open()
+            click_count = 0  # сброс счетчика
 
-    def stop_hold(event):
-        nonlocal hold_timer
-        if hold_timer:
-            hold_timer.deactivate()
-            hold_timer = None
-
-    return start_hold, stop_hold
+    return handle_click
     
     
 def main():
@@ -375,7 +386,6 @@ def main():
 
     with ui.row().style('height: 80vh;'):
         with ui.column().style('width: 300px; padding: 10px; align-items: center; margin-top: 25px'):
-            ui.image('assets/logo.png').style('width: 50%; height: auto;')
             with ui.card():
                 ui.label('Instructions').style('font-size: 150%; font-weight: bold')
                 ui.label('- Click on the equipment card in the available list to rent it.')
@@ -400,7 +410,7 @@ def main():
                     label='Equipment Type',
                     on_change=filter_by_etype#,                    with_input=True
                 ).style('width: 200px; margin-right: 10px;').props('use-chips')
-                ui.button(icon='refresh', on_click=full_refresh).props('flat round').tooltip('Refresh all data')
+                # ui.button(icon='refresh', on_click=full_refresh).props('flat round').tooltip('Refresh all data')
             
             with ui.row():
                 #Available list
@@ -423,9 +433,8 @@ def main():
                                 card.on('click', lambda _, r=rental: show_return_dialog(r))
     with ui.row().style('position: fixed; right: 25px; top: 25px;'):
         admin_button = ui.button().props('icon=admin_panel_settings').style('width: 150px; height: 150px; opacity: 100;')
-        on_md, on_mu = get_long_hold_callbacks()
-        admin_button.on('mousedown', on_md)
-        admin_button.on('mouseup', on_mu)
+        on_click = get_long_hold_callbacks()
+        admin_button.on('click', on_click)
     with ui.row().style('position: fixed; right: 30px; bottom: 30px'):
         button = ui.button(on_click=lambda: toggle_dark_mode(button))
         # Set the initial icon

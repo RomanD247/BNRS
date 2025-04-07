@@ -394,7 +394,8 @@ def get_user_rental_statistics(db: Session, start_date=None, end_date=None) -> L
         Rental.user_id,
         func.sum(
             (func.julianday(Rental.rental_end) - func.julianday(Rental.rental_start)) * 86400
-        ).label("total_seconds")
+        ).label("total_seconds"),
+        func.count(Rental.id_re).label("rental_count")
     ).filter(Rental.rental_end != None)
     
     # Apply date filters if provided
@@ -410,7 +411,8 @@ def get_user_rental_statistics(db: Session, start_date=None, end_date=None) -> L
     results = db.query(
         User.name,
         Department.name.label("department_name"),
-        subquery.c.total_seconds
+        subquery.c.total_seconds,
+        subquery.c.rental_count
     ).select_from(User)\
     .join(Department, User.id_dep == Department.id_dep)\
     .filter(User.status == True)\
@@ -422,7 +424,7 @@ def get_user_rental_statistics(db: Session, start_date=None, end_date=None) -> L
     # Format results
     statistics = []
     
-    for user_name, department_name, total_seconds in results:
+    for user_name, department_name, total_seconds, rental_count in results:
         # Преобразуем секунды в удобочитаемый формат
         if total_seconds:  # Проверяем, что total_seconds не None
             
@@ -444,10 +446,12 @@ def get_user_rental_statistics(db: Session, start_date=None, end_date=None) -> L
             # duration_str = " ".join(duration_parts)
         else:
             duration_str = "never rented"
+            rental_count = 0
         
         statistics.append({
             "name": user_name,
             "department": department_name,
+            "rental_count": rental_count,
             "total_rental_time": duration_str
         })
     
@@ -484,7 +488,8 @@ def get_equipment_type_statistics(db: Session, start_date=None, end_date=None) -
             "type_name": etype.name,
             "total_equipment": 0,
             "rented_equipment": 0,
-            "total_rental_seconds": 0
+            "total_rental_seconds": 0,
+            "rental_count": 0
         }
     
     # Count total equipment by type
@@ -518,6 +523,7 @@ def get_equipment_type_statistics(db: Session, start_date=None, end_date=None) -
             end_time = rental.rental_end
             duration = (end_time - start_time).total_seconds()
             stats_by_type[etype_id]["total_rental_seconds"] += duration
+            stats_by_type[etype_id]["rental_count"] += 1
     
     # Format the results
     result = []
@@ -558,6 +564,7 @@ def get_equipment_type_statistics(db: Session, start_date=None, end_date=None) -
             "available_equipment": available,
             "rented_equipment": stats["rented_equipment"],
             "availability_percentage": f"{availability_pct:.1f}%",
+            "rental_count": stats["rental_count"],
             "total_rental_time": duration_str
         })
     
@@ -594,7 +601,8 @@ def get_equipment_name_statistics(db: Session, start_date=None, end_date=None) -
         Rental.equipment_id,
         func.sum(
             (func.julianday(Rental.rental_end) - func.julianday(Rental.rental_start)) * 86400
-        ).label("total_seconds")
+        ).label("total_seconds"),
+        func.count(Rental.id_re).label("rental_count")
     ).filter(Rental.rental_end != None)
     
     # Apply date filters if provided
@@ -611,7 +619,8 @@ def get_equipment_name_statistics(db: Session, start_date=None, end_date=None) -
         Equipment.name,
         Etype.name.label("etype_name"),
         func.count(Equipment.id_eq).label("equipment_count"),
-        func.sum(subquery.c.total_seconds).label("total_seconds")
+        func.sum(subquery.c.total_seconds).label("total_seconds"),
+        func.sum(subquery.c.rental_count).label("rental_count")
     ).select_from(Equipment)\
     .join(Etype, Equipment.etype_id == Etype.id_et)\
     .filter(Equipment.status == True)\
@@ -624,7 +633,7 @@ def get_equipment_name_statistics(db: Session, start_date=None, end_date=None) -
     # Format results
     statistics = []
     
-    for name, etype_name, equipment_count, total_seconds in results:
+    for name, etype_name, equipment_count, total_seconds, rental_count in results:
         # Преобразуем секунды в удобочитаемый формат
         if total_seconds:  # Проверяем, что total_seconds не None
             days, remainder = divmod(total_seconds, 86400)
@@ -634,11 +643,13 @@ def get_equipment_name_statistics(db: Session, start_date=None, end_date=None) -
             duration_str = duration_parts
         else:
             duration_str = "never rented"
+            rental_count = 0
         
         statistics.append({
             "name": name,
             "etype_name": etype_name,
             "equipment_count": equipment_count,
+            "rental_count": rental_count,
             "total_rental_time": duration_str
         })
     

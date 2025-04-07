@@ -72,9 +72,7 @@ def show_edit_form_for_etype(etype, parent_dialog=None):
             # Create variables to store changes
             name_value = fresh_etype.name
             status_value = fresh_etype.status
-            
-            # Notify user
-            ui.notify(f'Preparing form for: {fresh_etype.name}', color='info')
+
             
             # Use dialog directly
             with ui.dialog() as edit_dialog, ui.card().classes('w-96'):
@@ -100,7 +98,7 @@ def show_edit_form_for_etype(etype, parent_dialog=None):
                     
             # Open the new dialog
             edit_dialog.open()
-            ui.notify(f'Edit form opened for equipment type: {fresh_etype.name}', color='positive')
+            #ui.notify(f'Edit form opened for equipment type: {fresh_etype.name}', color='positive')
         
     except Exception as e:
         ui.notify(f'Error opening the edit form: {str(e)}', color='negative')
