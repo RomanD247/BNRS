@@ -85,7 +85,7 @@ def show_user_rental_statistics():
                 table.rows = user_stats
                 
                 # Применяем фильтр по отделу
-                filter_by_department()
+                #filter_by_department()
             
             with ui.row().classes('w-full items-center justify-center gap-4 py-4'):
                 
@@ -419,17 +419,23 @@ def show_equipment_name_statistics():
 # Функция для получения кнопки отчета по пользователям
 def get_user_report_button():
     """Возвращает кнопку для отчета по статистике пользователей"""
-    return ui.button('User Report', icon='people', on_click=show_user_rental_statistics).props('color=primary')
-
+    with ui.button(on_click=show_user_rental_statistics).props('color=primary').style('width: 100px; height: 100px;'):
+        ui.icon('person')
+        ui.label('User Report') 
+    
 # Функция для получения кнопки отчета по типам оборудования
 def get_equipment_report_button():
     """Возвращает кнопку для отчета по типам оборудования"""
-    return ui.button('Equipment Report', icon='devices', on_click=show_equipment_type_statistics).props('color=primary')
+    with ui.button(on_click=show_equipment_type_statistics).props('color=primary').style('width: 100px; height: 100px;'):
+        ui.icon('devices')
+        ui.label('Type Report')
 
 # Функция для получения кнопки отчета по именам оборудования
 def get_equipment_name_report_button():
     """Возвращает кнопку для отчета по именам оборудования"""
-    return ui.button('Equipment Report by Name', icon='inventory_2', on_click=show_equipment_name_statistics)
+    with ui.button(on_click=show_equipment_name_statistics).style('width: 100px; height: 100px;'):
+        ui.icon('inventory_2')
+        ui.label('Devices Report')
 
 # Функция для отображения полной истории аренды
 def show_rental_history():
@@ -584,7 +590,7 @@ def show_rental_history():
                     rows=rental_history,
                     row_key='id',
                     title='Rental History',
-                    pagination={'rowsPerPage': 15}
+                    pagination={'rowsPerPage': 8,'sortBy': 'id', 'descending': True}
                 ).classes('w-full')
             filtered_data.bind_value(table, 'filter')
             # Добавляем информацию о сортировке
@@ -720,7 +726,9 @@ def show_department_rental_statistics():
 # Функция для получения кнопки отчета по отделам
 def get_department_report_button():
     """Возвращает кнопку для отчета по статистике отделов"""
-    return ui.button('Department Report', icon='business', on_click=show_department_rental_statistics)
+    with ui.button(on_click=show_department_rental_statistics).style('width: 100px; height: 100px;'):
+        ui.icon('business')
+        ui.label('Department Report')
 
 # Если файл запущен напрямую, создаем тестовый интерфейс
 if __name__ == '__main__':

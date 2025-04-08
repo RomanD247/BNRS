@@ -162,7 +162,13 @@ def show_rent_dialog(equipment):
         user_select.update()
         ui.notify('The list of users has been updated.')
 
-    with ui.dialog() as dialog, ui.card().classes('leading-none').style('width: 350px'):
+    with ui.dialog() as dialog, ui.card().classes('leading-none').style('''
+        position: absolute;
+        left: 20%;
+        top: 20%;
+        transform: none;
+        width: 450px;
+    '''):
         with ui.row().classes('w-full justify-between items-center'):
             ui.label(text='Rent equipment').style('font-size: 150%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
@@ -299,7 +305,7 @@ def create_password_dialog():
     success_dialog = ui.dialog()
 
     with success_dialog:
-        with ui.card():
+        with ui.card().style('height: 500px'):
             with ui.row().classes('w-full justify-between items-center'):
                 ui.label('Admin panel').style('font-size: 150%')
                 ui.button(icon='close', on_click=success_dialog.close).props('flat round')
@@ -314,7 +320,7 @@ def create_password_dialog():
                     ui.icon('sd_card')
                     ui.label('Edit device') 
                 with ui.button(on_click=edit_etypes_dialog).style('width: 100px; height: 100px;'):
-                    ui.icon('settings')
+                    ui.icon('inventory_2')
                     ui.label('Edit device type') 
                 with ui.button(on_click=lambda: show_add_equipment_dialog(filter_callback=state.update_filter_select, lists_update_callback=update_lists)).style('width: 100px; height: 100px;'):
                     ui.icon('add')
@@ -328,10 +334,10 @@ def create_password_dialog():
             ui.separator()
             ui.label('Reports').style('font-size: 150%')
             with ui.row():
-                get_user_report_button().style('width: 100px; height: 100px;')
-                get_equipment_report_button().style('width: 100px; height: 100px;')
-                get_equipment_name_report_button().style('width: 100px; height: 100px;')
-                get_department_report_button().style('width: 100px; height: 100px;')
+                get_user_report_button()
+                get_equipment_report_button()
+                get_equipment_name_report_button()
+                get_department_report_button()
     with password_dialog:
         with ui.card():
             with ui.row().classes('w-full justify-between items-center'):
@@ -446,4 +452,5 @@ def main():
 
 if __name__ in {'__main__', '__mp_main__'}:
     main()
-    ui.run(reload=True, port=native.find_open_port(), native=False)
+    ui.run(reload=False,  window_size=(1800, 1000), port=8181, native=True)
+    #port=native.find_open_port()
