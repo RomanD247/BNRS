@@ -425,25 +425,14 @@ def get_user_rental_statistics(db: Session, start_date=None, end_date=None) -> L
     statistics = []
     
     for user_name, department_name, total_seconds, rental_count in results:
-        # Преобразуем секунды в удобочитаемый формат
-        if total_seconds:  # Проверяем, что total_seconds не None
+        # Convert seconds to human-readable format
+        if total_seconds:  # Check if total_seconds is not None
             
             days, remainder = divmod(total_seconds, 86400)
             hours, remainder = divmod(remainder, 3600)
             minutes = remainder // 60
             duration_parts = f"{int(days)}:{int(hours):02}:{int(minutes):02}"
             duration_str = duration_parts
-            # days, remainder = divmod(total_seconds, 86400)
-            # hours, remainder = divmod(remainder, 3600)
-            # minutes, seconds = divmod(remainder, 60)
-            
-            # duration_parts = []
-            # if days > 0: duration_parts.append(f"{int(days)}d")
-            # if hours > 0: duration_parts.append(f"{int(hours)}h")
-            # if minutes > 0: duration_parts.append(f"{int(minutes)}m")
-            # if seconds > 0 or not duration_parts: duration_parts.append(f"{int(seconds)}s")
-            
-            # duration_str = " ".join(duration_parts)
         else:
             duration_str = "never rented"
             rental_count = 0
@@ -541,18 +530,6 @@ def get_equipment_type_statistics(db: Session, start_date=None, end_date=None) -
         minutes = remainder // 60
         duration_str = f"{int(days)}:{int(hours):02}:{int(minutes):02}"
 
-        # days, remainder = divmod(total_seconds, 86400)
-        # hours, remainder = divmod(remainder, 3600)
-        # minutes, seconds = divmod(remainder, 60)
-        
-        # duration_parts = []
-        # if days > 0: duration_parts.append(f"{int(days)}d")
-        # if hours > 0: duration_parts.append(f"{int(hours)}h")
-        # if minutes > 0: duration_parts.append(f"{int(minutes)}m")
-        # if seconds > 0 or not duration_parts: duration_parts.append(f"{int(seconds)}s")
-        
-        # duration_str = " ".join(duration_parts)
-        
         # Calculate availability percentage
         total = stats["total_equipment"]
         available = total - stats["rented_equipment"]
@@ -634,8 +611,8 @@ def get_equipment_name_statistics(db: Session, start_date=None, end_date=None) -
     statistics = []
     
     for name, etype_name, equipment_count, total_seconds, rental_count in results:
-        # Преобразуем секунды в удобочитаемый формат
-        if total_seconds:  # Проверяем, что total_seconds не None
+        # Convert seconds to human-readable format
+        if total_seconds:  # Check if total_seconds is not None
             days, remainder = divmod(total_seconds, 86400)
             hours, remainder = divmod(remainder, 3600)
             minutes = remainder // 60

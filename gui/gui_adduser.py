@@ -81,7 +81,7 @@ def show_add_user_dialog(callback=None):
             create_user(db, name=name, dep=dep)
             ui.notify(f'User {name} added to {dep}')
             
-            # Вызываем callback функцию, если она передана
+            # Call the callback function if provided
             if callback:
                 callback()
                 

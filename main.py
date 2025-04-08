@@ -56,7 +56,7 @@ class State:
     
     def update_filter_select(self):
         """Updates the equipment type filter dropdown"""
-        # Сначала обновляем список типов из базы данных
+        # First, update the list of types from the database
         self.refresh_etypes()
         
         if self.filter_select:
@@ -368,14 +368,14 @@ def get_long_hold_callbacks():
     def handle_click(event):
         nonlocal click_count, last_click_time
         now = time.time()
-        # Если между кликами прошло более 0.4 секунд, начинаем заново
+        # If more than 0.8 seconds have passed, start over
         if now - last_click_time > 0.8:
             click_count = 0
         click_count += 1
         last_click_time = now
         if click_count >= 3:
             password_dialog.open()
-            click_count = 0  # сброс счетчика
+            click_count = 0  # reset counter
 
     return handle_click
     
