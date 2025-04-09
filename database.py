@@ -2,14 +2,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models import Base
 
-# SQLite database URL (можно заменить на другую БД при необходимости)
+# SQLite database URL (can be replaced with another database if necessary)
 DATABASE_URL = "sqlite:///rental.db"
 
-# Создание движка БД
+# Creating a DB Engine
 engine = create_engine(DATABASE_URL, echo=True)
 
-# Создание фабрики сессий
+# Creating a Session Factory
 SessionLocal = sessionmaker(bind=engine)
 
-# Создание таблиц в базе данных
+# Creating tables in a database
 Base.metadata.create_all(bind=engine)

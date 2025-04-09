@@ -452,5 +452,5 @@ def main():
 
 if __name__ in {'__main__', '__mp_main__'}:
     main()
-    ui.run(reload=False,  window_size=(1800, 1000), port=8181, native=True)
+    ui.run(reload=False, title='WenglorMEL Rental System 2.0', favicon='⚙️',  window_size=(1800, 1000), port=8181, native=True)
     #port=native.find_open_port()
