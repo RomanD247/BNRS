@@ -362,7 +362,7 @@ def get_active_rentals_summary(db: Session) -> List[Dict]:
         minutes = (duration.seconds % 3600) // 60
         seconds = duration.seconds % 60
         
-        days, remainder = divmod(total_seconds, 86400)
+        #days, remainder = divmod(total_seconds, 86400)
         hours, remainder = divmod(remainder, 3600)
         minutes = remainder // 60
         duration_str = f"{int(days)}:{int(hours):02}:{int(minutes):02}"
