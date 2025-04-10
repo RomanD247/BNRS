@@ -121,12 +121,12 @@ def show_add_user_dialog(callback=None):
                 for item in data:
                     ui.item(item, on_click=lambda item=item: (selected_label.set_text(f'{item}'))).style('width: 300px')
         selected_label = ui.label('You must choose department!')
-        ui.separator()
         
-        # Добавляем кнопку и метку для NFC
-        with ui.row().classes('w-full justify-between items-center'):
-            ui.button('Scan NFC', on_click=scan_nfc)
-            nfc_label = ui.label('NFC: Not set')
+            # Добавляем кнопку и метку для NFC #!NFC_feature
+        # ui.separator()
+        # with ui.row().classes('w-full justify-between items-center'):
+        #     ui.button('Scan NFC', on_click=scan_nfc)
+        #     nfc_label = ui.label('NFC: Not set')
         
         ui.separator() 
         ui.button(text='Add new employee', on_click=add_user).style('width: 300px; margin-left: 30px')

@@ -19,7 +19,9 @@ def edit_departments_dialog():
         # Create a fresh session to ensure we get updated data
         with SessionLocal() as fresh_db:
             with ui.dialog() as dialog, ui.card().style('width: 600px; height: 800px'):
-                ui.label('Select a department to edit').classes('text-h6 q-mb-md, w-540')
+                with ui.row().classes('w-full justify-between items-center'):
+                    ui.label('Select a department to edit').classes('text-h6 q-mb-md, w-540')
+                    ui.button(icon='close', on_click=dialog.close).props('flat round')
                 
                 # Create a scroll area for the department list
                 with ui.scroll_area().style('height: 750px'):
@@ -40,8 +42,6 @@ def edit_departments_dialog():
                                 return lambda: show_edit_form_for_department(dept, dialog)
                             
                             card.on('click', make_handler(department))
-                
-                ui.button('Close', on_click=dialog.close).classes('q-mt-md')
             
             dialog.open()
         

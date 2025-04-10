@@ -302,7 +302,7 @@ def full_refresh():
 # Admin Panel here
 def create_password_dialog():
     """Creates dialogs for entering a password and successful entry."""
-    password_dialog = ui.dialog()
+    password_dialog = ui.dialog().props('persistent')
     success_dialog = ui.dialog()
 
     with success_dialog:
@@ -329,7 +329,7 @@ def create_password_dialog():
                 with ui.button(on_click=lambda: show_add_department_dialog()).style('width: 100px; height: 100px;'):
                     ui.icon('add')
                     ui.label('Add Department')
-                with ui.button(on_click=full_refresh).tooltip('After editing all data must be refreshed').style('width: 100px; height: 100px;'):
+                with ui.button(on_click=full_refresh,  color='warning').tooltip('After editing all data must be refreshed').style('width: 100px; height: 100px'):
                     ui.icon('refresh')
                     ui.label('Refresh all data') 
             ui.separator()
@@ -340,7 +340,12 @@ def create_password_dialog():
                 get_equipment_name_report_button()
                 get_department_report_button()
     with password_dialog:
-        with ui.card():
+        with ui.card().style('''
+        position: absolute;
+        left: 20%;
+        top: 20%;
+        transform: none;
+        '''):
             with ui.row().classes('w-full justify-between items-center'):
                 ui.label('Enter password:')
                 ui.button(icon='close', on_click=password_dialog.close).props('flat round')
@@ -394,13 +399,14 @@ def main():
     with ui.row().style('height: 80vh;'):
         with ui.column().style('width: 300px; padding: 10px; align-items: center; margin-top: 25px'):
             with ui.card():
-                ui.label('Instructions').style('font-size: 150%; font-weight: bold')
-                ui.label('- Click on the equipment card in the available list to rent it.')
-                ui.label('- To create a new user press the "+" button in the user selection field.')
-                ui.label('- Click on the equipment card in the rented list to return it.')
-                ui.label('- Click on the filter button to filter the data by equipment type.')
+                ui.html('Instructions').style('font-size: 150%; font-weight: bold')
+                ui.html('- To rent equipment, click on the desired equipment card in the <b>"Available Equipment"</b> list.')
+                ui.html('- To return equipment, click on the equipment card in the <b>"Rented Equipment"</b> list.')
+                ui.html('- To add a new user, press the <b>"+"</b> button next to the user selection field in the Rent dialog.')
+                ui.html('- Use the <b>"Filter by Equipment Type"</b> dropdown to filter equipment by type.')
+                ui.html('- Access the rental history by clicking the <b>"Rental History"</b> button.')
             get_rental_history_button().style('width: 100%')
-            ui.button('Scan', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%')            
+            #ui.button('Scan', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%')   #!NFC_feature
             
 
         with ui.column():
@@ -419,7 +425,7 @@ def main():
                 #Available list
                 with ui.column():
                     ui.label('Available Equipment').classes('text-h5')
-                    available_container = ui.scroll_area().style('border: 2px solid black; padding: 10px; height: 700px; width: 500px')
+                    available_container = ui.scroll_area().style('border: 2px solid black; padding: 10px; height: 800px; width: 500px')
                     with available_container:
                         with ui.column():
                             for equipment in sorted(state.available_equipment, key=lambda x: x.name):
@@ -428,14 +434,14 @@ def main():
                 #Rented list
                 with ui.column():
                     ui.label('Rented Equipment').classes('text-h5')
-                    rented_container = ui.scroll_area().style('border: 2px solid black; padding: 10px; height: 700px; width: 500px')
+                    rented_container = ui.scroll_area().style('border: 2px solid black; padding: 10px; height: 800px; width: 500px')
                     with rented_container:
                         with ui.column():
                             for rental in sorted(state.rented_equipment, key=lambda x: x.equipment.name):
                                 card = create_equipment_card(rental, is_rented=True)
                                 card.on('click', lambda _, r=rental: show_return_dialog(r))
     with ui.row().style('position: fixed; right: 25px; top: 25px;'):
-        admin_button = ui.button().props('icon=admin_panel_settings').style('width: 150px; height: 150px; opacity: 100;')
+        admin_button = ui.button().props('icon=admin_panel_settings').style('width: 150px; height: 150px; opacity: 0;')
         on_click = get_long_hold_callbacks()
         admin_button.on('click', on_click)
     with ui.row().style('position: fixed; right: 30px; bottom: 30px'):
@@ -446,8 +452,8 @@ def main():
         else:
             button.props('icon=dark_mode')
 
-
 if __name__ in {'__main__', '__mp_main__'}:
     main()
-    ui.run(reload=False, title='WenglorMEL Rental System 2.0', favicon='⚙️',  window_size=(1800, 1000), port=8181, native=True)
+    ui.run(reload=False, title='WenglorMEL Rental System 2.0', favicon='assets/icon.ico', window_size=(1800, 1000), port=15716, native=True)
     #port=native.find_open_port()
+    #nicegui-pack --onefile --windowed --icon=assets/icon.ico --add-data "rental.db:." --name "WenglorMEL Rental System 2.0" main.py

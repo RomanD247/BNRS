@@ -48,7 +48,7 @@ def show_add_etype_dialog(main_dropdown, main_data, main_selected_label, filter_
         except Exception as e:
             ui.notify(f'Error adding equipment type: {e}', type='error')
 
-    with ui.dialog().props('persistent') as dialog, ui.card():
+    with ui.dialog() as dialog, ui.card():
         with ui.row().classes('w-full justify-between items-center'):
             ui.label(text='Adding a new equipment type').style('font-size: 200%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
@@ -85,7 +85,7 @@ def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
         except Exception as e:
             ui.notify(f'Error: {e}', type='error')
 
-    with ui.dialog().props('persistent') as dialog, ui.card():
+    with ui.dialog() as dialog, ui.card():
         with ui.row().classes('w-full justify-between items-center'):
             ui.label(text='Adding new equipment').style('font-size: 200%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
@@ -253,7 +253,7 @@ def show_import_equipment_dialog(callback=None):
         except Exception as e:
             ui.notify(f'Import error: {e}', type='error')
                 
-    with ui.dialog().props('persistent') as dialog, ui.card().classes('w-96'):
+    with ui.dialog() as dialog, ui.card().classes('w-96'):
         with ui.row().classes('w-full justify-between items-center'):
             ui.label(text='Import equipment from CSV').style('font-size: 150%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
