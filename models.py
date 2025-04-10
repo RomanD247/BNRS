@@ -15,7 +15,7 @@ class Equipment(Base):
     etype_id = Column(Integer, ForeignKey("etypes.id_et"))
     status = Column(Boolean, default=True)
     etype = relationship("Etype", back_populates="equipments")
-    nfc = Column(String, nullable=True)
+    nfc = Column(String, nullable=True, unique=True)
 
 class Etype(Base):
     """Represents equipment type."""
@@ -43,7 +43,7 @@ class User(Base):
     id_dep = Column(Integer, ForeignKey("departments.id_dep"))
     status = Column(Boolean, default=True)
     department = relationship("Department", back_populates="users")
-    nfc = Column(String, nullable=True)
+    nfc = Column(String, nullable=True, unique=True)
 
 class Rental(Base):
     """Represents an equipment rental event."""

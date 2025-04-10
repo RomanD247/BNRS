@@ -5,9 +5,9 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from crud import create_user, create_department, get_all_departments
+from crud import create_user, create_department, get_all_departments, find_user_by_nfc
 from database import SessionLocal
-from models import Department
+from NfcScan import get_nfc_input
 
 db = SessionLocal()
 
@@ -57,7 +57,7 @@ def show_add_department_dialog(callback=None):
         except Exception as e:
             ui.notify(f'Error adding department: {e}', type='error')
 
-    with ui.dialog().props('persistent') as dialog, ui.card():
+    with ui.dialog() as dialog, ui.card():
         with ui.row().classes('w-full justify-between items-center'):
             ui.label(text='Adding a new department').style('font-size: 200%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
@@ -69,6 +69,24 @@ def show_add_department_dialog(callback=None):
     dialog.open()
 
 def show_add_user_dialog(callback=None):
+    nfc_value = None
+    nfc_label = None
+
+    async def scan_nfc():
+        nonlocal nfc_value, nfc_label
+        nfc_value = await get_nfc_input("Scan NFC tag")
+        if nfc_value:
+            # Проверяем, не занят ли уже этот NFC код
+            existing_user = find_user_by_nfc(db, nfc_value)
+            if existing_user:
+                ui.notify(f'NFC tag already registered to user {existing_user.name}', type='warning')
+                nfc_value = None
+                nfc_label.set_text('NFC: Not set')
+            else:
+                nfc_label.set_text(f'NFC scanned')
+        else:
+            nfc_label.set_text('NFC: Not set')
+
     def add_user():
         name = name_input.value.strip()
         dep = selected_label.text.replace('Selected: ', '').strip()
@@ -78,7 +96,7 @@ def show_add_user_dialog(callback=None):
             return
 
         try:
-            create_user(db, name=name, dep=dep)
+            create_user(db, name=name, dep=dep, nfc=nfc_value)
             ui.notify(f'User {name} added to {dep}')
             
             # Call the callback function if provided
@@ -89,7 +107,7 @@ def show_add_user_dialog(callback=None):
         except Exception as e:
             ui.notify(f'Error: {e}', type='error')
 
-    with ui.dialog().props('persistent') as dialog, ui.card():
+    with ui.dialog() as dialog, ui.card():
         with ui.row().classes('w-full justify-between items-center'):
             ui.label(text='Adding a new employee').style('font-size: 200%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
@@ -102,8 +120,14 @@ def show_add_user_dialog(callback=None):
             with dropdown:
                 for item in data:
                     ui.item(item, on_click=lambda item=item: (selected_label.set_text(f'{item}'))).style('width: 300px')
-            #ui.button(text='+', on_click=lambda: show_add_department_dialog(lambda new_dep: selected_label.set_text(f'{new_dep}')))
         selected_label = ui.label('You must choose department!')
+        ui.separator()
+        
+        # Добавляем кнопку и метку для NFC
+        with ui.row().classes('w-full justify-between items-center'):
+            ui.button('Scan NFC', on_click=scan_nfc)
+            nfc_label = ui.label('NFC: Not set')
+        
         ui.separator() 
         ui.button(text='Add new employee', on_click=add_user).style('width: 300px; margin-left: 30px')
 

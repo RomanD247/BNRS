@@ -26,7 +26,10 @@ def edit_users_dialog():
                 with ui.scroll_area().style('height: 750px'):
                     # Get the list of all users from the fresh DB session
                     users = crud.get_all_users_including_inactive(fresh_db)
+                    # Sort users alphabetically by name
+                    users = sorted(users, key=lambda x: x.name.lower())
                     
+
                     # Create a card for each user
                     for user in users:
                         with ui.card().classes('cursor-pointer').style('width: 100%;') as card:

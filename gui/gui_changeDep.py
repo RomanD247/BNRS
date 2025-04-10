@@ -25,6 +25,8 @@ def edit_departments_dialog():
                 with ui.scroll_area().style('height: 750px'):
                     # Get the list of all departments from the fresh DB session
                     departments = crud.get_all_departments_including_inactive(fresh_db)
+                    # Sort departments alphabetically by name
+                    departments = sorted(departments, key=lambda x: x.name.lower())
                     
                     # Create a card for each department
                     for department in departments:

@@ -6,6 +6,7 @@ from gui.gui_changeDep import edit_departments_dialog
 from gui.gui_changeEtype import edit_etypes_dialog
 from gui.gui_changeEquip import edit_equipment_dialog
 from gui.gui_reports import get_user_report_button, get_equipment_report_button, get_equipment_name_report_button, get_rental_history_button, get_department_report_button
+from NfcScan import nfc_equipment_rental_workflow
 
 import asyncio
 import sys
@@ -189,13 +190,13 @@ def show_rent_dialog(equipment):
             users_dict[display_text] = user.id_us
             options.append(display_text)
         
-        with ui.row():
+        with ui.row().classes('w-full justify-between items-center'):
             user_select = ui.select(
                 options=options,
                 label='User',
                 with_input=True,
                 on_change=on_user_select_modified
-            ).style('width: 250px')
+            )#.style('width: 250px')
             ui.button('+', on_click=lambda: show_add_user_dialog(refresh_users_ui))
         
         ui.label('Comment (optional):')
@@ -399,11 +400,7 @@ def main():
                 ui.label('- Click on the equipment card in the rented list to return it.')
                 ui.label('- Click on the filter button to filter the data by equipment type.')
             get_rental_history_button().style('width: 100%')
-
-            # ui.button('Rent', on_click=lambda: ui.notify('Rent clicked')).style('width: 100px; height: 100px;')
-            # ui.button('Return', on_click=lambda: ui.notify('Return clicked')).style('width: 100px; height: 100px;')
-            # ui.button('Edit database', on_click=lambda: ui.notify('Edit database clicked')).style('width: 100px; height: 100px;')
-            
+            ui.button('Scan', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%')            
             
 
         with ui.column():

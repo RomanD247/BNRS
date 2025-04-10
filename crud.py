@@ -5,9 +5,9 @@ import datetime
 from sqlalchemy import func, case
 
 # Equipment CRUD operations
-def create_equipment(db: Session, name: str, serialnum: str = None, etype_id: int = None) -> Equipment:
+def create_equipment(db: Session, name: str, serialnum: str = None, etype_id: int = None, nfc: str = None) -> Equipment:
     """Create new equipment"""
-    equipment = Equipment(name=name, serialnum=serialnum, etype_id=etype_id, status=True)
+    equipment = Equipment(name=name, serialnum=serialnum, etype_id=etype_id, nfc=nfc, status=True)
     db.add(equipment)
     db.commit()
     db.refresh(equipment)
@@ -19,7 +19,7 @@ def get_equipment(db: Session, equipment_id: int) -> Optional[Equipment]:
 
 def get_all_equipment(db: Session) -> List[Equipment]:
     """Get all equipment"""
-    return db.query(Equipment).options(joinedload(Equipment.etype)).filter(Equipment.status == True).all()
+    return db.query(Equipment).options(joinedload(Equipment.etype)).filter(Equipment.status == True).order_by(Equipment.name).all()
 
 def update_equipment(db: Session, equipment_id: int, name: str = None, 
                     serialnum: str = None, etype_id: int = None, status: bool = None) -> Optional[Equipment]:
@@ -62,7 +62,7 @@ def get_etype_by_name(db: Session, name: str) -> Optional[Etype]:
 
 def get_all_etypes(db: Session) -> List[Etype]:
     """Get all equipment types"""
-    return db.query(Etype).filter(Etype.status == True).all()
+    return db.query(Etype).filter(Etype.status == True).order_by(Etype.name).all()
 
 def update_etype(db: Session, etype_id: int, name: str = None, status: bool = None) -> Optional[Etype]:
     """Update equipment type"""
@@ -106,7 +106,7 @@ def get_department_by_name(db: Session, name: str) -> Optional[Department]:
 
 def get_all_departments(db: Session) -> List[Department]:
     """Get all departments"""
-    return db.query(Department).filter(Department.status == True).all()
+    return db.query(Department).filter(Department.status == True).order_by(Department.name).all()
 
 def update_department(db: Session, department_id: int, name: str = None, status: bool = None) -> Optional[Department]:
     """Update department"""
@@ -128,13 +128,13 @@ def delete_department(db: Session, department_id: int) -> bool:
     return False
 
 # User CRUD operations
-def create_user(db: Session, name: str, dep: str) -> User:
+def create_user(db: Session, name: str, dep: str, nfc: str = None) -> User:
     """Create new user"""
     department = get_department_by_name(db, dep)
     if not department:
         raise ValueError(f"Department {dep} not found")
     
-    user = User(name=name, id_dep=department.id_dep, status=True)
+    user = User(name=name, id_dep=department.id_dep, nfc=nfc, status=True)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -150,7 +150,7 @@ def get_user_including_inactive(db: Session, user_id: int) -> Optional[User]:
 
 def get_all_users(db: Session) -> List[User]:
     """Get all users"""
-    return db.query(User).options(joinedload(User.department)).filter(User.status == True).all()
+    return db.query(User).options(joinedload(User.department)).filter(User.status == True).order_by(User.name).all()
 
 def update_user(db: Session, user_id: int, name: str = None, dep: str = None, status: bool = None, get_user_func=get_user) -> Optional[User]:
     """Update user"""
@@ -178,7 +178,7 @@ def delete_user(db: Session, user_id: int) -> bool:
 
 def get_all_users_including_inactive(db: Session) -> List[User]:
     """Get all users including inactive ones"""
-    return db.query(User).options(joinedload(User.department)).all()
+    return db.query(User).options(joinedload(User.department)).order_by(User.name).all()
 
 # Rental CRUD operations
 def create_rental(db: Session, user_id: int, equipment_id: int, comment: str = None) -> Rental:
@@ -206,6 +206,7 @@ def get_all_rentals(db: Session) -> List[Rental]:
     return db.query(Rental)\
         .options(joinedload(Rental.equipment).joinedload(Equipment.etype))\
         .options(joinedload(Rental.user).joinedload(User.department))\
+        .order_by(Rental.rental_start.desc())\
         .all()
 
 def return_equipment(db: Session, rental_id: int) -> Optional[Rental]:
@@ -552,15 +553,15 @@ def get_equipment_type_statistics(db: Session, start_date=None, end_date=None) -
 
 def get_all_departments_including_inactive(db: Session) -> List[Department]:
     """Get all departments including inactive ones"""
-    return db.query(Department).all()
+    return db.query(Department).order_by(Department.name).all()
 
 def get_all_equipment_including_inactive(db: Session) -> List[Equipment]:
     """Get all equipment including inactive ones"""
-    return db.query(Equipment).options(joinedload(Equipment.etype)).all()
+    return db.query(Equipment).options(joinedload(Equipment.etype)).order_by(Equipment.name).all()
 
 def get_all_etypes_including_inactive(db: Session) -> List[Etype]:
-    """Get all equipment types including inactive ones"""
-    return db.query(Etype).all()
+    """Get all equipment types including inactive ones, sorted by name"""
+    return db.query(Etype).order_by(Etype.name).all()
 
 def get_equipment_name_statistics(db: Session, start_date=None, end_date=None) -> List[Dict]:
     """
@@ -695,3 +696,43 @@ def get_department_rental_statistics(db: Session, start_date=None, end_date=None
         })
     
     return statistics
+
+def find_user_by_nfc(db: Session, nfc_value: str) -> Optional[User]:
+    """
+    Находит пользователя по NFC коду
+    
+    Args:
+        db: Сессия базы данных
+        nfc_value: Значение NFC кода
+        
+    Returns:
+        Объект пользователя или None, если пользователь не найден
+    """
+    return db.query(User).filter(User.nfc == nfc_value, User.status == True).first()
+
+def find_equipment_by_nfc(db: Session, nfc_value: str) -> Optional[Equipment]:
+    """
+    Находит оборудование по NFC коду
+    
+    Args:
+        db: Сессия базы данных
+        nfc_value: Значение NFC кода
+        
+    Returns:
+        Объект оборудования или None, если оборудование не найдено
+    """
+    return db.query(Equipment).filter(Equipment.nfc == nfc_value, Equipment.status == True).first()
+
+def is_equipment_rented(db: Session, equipment_id: int) -> Optional[Rental]:
+    """
+    Проверяет, находится ли оборудование в аренде
+    
+    Args:
+        db: Сессия базы данных
+        equipment_id: ID оборудования
+        
+    Returns:
+        Объект аренды или None, если оборудование не в аренде
+    """
+    return db.query(Rental).filter(Rental.equipment_id == equipment_id, 
+                                  Rental.rental_end == None).first()
