@@ -1,3 +1,5 @@
-SQLAlchemy
+SQLAlchemy>=2.0.0
 SQLite
-NiceGUI
+NiceGUI>=2.0.0
+pandas>=2.0.0
+python-dotenv>=1.0.0

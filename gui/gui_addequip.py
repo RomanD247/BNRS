@@ -5,8 +5,9 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from crud import create_equipment, create_etype, get_all_etypes, get_etype_by_name
+from crud import create_equipment, create_etype, get_all_etypes, get_etype_by_name, find_equipment_by_nfc
 from database import SessionLocal
+from NfcScan import get_nfc_input
 
 db = SessionLocal()
 
@@ -60,6 +61,26 @@ def show_add_etype_dialog(main_dropdown, main_data, main_selected_label, filter_
     dialog.open()
 
 def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
+    nfc_value = None
+    nfc_label = None
+
+    async def scan_nfc():
+        nonlocal nfc_value, nfc_label
+        nfc_value = await get_nfc_input("Scan Wenglor Pass")
+        nfc_value = nfc_value.lower()
+        if nfc_value:
+            # Check if this NFC code is already taken
+            existing_equipment = find_equipment_by_nfc(db, nfc_value)
+            if existing_equipment:
+                ui.notify(f'Wenglor Pass already registered to equipment {existing_equipment.name}', type='warning')
+                nfc_value = None
+                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
+            else:
+                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Pass scanned</b>'
+        else:
+            with ui.row().classes('items-center'):
+                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
+
     def add_equipment():
         name = name_input.value.strip()
         serialnum = serialnum_input.value.strip()
@@ -74,7 +95,7 @@ def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
             if not etype:
                 ui.notify(f'Equipment type {etype_name} not found!', type='error')
                 return
-            create_equipment(db, name=name, serialnum=serialnum, etype_id=etype.id_et)
+            create_equipment(db, name=name, serialnum=serialnum, etype_id=etype.id_et, nfc=nfc_value)
             ui.notify(f'Equipment {name} added successfully!')
             
             # Call the lists update callback to refresh equipment lists
@@ -103,6 +124,13 @@ def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
                     ui.item(item, on_click=lambda item=item: (selected_label.set_text(f'{item}'))).style('width: 300px')
             ui.button(text='+', on_click=lambda: show_add_etype_dialog(dropdown, data, selected_label, filter_callback))
         selected_label = ui.label('You must choose equipment type!')
+        
+        # Add a button and tag for NFC
+        ui.separator()
+        with ui.row().classes('w-full justify-between items-center'):
+            ui.button('Scan Wenglor Pass', on_click=scan_nfc)
+            nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
+            
         ui.separator() 
         ui.button(text='Add new equipment', on_click=add_equipment).style('width: 300px; margin-left: 30px')
         ui.button(text='Import equipment from CSV', on_click=lambda: show_import_equipment_dialog(lists_update_callback)).style('width: 300px; margin-left: 30px')

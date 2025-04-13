@@ -74,18 +74,20 @@ def show_add_user_dialog(callback=None):
 
     async def scan_nfc():
         nonlocal nfc_value, nfc_label
-        nfc_value = await get_nfc_input("Scan NFC tag")
+        nfc_value = await get_nfc_input("Scan Wenglor Pass")
+        nfc_value = nfc_value.lower()
         if nfc_value:
-            # Проверяем, не занят ли уже этот NFC код
+            # Check if this NFC code is already taken
             existing_user = find_user_by_nfc(db, nfc_value)
             if existing_user:
-                ui.notify(f'NFC tag already registered to user {existing_user.name}', type='warning')
+                ui.notify(f'Wenglor Pass already registered to user {existing_user.name}', type='warning')
                 nfc_value = None
-                nfc_label.set_text('NFC: Not set')
+                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
             else:
-                nfc_label.set_text(f'NFC scanned')
+                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Pass scanned</b>'
         else:
-            nfc_label.set_text('NFC: Not set')
+            with ui.row().classes('items-center'):
+                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
 
     def add_user():
         name = name_input.value.strip()
@@ -122,12 +124,13 @@ def show_add_user_dialog(callback=None):
                     ui.item(item, on_click=lambda item=item: (selected_label.set_text(f'{item}'))).style('width: 300px')
         selected_label = ui.label('You must choose department!')
         
-            # Добавляем кнопку и метку для NFC #!NFC_feature
-        # ui.separator()
-        # with ui.row().classes('w-full justify-between items-center'):
-        #     ui.button('Scan NFC', on_click=scan_nfc)
-        #     nfc_label = ui.label('NFC: Not set')
-        
+            # Add a button and tag for NFC #!NFC_feature
+        ui.separator()
+        with ui.row().classes('w-full justify-between items-center'):
+            ui.button('Scan Wenglor Pass', on_click=scan_nfc)
+            nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
+            
+            
         ui.separator() 
         ui.button(text='Add new employee', on_click=add_user).style('width: 300px; margin-left: 30px')
 

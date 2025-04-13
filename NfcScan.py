@@ -10,13 +10,13 @@ db = SessionLocal()
 
 async def get_nfc_input(prompt_message: str) -> str:
     """
-    Открывает диалоговое окно с запросом и возвращает введенный пользователем текст после нажатия Enter.
+    Opens a dialog box with a prompt and returns the text entered by the user after pressing Enter.
 
     Args:
-        prompt_message: Сообщение, отображаемое в диалоговом окне.
+        prompt_message: Message displayed in the dialog box.
 
     Returns:
-        Введенный пользователем текст (строка).
+        Text entered by the user (string).
     """
     result = ""
     all_keys = deque()
@@ -34,17 +34,17 @@ async def get_nfc_input(prompt_message: str) -> str:
             result = "".join(list(all_keys))
             keyboard.active = False
             dialog.close()
-            closed.set_result(None)  # Разблокируем ожидание
+            closed.set_result(None)  # Unlock waiting
             return
 
         if len(key_str) == 1 and key_str.isprintable():
             all_keys.append(key_str)
-            print("Набрано: ", "".join(all_keys))
+            print("Typed: ", "".join(all_keys))
 
     def close_dialog():
         keyboard.active = False
         dialog.close()
-        closed.set_result(None) # Разблокируем ожидание даже при закрытии без Enter
+        closed.set_result(None) # Unlock waiting even when closing without Enter
 
     with dialog, ui.card():
         ui.label(prompt_message)
@@ -53,59 +53,60 @@ async def get_nfc_input(prompt_message: str) -> str:
         def update_display():
             input_display.text = "".join(list(all_keys))
 
-        #ui.timer(0.1, update_display, active=True) # Обновляем отображение ввода
+        #ui.timer(0.1, update_display, active=True) # Update input display
 
-        ui.button('Закрыть', on_click=close_dialog)
+        ui.button('Close', on_click=close_dialog)
 
         keyboard = ui.keyboard(on_key)
         keyboard.active = True
 
     dialog.open()
-    await closed  # Ожидаем, пока диалог не будет закрыт (через Enter или кнопку)
+    await closed  # Wait until dialog is closed (via Enter or button)
     return result
 
 async def nfc_equipment_rental_workflow(update_callback=None):
     """
-    Процесс создания новой аренды или возврата оборудования с использованием NFC:
-    1. Сканирование оборудования
-    2. Проверка статуса аренды оборудования
-    3. Если арендовано - возврат, если нет - продолжение процесса аренды:
-       3.1. Сканирование пропуска пользователя
-       3.2. Подтверждение аренды и создание записи
+    Process of creating a new rental or returning equipment using NFC:
+    1. Equipment scanning
+    2. Checking equipment rental status
+    3. If rented - return, if not - continue rental process:
+       3.1. Scanning user pass
+       3.2. Confirming rental and creating record
        
     Args:
-        update_callback: Функция обратного вызова для обновления списков оборудования
+        update_callback: Callback function for updating equipment lists
     """
     if db is None:
-        ui.notify("Ошибка подключения к базе данных", color="negative")
+        ui.notify("Database connection error", color="negative")
         return
     
-    # Получение NFC оборудования
+    # Get equipment NFC
     equipment_nfc = await get_nfc_input("Scan device")
     if not equipment_nfc:
-        ui.notify("Сканирование устройства отменено", color="warning")
+        ui.notify("Device scanning cancelled", color="warning")
         return
     
-    # Поиск оборудования по NFC
+    # Find equipment by NFC
     equipment = crud.find_equipment_by_nfc(db, equipment_nfc)
     if not equipment:
-        ui.notify(f"Оборудование с NFC {equipment_nfc} не найдено", color="negative")
+        ui.notify(f"Equipment not found", color="negative")
+        #ui.notify(f"Equipment with NFC {equipment_nfc} not found", color="negative") #for debug
         return
     
-    # Проверка, не находится ли оборудование уже в аренде
+    # Check if equipment is already rented
     rental = crud.is_equipment_rented(db, equipment.id_eq)
     
     if rental:
-        # Оборудование уже арендовано, показываем диалог возврата
+        # Equipment is already rented, show return dialog
         dialog = ui.dialog()
         confirmed = asyncio.Future()
         
         def on_confirm():
             crud.return_equipment(db, rental.id_re)
-            ui.notify('Оборудование успешно возвращено', color="positive")
+            ui.notify('Equipment successfully returned', color="positive")
             dialog.close()
             confirmed.set_result(True)
-            # Обновляем списки оборудования после возврата
+            # Update equipment lists after return
             if update_callback:
                 update_callback()
         
@@ -115,42 +116,47 @@ async def nfc_equipment_rental_workflow(update_callback=None):
         
         with dialog, ui.card():
             with ui.row().classes('w-full justify-between items-center'):
-                ui.label(text='Возврат оборудования').style('font-size: 200%')
+                ui.label(text='Equipment Return').style('font-size: 200%')
                 ui.button(icon='close', on_click=on_cancel).props('flat round')
+            with ui.separator():
+                pass
+
             with ui.row().classes('w-full justify-between items-center'):
                 ui.label(f"{equipment.name}").style('font-weight: bold; font-size: 16px')
                 ui.label(f"{equipment.etype.name if equipment.etype else 'Unknown'}")
-            ui.html(f"Арендовано: <b>{rental.user.name}</b>")
-            ui.label(f"Отдел: {rental.user.department.name}")
-            ui.label(f"Арендовано с: {rental.rental_start.strftime('%Y-%m-%d %H:%M')}")
-            
+            with ui.separator():
+                pass
+            ui.html(f"Rented by: <b>{rental.user.name}</b>")
+            ui.label(f"Department: {rental.user.department.name}")
+            ui.label(f"Rented since: {rental.rental_start.strftime('%Y-%m-%d %H:%M')}")
+            with ui.separator():
+                pass
             if rental.comment:
-                ui.label("Комментарий:").style('margin-top: 10px; font-weight: bold')
+                ui.label("Comment:").style('margin-top: 10px; font-weight: bold')
                 ui.label(rental.comment).style('white-space: pre-wrap')
             
-            with ui.row().classes('w-full justify-between'):
-                ui.button('Отмена', on_click=on_cancel).props('outline')
-                ui.button('Подтвердить возврат', on_click=on_confirm).props('unelevated color=primary')
+            ui.button('Confirm Return', on_click=on_confirm).props('unelevated color=primary')
         
         dialog.open()
         await confirmed
         
     else:
-        # Оборудование не арендовано, продолжаем процесс аренды
-        # Получение NFC пользователя
+        # Equipment is not rented, continue rental process
+        # Get user NFC
         user_nfc = await get_nfc_input("Scan your pass")
         user_nfc = user_nfc.lower()
         if not user_nfc:
-            ui.notify("Сканирование пропуска отменено", color="warning")
+            ui.notify("Pass scanning cancelled", color="warning")
             return
         
-        # Поиск пользователя по NFC
+        # Find user by NFC
         user = crud.find_user_by_nfc(db, user_nfc)
         if not user:
-            ui.notify(f"Пользователь с NFC {user_nfc} не найден", color="negative")
+            ui.notify(f"User not found", color="negative")
+            #ui.notify(f"User with NFC {user_nfc} not found", color="negative") #for debug
             return
         
-        # Показать диалог подтверждения
+        # Show confirmation dialog
         dialog = ui.dialog()
         confirmed = asyncio.Future()
         
@@ -169,54 +175,49 @@ async def nfc_equipment_rental_workflow(update_callback=None):
             comment_text = e.value
         
         with dialog, ui.card():
-            ui.label('Подтверждение аренды').classes('text-h5')
+            with ui.row().classes('w-full justify-between items-center'):
+                ui.label('Rental Confirmation').style('font-size: 200%')
+                ui.button(icon='close', on_click=on_cancel).props('flat round')
             
             with ui.separator():
                 pass
+
+            ui.label('User:').style('font-weight: bold; font-size: 16px')
+            ui.label(f"{user.name}").style('font-weight: bold')
+            ui.label(f"Department: {user.department.name}")
+
+            with ui.separator():
+                pass
             
-            with ui.row():
-                with ui.column():
-                    ui.label('Пользователь:').classes('text-subtitle1')
-                    ui.label(f"{user.name}").classes('text-body1')
-                    ui.label(f"Отдел: {user.department.name}").classes('text-body1')
-                
-                with ui.column():
-                    ui.label('Оборудование:').classes('text-subtitle1')
-                    ui.label(f"{equipment.name}").classes('text-body1')
-                    ui.label(f"Тип: {equipment.etype.name if equipment.etype else 'Не указан'}").classes('text-body1')
-                    ui.label(f"Серийный номер: {equipment.serialnum or 'Не указан'}").classes('text-body1')
-            
+            ui.label('Equipment:').style('font-weight: bold; font-size: 16px')
+            with ui.row().classes('w-full justify-between items-center'):
+                ui.label(f"{equipment.name}").style('font-weight: bold')
+                ui.label(f"{equipment.etype.name if equipment.etype else 'Not specified'}")
+            ui.label(f"S/N: {equipment.serialnum or 'Not specified'}")
+
+
             with ui.separator():
                 pass
                 
-            ui.input('Комментарий (опционально)', on_change=on_comment_change)
+            ui.input('Comment (optional)', on_change=on_comment_change).style('width: 100%')
             
-            with ui.row().classes('w-full justify-between'):
-                ui.button('Отмена', on_click=on_cancel).props('outline')
-                ui.button('Подтвердить', on_click=on_confirm).props('unelevated color=primary')
+            ui.button('Confirm Rental', on_click=on_confirm).props('unelevated color=primary')
         
         dialog.open()
         
-        # Ожидаем результат подтверждения
+        # Wait for confirmation result
         result = await confirmed
         
         if result:
             try:
-                # Создаем запись аренды
+                # Create rental record
                 rental = crud.create_rental(db, user.id_us, equipment.id_eq, comment_text)
-                ui.notify("Аренда успешно создана", color="positive")
-                # Обновляем списки оборудования после аренды
+                ui.notify("Rental successfully created", color="positive")
+                # Update equipment lists after rental
                 if update_callback:
                     update_callback()
             except Exception as e:
-                ui.notify(f"Ошибка при создании аренды: {str(e)}", color="negative")
+                ui.notify(f"Error creating rental: {str(e)}", color="negative")
         else:
-            ui.notify("Операция отменена", color="warning")
+            ui.notify("Operation cancelled", color="warning")
 
-# Пример использования в приложении NiceGUI
-def main():
-    ui.button('Сканировать и арендовать', on_click=nfc_equipment_rental_workflow)
-    ui.run()
-
-if __name__ in {'__main__', '__mp_main__'}:
-    main()

@@ -7,6 +7,7 @@ import crud
 from sqlalchemy.orm import Session
 from database import SessionLocal
 from models import Equipment
+from NfcScan import get_nfc_input
 
 # Create a single DB instance
 db = SessionLocal()
@@ -32,7 +33,10 @@ def edit_equipment_dialog():
                     for equipment in equipment_list:
                         with ui.card().classes('cursor-pointer').style('width: 100%;') as card:
                             with ui.row().classes('text-left'):
-                                ui.icon('check_box' if equipment.status == True else 'check_box_outline_blank').classes(f'text-2xl {"text-green-500" if equipment.status else "text-red-500"}')
+                                with ui.column():
+                                    ui.icon('check_box' if equipment.status == True else 'check_box_outline_blank').classes(f'text-2xl {"text-green-500" if equipment.status else "text-red-500"}')
+                                    if equipment.nfc:
+                                            ui.icon('nfc').classes('text-2xl text-orange-500')
                                 with ui.column():
                                     ui.label(f'Name: {equipment.name}').classes('text-weight-bold').style('margin-top: -10px')
                                     ui.label(f'S/N: {equipment.serialnum}').style('margin-top: -10px')
@@ -79,7 +83,24 @@ def show_edit_form_for_equipment(equipment, parent_dialog=None):
             serialnum_value = fresh_equipment.serialnum
             etype_value = fresh_equipment.etype.name if fresh_equipment.etype else None
             status_value = fresh_equipment.status
+            nfc_value = fresh_equipment.nfc
+            nfc_label = None
 
+            async def scan_nfc():
+                nonlocal nfc_value, nfc_label
+                nfc_value = await get_nfc_input("Scan NFC Tag")
+                nfc_value = nfc_value.lower()
+                if nfc_value:
+                    # Check if this NFC code is already taken by another equipment
+                    existing_equipment = crud.find_equipment_by_nfc(fresh_db, nfc_value)
+                    if existing_equipment and existing_equipment.id_eq != fresh_equipment.id_eq:
+                        ui.notify(f'NFC Tag already registered to equipment {existing_equipment.name}', type='warning')
+                        nfc_value = fresh_equipment.nfc  # Reset to original value
+                        nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>NFC Tag: Not set</b>'
+                    else:
+                        nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>NFC Tag scanned</b>'
+                else:
+                    nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>NFC Tag: Not set</b>'
             
             # Use dialog directly
             with ui.dialog() as edit_dialog, ui.card().classes('w-96'):
@@ -104,6 +125,12 @@ def show_edit_form_for_equipment(equipment, parent_dialog=None):
                     ui.label('Status (active):')
                     status_switch = ui.switch('', value=status_value)
                 
+                # NFC scanning section
+                ui.separator()
+                with ui.row().classes('w-full justify-between items-center q-mb-md'):
+                    ui.button('Scan NFC Tag', on_click=scan_nfc)
+                    nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>NFC Tag scanned</b>' if nfc_value else '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>NFC Tag: Not set</b>')
+                
                 with ui.row().classes('justify-end'):
                     ui.button('Cancel', on_click=edit_dialog.close).classes('q-mr-sm')
                     ui.button('Apply', on_click=lambda: apply_changes(
@@ -112,6 +139,7 @@ def show_edit_form_for_equipment(equipment, parent_dialog=None):
                         serialnum_input.value,
                         etype_select.value,
                         status_switch.value,
+                        nfc_value,
                         edit_dialog,
                         parent_dialog
                     )).classes('bg-primary')
@@ -125,7 +153,7 @@ def show_edit_form_for_equipment(equipment, parent_dialog=None):
         print(f"Error in show_edit_form_for_equipment: {str(e)}")  # for debugging
 
 
-def apply_changes(equipment_id, new_name, new_serialnum, new_etype, new_status, dialog, parent_dialog=None):
+def apply_changes(equipment_id, new_name, new_serialnum, new_etype, new_status, nfc_value, dialog, parent_dialog=None):
     """
     Applies changes to the equipment in the database.
     
@@ -135,6 +163,7 @@ def apply_changes(equipment_id, new_name, new_serialnum, new_etype, new_status, 
         new_serialnum: New serial number
         new_etype: New equipment type name
         new_status: New equipment status
+        nfc_value: New NFC value
         dialog: Dialog to close after saving
         parent_dialog: Parent dialog to close if needed
     """
@@ -159,6 +188,17 @@ def apply_changes(equipment_id, new_name, new_serialnum, new_etype, new_status, 
             equipment.serialnum = new_serialnum
             equipment.etype_id = etype.id_et
             equipment.status = new_status
+            
+            # Update NFC value
+            if nfc_value is not None:
+                # Check if this NFC code is already taken by another equipment
+                if nfc_value:
+                    existing_equipment = crud.find_equipment_by_nfc(session, nfc_value)
+                    if existing_equipment and existing_equipment.id_eq != equipment_id:
+                        ui.notify(f'NFC code already registered to equipment {existing_equipment.name}', color='negative')
+                        return
+                equipment.nfc = nfc_value
+            
             session.commit()
             
             ui.notify(f'Equipment {new_name} successfully updated', color='positive')
