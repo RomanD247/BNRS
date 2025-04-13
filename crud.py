@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from models import Equipment, User, Rental, Department, Etype
+from models import Equipment, User, Rental, Department, Etype, Feedback
 from typing import List, Optional, Dict
 import datetime
 from sqlalchemy import func, case
@@ -670,8 +670,9 @@ def get_department_rental_statistics(db: Session, start_date=None, end_date=None
         subquery.c.rental_count,
         subquery.c.total_seconds
     ).select_from(Department)\
-    .outerjoin(subquery, Department.id_dep == subquery.c.id_dep)\
+    .join(subquery, Department.id_dep == subquery.c.id_dep)\
     .filter(Department.status == True)\
+    .filter(subquery.c.total_seconds > 0)\
     .order_by(Department.name)\
     .all()
 
@@ -736,3 +737,37 @@ def is_equipment_rented(db: Session, equipment_id: int) -> Optional[Rental]:
     """
     return db.query(Rental).filter(Rental.equipment_id == equipment_id, 
                                   Rental.rental_end == None).first()
+
+def create_feedback(db: Session, feedback_text: str, name: str = None) -> Feedback:
+    """
+    Create a new feedback entry
+    
+    Args:
+        db: Database session
+        feedback_text: Feedback message text
+        name: Optional name of the person providing feedback
+        
+    Returns:
+        Created feedback object
+    """
+    feedback = Feedback(
+        name=name,
+        feedback=feedback_text,
+        date=datetime.datetime.now()
+    )
+    db.add(feedback)
+    db.commit()
+    db.refresh(feedback)
+    return feedback
+
+def get_all_feedback(db: Session) -> List[Feedback]:
+    """
+    Get all feedback entries ordered by date (newest first)
+    
+    Args:
+        db: Database session
+        
+    Returns:
+        List of feedback objects
+    """
+    return db.query(Feedback).order_by(Feedback.date.desc()).all()

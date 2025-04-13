@@ -57,3 +57,12 @@ class Rental(Base):
     comment = Column(String, nullable=True)
     user = relationship("User")
     equipment = relationship("Equipment")
+
+class Feedback(Base):
+    """Represents a feedback message."""
+    __tablename__ = "feedback"
+
+    id_fb = Column(Integer, primary_key=True)
+    name = Column(String)
+    date = Column(DateTime, default=datetime.datetime.now)
+    feedback = Column(String, nullable=False)

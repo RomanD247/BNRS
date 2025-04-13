@@ -8,7 +8,7 @@ import datetime
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from crud import get_user_rental_statistics, get_equipment_type_statistics, get_equipment_name_statistics, get_all_rentals, get_department_rental_statistics
+from crud import get_user_rental_statistics, get_equipment_type_statistics, get_equipment_name_statistics, get_all_rentals, get_department_rental_statistics, get_all_feedback
 from database import SessionLocal
 
 # Create a global database connection
@@ -538,8 +538,6 @@ def show_rental_history():
                     update_data()
                     # Close menu
                     date_menu.close()
-                    # Update filter button text
-                    #date_filter_btn.text = f'Date: {start} - {end}'
             
             # Function to clear date filter
             def date_clear():
@@ -547,7 +545,6 @@ def show_rental_history():
                 start_date = None
                 end_date = None
                 date_input.value = None
-                #date_filter_btn.text = 'Date Filter'
                 update_data()
                 date_menu.close()
             
@@ -579,7 +576,6 @@ def show_rental_history():
                                 ui.button('Clear', on_click=lambda: date_clear()).props('flat')
                                 ui.button('Apply', on_click=lambda: date_apply()).props('color=primary')
                 
-                               
                 # Export button with functionality
                 ui.button('Export to CSV', icon='download', on_click=lambda: export_to_csv(
                     table.rows, f"rental_history_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
@@ -707,8 +703,6 @@ def show_department_rental_statistics():
                         update_data()
                         # Close menu
                         date_menu.close()
-                        # Update filter button text
-                        #date_filter_btn.text = f'Date: {start} - {end}'
                 
                 # Function to clear date filter
                 def date_clear():
@@ -716,7 +710,6 @@ def show_department_rental_statistics():
                     start_date = None
                     end_date = None
                     date_input.value = None
-                    #date_filter_btn.text = 'Date Filter'
                     update_data()
                     date_menu.close()
             
@@ -732,6 +725,149 @@ def get_department_report_button():
         ui.icon('business')
         ui.label('Department Report')
 
+# Function to show feedback entries
+def show_feedback_entries():
+    """Shows all feedback entries in a table"""
+    with ui.dialog() as dialog:
+        with ui.card().style('max-width: none; width: 1000px'):
+            with ui.row().classes('w-full justify-between items-center'):
+                ui.label('Feedback Entries').classes('text-h5')
+                ui.button(icon='close', on_click=dialog.close).props('flat round')
+            
+            # Variables for storing selected dates
+            start_date = None
+            end_date = None
+            
+            # Create table columns
+            columns = [
+                {'name': 'id', 'label': 'ID', 'field': 'id', 'sortable': True, 'align': 'left'},
+                {'name': 'name', 'label': 'Name', 'field': 'name', 'sortable': True, 'align': 'left'},
+                {'name': 'date', 'label': 'Date', 'field': 'date', 'sortable': True, 'align': 'left'},
+                {'name': 'feedback', 'label': 'Feedback', 'field': 'feedback', 'sortable': True, 'align': 'left'}
+            ]
+            
+            # Get feedback data
+            feedback_data = []
+            
+            feedbacks = get_all_feedback(db)
+            for feedback in feedbacks:
+                feedback_data.append({
+                    'id': feedback.id_fb,
+                    'name': feedback.name or 'Anonymous',
+                    'date': feedback.date.strftime('%Y-%m-%d %H:%M'),
+                    'feedback': feedback.feedback
+                })
+            
+            # Save original data for filtering
+            original_feedback_data = feedback_data.copy()
+            
+            # Create variable for table
+            table = None
+            
+            # Function to update data with filters
+            def update_data():
+                nonlocal start_date, end_date
+                
+                # Filter data by dates
+                filtered_data = original_feedback_data.copy()
+                
+                if start_date and end_date:
+                    filtered_data = []
+                    for item in original_feedback_data:
+                        # Convert date string to datetime object
+                        feedback_date = datetime.datetime.strptime(item['date'], '%Y-%m-%d %H:%M')
+                        
+                        # Check if date falls within selected range
+                        if start_date <= feedback_date <= end_date:
+                            filtered_data.append(item)
+                
+                # Update table
+                table.rows = filtered_data
+            
+            # Function to apply date filter
+            def date_apply():
+                nonlocal start_date, end_date
+                
+                date_range = date_input.value
+                if date_range and ' - ' in date_range:
+                    start, end = date_range.split(' - ')
+                    # Convert string dates to datetime objects
+                    start_date = datetime.datetime.strptime(start, '%Y-%m-%d')
+                    # Set end of day for end date
+                    end_date = datetime.datetime.strptime(end, '%Y-%m-%d')
+                    end_date = end_date.replace(hour=23, minute=59, second=59)
+                    
+                    # Update data with new filters
+                    update_data()
+                    # Close menu
+                    date_menu.close()
+            
+            # Function to clear date filter
+            def date_clear():
+                nonlocal start_date, end_date
+                start_date = None
+                end_date = None
+                date_input.value = None
+                update_data()
+                date_menu.close()
+            
+            with ui.row().classes('w-full items-center justify-center gap-4 py-4'):
+                
+                # Create search field
+                filtered_data = ui.input('Search in all fields')
+                
+                # Dropdown menu for date filter
+                with ui.button('Date Filter', icon='event').props('outline'):
+                    with ui.menu().classes('ml-auto') as date_menu:
+                        with ui.card():
+                            ui.label('Select Date Range').classes('text-h6 q-pa-md')
+                            
+                            # Field for displaying selected date range
+                            date_input = ui.input('Date range').classes('w-full q-px-md')
+                            
+                            # Date range picker component
+                            date_picker = ui.date().props('range').bind_value(
+                                date_input,
+                                forward=lambda x: f'{x["from"]} - {x["to"]}' if x else None,
+                                backward=lambda x: {
+                                    'from': x.split(' - ')[0],
+                                    'to': x.split(' - ')[1],
+                                } if ' - ' in (x or '') else None,
+                            )
+                            
+                            with ui.row().classes('q-pa-md justify-end'):
+                                ui.button('Clear', on_click=lambda: date_clear()).props('flat')
+                                ui.button('Apply', on_click=lambda: date_apply()).props('color=primary')
+                
+                # Export button with functionality
+                ui.button('Export to CSV', icon='download', on_click=lambda: export_to_csv(
+                    table.rows, f"feedback_entries_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                )).props('outline')
+            
+            # Create table with data
+            with ui.card().classes('w-full'):
+                table = ui.table(
+                    columns=columns,
+                    rows=feedback_data,
+                    row_key='id',
+                    title='Feedback Entries',
+                    pagination={'rowsPerPage': 10, 'sortBy': 'date', 'descending': True}
+                ).classes('w-full')
+                
+                filtered_data.bind_value(table, 'filter')
+            
+            # Add sorting information
+            ui.label('Click on column headers to sort data').classes('text-caption text-grey-7 q-mt-sm')
+    
+    dialog.open()
+
+# Function to get feedback view button
+def get_feedback_button():
+    """Returns button for viewing feedback entries"""
+    with ui.button(on_click=show_feedback_entries).style('width: 100px; height: 100px;'):
+        ui.icon('feedback')
+        ui.label('View Feedback')
+
 # If file is run directly, create test interface
 if __name__ == '__main__':
     ui.label('Reports Test Page').classes('text-h4')
@@ -741,5 +877,6 @@ if __name__ == '__main__':
         get_equipment_name_report_button()
         get_department_report_button()
         get_rental_history_button()
+        get_feedback_button()
     ui.run()
 

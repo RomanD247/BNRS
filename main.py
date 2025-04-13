@@ -5,7 +5,7 @@ from gui.gui_changeUser import edit_users_dialog
 from gui.gui_changeDep import edit_departments_dialog
 from gui.gui_changeEtype import edit_etypes_dialog
 from gui.gui_changeEquip import edit_equipment_dialog
-from gui.gui_reports import get_user_report_button, get_equipment_report_button, get_equipment_name_report_button, get_rental_history_button, get_department_report_button
+from gui.gui_reports import get_user_report_button, get_equipment_report_button, get_equipment_name_report_button, get_rental_history_button, get_department_report_button, get_feedback_button
 from NfcScan import nfc_equipment_rental_workflow
 
 import asyncio
@@ -17,7 +17,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from crud import (
     get_available_equipment, get_all_users, create_rental, 
     get_active_rentals, return_equipment, get_all_etypes,
-    get_available_equipment_by_type, get_active_rentals_by_equipment_type
+    get_available_equipment_by_type, get_active_rentals_by_equipment_type,
+    create_feedback
 )
 from database import SessionLocal
 
@@ -329,6 +330,7 @@ def create_password_dialog():
                 with ui.button(on_click=lambda: show_add_department_dialog()).style('width: 100px; height: 100px;'):
                     ui.icon('add')
                     ui.label('Add Department')
+                get_feedback_button()
                 with ui.button(on_click=full_refresh,  color='warning').tooltip('After editing all data must be refreshed').style('width: 100px; height: 100px'):
                     ui.icon('refresh')
                     ui.label('Refresh all data') 
@@ -385,7 +387,38 @@ def get_long_hold_callbacks():
 
     return handle_click
     
+def show_feedback_dialog():
+    """Show dialog for submitting user feedback"""
     
+    def on_submit():
+        # Get values from form
+        user_name = name_input.value
+        feedback_text = feedback_input.value
+        
+        # Validate feedback text is not empty
+        if not feedback_text or feedback_text.strip() == "":
+            ui.notify("Please enter feedback message", type="warning")
+            return
+        
+        # Save feedback to database
+        create_feedback(db, feedback_text, user_name)
+        ui.notify("Thank you for your feedback!", type="positive")
+        dialog.close()
+    
+    with ui.dialog() as dialog, ui.card().classes('w-96'):
+        with ui.row().classes('w-full justify-between items-center'):
+            ui.label("Submit Feedback").style('font-size: 150%')
+            ui.button(icon='close', on_click=dialog.close).props('flat round')
+        
+        name_input = ui.input(label="Your Name (optional)")
+        
+        feedback_input = ui.textarea(label="Feedback*", placeholder="Please enter your feedback here...").props('rows=4').style('width: 100%')
+        
+        with ui.row().classes('w-full justify-end'):
+            ui.button("Submit", on_click=on_submit).props('color=primary')
+    
+    dialog.open()
+
 def main():
     global available_container, rented_container
     ui.query('body').style('font-family: Helvetica') #Font for the whole app
@@ -444,6 +477,8 @@ def main():
         admin_button = ui.button().props('icon=admin_panel_settings').style('width: 150px; height: 150px; opacity: 0;')
         on_click = get_long_hold_callbacks()
         admin_button.on('click', on_click)
+    
+    ui.button('Submit Feedback', icon='feedback', on_click=show_feedback_dialog).style('width: 200px; height: 75px; position: fixed; left: 30px; bottom: 30px')
     with ui.row().style('position: fixed; right: 30px; bottom: 30px'):
         button = ui.button(on_click=lambda: toggle_dark_mode(button))
         # Set the initial icon
@@ -454,6 +489,6 @@ def main():
 
 if __name__ in {'__main__', '__mp_main__'}:
     main()
-    ui.run(reload=False, title='WenglorMEL Rental System 2.0', favicon='assets/icon.ico', window_size=(1800, 1000), port=15716, native=True)
+    ui.run(reload=False, title='WenglorMEL Rental System 2.0.1', favicon='assets/icon.ico', window_size=(1800, 1000), port=15716, native=True)
     #port=native.find_open_port()
-    #nicegui-pack --onefile --windowed --icon=assets/icon.ico --add-data "rental.db:." --name "WenglorMEL Rental System 2.0" main.py
+    #nicegui-pack --onefile --windowed --icon=assets/icon.ico --add-data "rental.db:." --name "WenglorMEL Rental System 2.0.1" main.py
