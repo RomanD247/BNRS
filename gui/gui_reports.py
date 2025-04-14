@@ -599,7 +599,7 @@ def show_rental_history():
 # Function to get rental history button
 def get_rental_history_button():
     """Returns button for viewing rental history"""
-    return ui.button('Rental History', icon='history', on_click=show_rental_history)
+    return ui.button('Rental History', icon='history', on_click=show_rental_history).style('height: 60px')
 
 # Function for department statistics report
 def show_department_rental_statistics():

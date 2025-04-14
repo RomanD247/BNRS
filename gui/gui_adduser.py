@@ -107,7 +107,12 @@ def show_add_user_dialog(callback=None):
         except Exception as e:
             ui.notify(f'Error: {e}', type='error')
 
-    with ui.dialog() as dialog, ui.card():
+    with ui.dialog() as dialog, ui.card().classes('leading-none').style('''
+        position: absolute;
+        left: 20%;
+        top: 20%;
+        transform: none;
+    '''):
         with ui.row().classes('w-full justify-between items-center'):
             ui.label(text='Adding a new employee').style('font-size: 200%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')

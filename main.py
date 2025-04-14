@@ -197,7 +197,7 @@ def show_rent_dialog(equipment):
                 label='User',
                 with_input=True,
                 on_change=on_user_select_modified
-            )#.style('width: 250px')
+            ).style('width: 300px')
             ui.button('+', on_click=lambda: show_add_user_dialog(refresh_users_ui))
         
         ui.label('Comment (optional):')
@@ -355,7 +355,7 @@ def create_password_dialog():
             ui.button('Enter', on_click=lambda: check_password(password_input))
     
     def check_password(input_field):
-        if input_field.value == "1":  #Change password
+        if input_field.value == "supp":  #Change password
             password_dialog.close()
             success_dialog.open()
         else:
@@ -438,6 +438,7 @@ def main():
                 ui.html('- To add a new user, press the <b>"+"</b> button next to the user selection field in the Rent dialog.')
                 ui.html('- Use the <b>"Filter by Equipment Type"</b> dropdown to filter equipment by type.')
                 ui.html('- Access the rental history by clicking the <b>"Rental History"</b> button.')
+                ui.html('- If you have any suggestions for the app or have found any bugs, you can leave your anonymous feedback by clicking the <b>“Submit feedback”</b> button.')
             get_rental_history_button().style('width: 100%')
             #ui.button('Scan', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%')   #!NFC_feature
             
