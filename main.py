@@ -5,7 +5,7 @@ from gui.gui_changeUser import edit_users_dialog
 from gui.gui_changeDep import edit_departments_dialog
 from gui.gui_changeEtype import edit_etypes_dialog
 from gui.gui_changeEquip import edit_equipment_dialog
-from gui.gui_reports import get_user_report_button, get_equipment_report_button, get_equipment_name_report_button, get_rental_history_button, get_department_report_button, get_feedback_button
+from gui.gui_reports import get_user_report_button, get_equipment_report_button, get_equipment_name_report_button, show_rental_history, get_department_report_button, get_feedback_button
 from NfcScan import nfc_equipment_rental_workflow, get_nfc_input
 
 import asyncio
@@ -356,7 +356,7 @@ def create_password_dialog():
             ui.button('Enter', on_click=lambda: check_password(password_input))
     
     def check_password(input_field):
-        if input_field.value == "1":  #Change password
+        if input_field.value == "supp":  #Change password
             password_dialog.close()
             success_dialog.open()
         else:
@@ -535,9 +535,9 @@ def main():
                 ui.html('- To add a new user, press the <b>"+"</b> button next to the user selection field in the Rent dialog.')
                 ui.html('- Use the <b>"Filter by Equipment Type"</b> dropdown to filter equipment by type.')
                 ui.html('- Access the rental history by clicking the <b>"Rental History"</b> button.')
-            get_rental_history_button().style('width: 100%')
-            ui.button('Scan and Rent', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%')   #!NFC_feature
-            ui.button('Add NFC to User', icon='contactless', on_click=show_add_nfc_dialog).style('width: 100%')
+            
+            ui.button('Scan to Rent', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%; height: 100px')   #!NFC_feature
+            ui.button('Attach Wenglor Pass to User', icon='contactless', on_click=show_add_nfc_dialog).style('width: 100%; margin-top: 50px')
             
 
         with ui.column():
@@ -551,7 +551,8 @@ def main():
                     on_change=filter_by_etype#,                    with_input=True
                 ).style('width: 200px; margin-right: 10px;').props('use-chips')
                 # ui.button(icon='refresh', on_click=full_refresh).props('flat round').tooltip('Refresh all data')
-            
+                ui.button('Rental History', icon='history', on_click=show_rental_history).style('height: 65px')
+
             with ui.row():
                 #Available list
                 with ui.column():
@@ -587,6 +588,6 @@ def main():
 
 if __name__ in {'__main__', '__mp_main__'}:
     main()
-    ui.run(reload=False, title='WenglorMEL Rental System 2.0.1', favicon='assets/icon.ico', window_size=(1800, 1000), port=15716, native=True)
+    ui.run(reload=False, title='WenglorMEL Rental System 2.1', favicon='assets/icon.ico', window_size=(1800, 1000), port=15716, native=True)
     #port=native.find_open_port()
-    #nicegui-pack --onefile --windowed --icon=assets/icon.ico --add-data "rental.db:." --name "WenglorMEL Rental System 2.0.1" main.py
+    #nicegui-pack --onefile --windowed --icon=assets/icon.ico --add-data "rental.db:." --name "WenglorMEL Rental System 2.1" main.py
