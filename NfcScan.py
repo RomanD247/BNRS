@@ -5,63 +5,104 @@ from sqlalchemy.orm import Session
 import crud
 from models import User, Equipment, Rental
 from database import SessionLocal
+from smartcard.System import readers
+from smartcard.util import toHexString
+import time
+from smartcard.Exceptions import CardConnectionException, NoCardException
 
 db = SessionLocal()
+scanning_active = False  # Global flag to control card scanning
+
+def get_card_uid():
+    """
+    Reads UID from a card using CCID reader
+    
+    Returns:
+        Card UID as string or None if no card detected
+    """
+    try:
+        rdrs = readers()
+        if not rdrs:
+            print("No PC/SC readers found")
+            return None
+            
+        reader = rdrs[0]
+        conn = reader.createConnection()
+        conn.connect()
+        
+        # Command to get UID
+        GET_UID = [0xFF, 0xCA, 0x00, 0x00, 0x00]
+        data, sw1, sw2 = conn.transmit(GET_UID)
+        
+        if sw1 == 0x90 and sw2 == 0x00:
+            uid = toHexString(data).replace(' ', '').lower()  # Convert to lowercase
+            print("Card UID:", uid)
+            conn.disconnect()
+            return uid
+        
+        conn.disconnect()
+        return None
+    except (CardConnectionException, NoCardException):
+        return None
+    except Exception as e:
+        print(f"Error reading card: {str(e)}")
+        return None
 
 async def get_nfc_input(prompt_message: str) -> str:
     """
-    Opens a dialog box with a prompt and returns the text entered by the user after pressing Enter.
+    Opens a dialog box with a prompt and waits for NFC card to be scanned.
 
     Args:
         prompt_message: Message displayed in the dialog box.
 
     Returns:
-        Text entered by the user (string).
+        Card UID as string.
     """
+    global scanning_active
     result = ""
-    all_keys = deque()
     dialog = ui.dialog()
     closed = asyncio.Future()
+    stop_scanning = False
 
-    def on_key(e):
-        nonlocal result
-        if not e.action.keyup:
-            return
-
-        key_str = str(e.key)
-
-        if e.key == 'Enter':
-            result = "".join(list(all_keys))
-            keyboard.active = False
-            dialog.close()
-            closed.set_result(None)  # Unlock waiting
-            return
-
-        if len(key_str) == 1 and key_str.isprintable():
-            all_keys.append(key_str)
-            print("Typed: ", "".join(all_keys))
+    async def scan_card():
+        nonlocal result, stop_scanning
+        scanning_active = True  # Enable card scanning
+        print("Scanning started")  # Debug print
+        
+        while not stop_scanning:
+            uid = get_card_uid()
+            if uid:
+                result = uid
+                input_display.text = "✓ Card scanned successfully"
+                input_display.style('color: green')
+                await asyncio.sleep(1)  # Show success message for 1 second
+                stop_scanning = True  # Stop scanning after successful scan
+                dialog.close()
+                closed.set_result(None)
+                break
+            await asyncio.sleep(0.1)  # Reduced sleep time for more responsive scanning
 
     def close_dialog():
-        keyboard.active = False
+        nonlocal stop_scanning
+        stop_scanning = True
+        scanning_active = False  # Disable card scanning when dialog is closed
         dialog.close()
-        closed.set_result(None) # Unlock waiting even when closing without Enter
+        closed.set_result(None)
 
-    with dialog, ui.card():
-        ui.label(prompt_message)
-        input_display = ui.label()
-
-        def update_display():
-            input_display.text = "".join(list(all_keys))
-
-        #ui.timer(0.1, update_display, active=True) # Update input display
-
-        ui.button('Close', on_click=close_dialog)
-
-        keyboard = ui.keyboard(on_key)
-        keyboard.active = True
+    with dialog, ui.card().style('width: 350px;'):
+        with ui.row().classes('w-full justify-center items-center'):
+            ui.label(prompt_message).style('font-size: 24px; font-weight: bold; text-align: center')
+            #ui.button(icon='close', on_click=close_dialog).props('flat round')
+        with ui.separator():
+            pass
+        input_display = ui.label("Waiting for scan...").classes('w-full justify-center items-center').style('font-size: 16px; text-align: center')
+        
+        # Start the card scanning task
+        asyncio.create_task(scan_card())
 
     dialog.open()
-    await closed  # Wait until dialog is closed (via Enter or button)
+    await closed  # Wait until dialog is closed (via card scan or cancel button)
+    scanning_active = False  # Ensure scanning is disabled after dialog closes
     return result
 
 async def nfc_equipment_rental_workflow(update_callback=None):
@@ -142,9 +183,17 @@ async def nfc_equipment_rental_workflow(update_callback=None):
         
     else:
         # Equipment is not rented, continue rental process
+        # Show message before scanning user card
+        # dialog = ui.dialog()
+        # with dialog, ui.card():
+        #     #ui.label("Equipment scanned successfully").style('color: green; font-size: 16px')
+        #     ui.label("Please scan user card").style('margin-top: 10px')
+        # dialog.open()
+        # await asyncio.sleep(1)  # Wait for 1 second
+        # dialog.close()  # Close the success dialog
+        
         # Get user NFC
         user_nfc = await get_nfc_input("Scan your pass")
-        user_nfc = user_nfc.lower()
         if not user_nfc:
             ui.notify("Pass scanning cancelled", color="warning")
             return
