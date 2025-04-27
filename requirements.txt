@@ -1,3 +1,4 @@
-SQLAlchemy
-SQLite
-NiceGUI
+SQLAlchemy==2.0.25
+NiceGUI==2.0.0
+pandas==2.0.3
+python-dotenv==1.0.0

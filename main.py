@@ -5,8 +5,8 @@ from gui.gui_changeUser import edit_users_dialog
 from gui.gui_changeDep import edit_departments_dialog
 from gui.gui_changeEtype import edit_etypes_dialog
 from gui.gui_changeEquip import edit_equipment_dialog
-from gui.gui_reports import get_user_report_button, get_equipment_report_button, get_equipment_name_report_button, get_rental_history_button, get_department_report_button, get_feedback_button
-from NfcScan import nfc_equipment_rental_workflow
+from gui.gui_reports import get_user_report_button, get_equipment_report_button, get_equipment_name_report_button, show_rental_history, get_department_report_button, get_feedback_button
+from NfcScan import nfc_equipment_rental_workflow, get_nfc_input
 
 import asyncio
 import sys
@@ -18,9 +18,10 @@ from crud import (
     get_available_equipment, get_all_users, create_rental, 
     get_active_rentals, return_equipment, get_all_etypes,
     get_available_equipment_by_type, get_active_rentals_by_equipment_type,
-    create_feedback
+    create_feedback, find_user_by_nfc, update_user_nfc
 )
 from database import SessionLocal
+from models import User
 
 db = SessionLocal()
 
@@ -162,7 +163,7 @@ def show_rent_dialog(equipment):
         # Update the contents of the drop-down list
         user_select.options = options
         user_select.update()
-        ui.notify('The list of users has been updated.')
+        #ui.notify('The list of users has been updated.')
 
     with ui.dialog() as dialog, ui.card().classes('leading-none').style('''
         position: absolute;
@@ -194,10 +195,10 @@ def show_rent_dialog(equipment):
         with ui.row().classes('w-full justify-between items-center'):
             user_select = ui.select(
                 options=options,
-                label='User',
+                label='Select user',
                 with_input=True,
                 on_change=on_user_select_modified
-            ).style('width: 300px')
+            )
             ui.button('+', on_click=lambda: show_add_user_dialog(refresh_users_ui))
         
         ui.label('Comment (optional):')
@@ -419,6 +420,102 @@ def show_feedback_dialog():
     
     dialog.open()
 
+def show_add_nfc_dialog():
+    """
+    Opens a dialog box to add an NFC code to existing users without NFC.
+    """
+    with SessionLocal() as fresh_db:
+        # Get only users without NFC code
+        users_without_nfc = fresh_db.query(User).filter(User.nfc == None, User.status == True).all()
+        
+        if not users_without_nfc:
+            ui.notify('No users without Wenglor Pass', color='warning')
+            return
+            
+        # Sort by name
+        users_without_nfc = sorted(users_without_nfc, key=lambda x: x.name.lower())
+        
+        with ui.dialog() as dialog, ui.card().style('''
+        position: absolute;
+        left: 20%;
+        top: 20%;
+        transform: none;
+        width: 500px;
+    '''):
+            with ui.row().classes('w-full justify-between items-center'):
+                ui.label('Adding Wenglor Pass to User').style('font-size: 150%')
+                ui.button(icon='close', on_click=dialog.close).props('flat round')
+            
+            # Create dropdown list of users
+            user_options = [(f"{user.name} ({user.department.name})", user.id_us) for user in users_without_nfc]
+            selected_user_id = None
+            
+            # Find user ID by selected text
+            def on_user_select(e):
+                nonlocal selected_user_id
+                # Search for user ID by selected text
+                for option in user_options:
+                    if option[0] == e.value:
+                        selected_user_id = option[1]
+                        break
+            
+            user_select = ui.select(
+                options=[option[0] for option in user_options],
+                value=None,
+                label='Select user',
+                on_change=on_user_select,
+                with_input=True
+            ).style('width: 100%')
+            
+            # To store NFC value
+            nfc_value = None
+            #nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
+            
+            async def scan_nfc():
+                nonlocal nfc_value
+                nfc_value = await get_nfc_input("Scan Wenglor Pass")
+                nfc_value = nfc_value.lower() if nfc_value else None
+                
+                if nfc_value:
+                    # Check if this NFC code is already taken
+                    existing_user = find_user_by_nfc(fresh_db, nfc_value)
+                    if existing_user:
+                        ui.notify(f'Wenglor Pass already registered to user {existing_user.name}', type='warning')
+                        nfc_value = None
+                        nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
+                    else:
+                        nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Pass scanned</b>'
+                else:
+                    nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
+            
+            def on_save():
+                nonlocal selected_user_id, nfc_value
+                
+                if not selected_user_id:
+                    ui.notify('User not selected', color='negative')
+                    return
+                    
+                if not nfc_value:
+                    ui.notify('Wenglor Pass not scanned', color='negative')
+                    return
+                
+                try:
+                    # Updating the user's NFC code
+                    update_user_nfc(fresh_db, selected_user_id, nfc_value)
+                    ui.notify('Wenglor Pass successfully added to user', color='positive')
+                    dialog.close()
+                except Exception as e:
+                    ui.notify(f'Error during update: {str(e)}', color='negative')
+            
+            with ui.row().classes('w-full justify-between items-center q-mb-md'):
+                ui.button('Scan Wenglor Pass', on_click=scan_nfc)
+                nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
+            
+            with ui.row().classes('justify-end'):
+                ui.button('Apply', on_click=on_save).classes('bg-primary')
+            
+        dialog.open()
+
 def main():
     global available_container, rented_container
     ui.query('body').style('font-family: Helvetica') #Font for the whole app
@@ -439,8 +536,11 @@ def main():
                 ui.html('- Use the <b>"Filter by Equipment Type"</b> dropdown to filter equipment by type.')
                 ui.html('- Access the rental history by clicking the <b>"Rental History"</b> button.')
                 ui.html('- If you have any suggestions for the app or have found any bugs, you can leave your anonymous feedback by clicking the <b>“Submit feedback”</b> button.')
-            get_rental_history_button().style('width: 100%')
+            #get_rental_history_button().style('width: 100%')
             #ui.button('Scan', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%')   #!NFC_feature
+            
+            ui.button('Scan to Rent', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%; height: 100px')   #!NFC_feature
+            ui.button('Attach Wenglor Pass to User', icon='contactless', on_click=show_add_nfc_dialog).style('width: 100%; margin-top: 50px')
             
 
         with ui.column():
@@ -454,7 +554,8 @@ def main():
                     on_change=filter_by_etype#,                    with_input=True
                 ).style('width: 200px; margin-right: 10px;').props('use-chips')
                 # ui.button(icon='refresh', on_click=full_refresh).props('flat round').tooltip('Refresh all data')
-            
+                ui.button('Rental History', icon='history', on_click=show_rental_history).style('height: 65px; margin-left: 40px')
+
             with ui.row():
                 #Available list
                 with ui.column():
@@ -490,6 +591,6 @@ def main():
 
 if __name__ in {'__main__', '__mp_main__'}:
     main()
-    ui.run(reload=False, title='WenglorMEL Rental System 2.0.1', favicon='assets/icon.ico', window_size=(1800, 1000), port=15716, native=True)
+    ui.run(reload=False, title='WenglorMEL Rental System 2.1', favicon='assets/icon.ico', window_size=(1800, 1000), port=15716, native=True)
     #port=native.find_open_port()
-    #nicegui-pack --onefile --windowed --icon=assets/icon.ico --add-data "rental.db:." --name "WenglorMEL Rental System 2.0.1" main.py
+    #nicegui-pack --onefile --windowed --icon=assets/icon.ico --add-data "rental.db:." --name "WenglorMEL Rental System 2.1" main.py

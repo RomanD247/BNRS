@@ -152,7 +152,7 @@ def get_all_users(db: Session) -> List[User]:
     """Get all users"""
     return db.query(User).options(joinedload(User.department)).filter(User.status == True).order_by(User.name).all()
 
-def update_user(db: Session, user_id: int, name: str = None, dep: str = None, status: bool = None, get_user_func=get_user) -> Optional[User]:
+def update_user(db: Session, user_id: int, name: str = None, dep: str = None, status: bool = None, nfc: str = None, get_user_func=get_user) -> Optional[User]:
     """Update user"""
     user = get_user_func(db, user_id)
     if user:
@@ -163,6 +163,13 @@ def update_user(db: Session, user_id: int, name: str = None, dep: str = None, st
                 raise ValueError(f"Department {dep} not found")
             user.id_dep = department.id_dep
         if status is not None: user.status = status
+        if nfc is not None:
+            # Check if this NFC code is not already used by another user
+            if nfc:
+                existing_user = find_user_by_nfc(db, nfc)
+                if existing_user and existing_user.id_us != user_id:
+                    raise ValueError(f"NFC code is already used by user {existing_user.name}")
+            user.nfc = nfc
         db.commit()
         db.refresh(user)
     return user
@@ -700,40 +707,40 @@ def get_department_rental_statistics(db: Session, start_date=None, end_date=None
 
 def find_user_by_nfc(db: Session, nfc_value: str) -> Optional[User]:
     """
-    Находит пользователя по NFC коду
+    Find user by NFC code
     
     Args:
-        db: Сессия базы данных
-        nfc_value: Значение NFC кода
+        db: Database session
+        nfc_value: NFC code value
         
     Returns:
-        Объект пользователя или None, если пользователь не найден
+        User object or None if user not found
     """
     return db.query(User).filter(User.nfc == nfc_value, User.status == True).first()
 
 def find_equipment_by_nfc(db: Session, nfc_value: str) -> Optional[Equipment]:
     """
-    Находит оборудование по NFC коду
+    Find equipment by NFC code
     
     Args:
-        db: Сессия базы данных
-        nfc_value: Значение NFC кода
+        db: Database session
+        nfc_value: NFC code value
         
     Returns:
-        Объект оборудования или None, если оборудование не найдено
+        Equipment object or None if equipment not found
     """
     return db.query(Equipment).filter(Equipment.nfc == nfc_value, Equipment.status == True).first()
 
 def is_equipment_rented(db: Session, equipment_id: int) -> Optional[Rental]:
     """
-    Проверяет, находится ли оборудование в аренде
+    Check if equipment is currently rented
     
     Args:
-        db: Сессия базы данных
-        equipment_id: ID оборудования
+        db: Database session
+        equipment_id: Equipment ID
         
     Returns:
-        Объект аренды или None, если оборудование не в аренде
+        Rental object or None if equipment is not rented
     """
     return db.query(Rental).filter(Rental.equipment_id == equipment_id, 
                                   Rental.rental_end == None).first()
@@ -771,3 +778,28 @@ def get_all_feedback(db: Session) -> List[Feedback]:
         List of feedback objects
     """
     return db.query(Feedback).order_by(Feedback.date.desc()).all()
+
+def update_user_nfc(db: Session, user_id: int, nfc: str = None) -> Optional[User]:
+    """
+    Update user's NFC code
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        nfc: New NFC code
+        
+    Returns:
+        Updated user object or None if user not found
+    """
+    user = get_user_including_inactive(db, user_id)
+    if user:
+        # Check if this NFC code is not already used by another user
+        if nfc:
+            existing_user = find_user_by_nfc(db, nfc)
+            if existing_user and existing_user.id_us != user_id:
+                raise ValueError(f"NFC code is already used by user {existing_user.name}")
+        
+        user.nfc = nfc
+        db.commit()
+        db.refresh(user)
+    return user

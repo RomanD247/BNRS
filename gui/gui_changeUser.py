@@ -6,6 +6,7 @@ from nicegui import ui
 import crud
 from sqlalchemy.orm import Session
 from database import SessionLocal
+from NfcScan import get_nfc_input
 
 # Create a single DB instance
 db = SessionLocal()
@@ -34,7 +35,10 @@ def edit_users_dialog():
                     for user in users:
                         with ui.card().classes('cursor-pointer').style('width: 100%;') as card:
                             with ui.row().classes('text-left'):
-                                ui.icon('check_box' if user.status == True else 'check_box_outline_blank').classes(f'text-2xl {"text-green-500" if user.status else "text-red-500"}')
+                                with ui.column():
+                                    ui.icon('check_box' if user.status == True else 'check_box_outline_blank').classes(f'text-2xl {"text-green-500" if user.status else "text-red-500"}')
+                                    if user.nfc:
+                                        ui.icon('nfc').classes('text-2xl text-orange-500')
                                 with ui.column():
                                     ui.label(f'{user.name}').style('font-size: 110%; font-weight: bold')
                                     ui.label(f'{user.department.name}') 
@@ -77,7 +81,24 @@ def show_edit_form_for_user(user, parent_dialog=None):
             name_value = fresh_user.name
             department_value = fresh_user.department.name
             status_value = fresh_user.status
+            nfc_value = fresh_user.nfc
+            nfc_label = None
 
+            async def scan_nfc():
+                nonlocal nfc_value, nfc_label
+                nfc_value = await get_nfc_input("Scan Wenglor Pass")
+                nfc_value = nfc_value.lower()
+                if nfc_value:
+                    # Check if this NFC code is already taken by another user
+                    existing_user = crud.find_user_by_nfc(fresh_db, nfc_value)
+                    if existing_user and existing_user.id_us != fresh_user.id_us:
+                        ui.notify(f'Wenglor Pass already registered to user {existing_user.name}', type='warning')
+                        nfc_value = fresh_user.nfc  # Reset to original value
+                        nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
+                    else:
+                        nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Pass scanned</b>'
+                else:
+                    nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
             
             # Use dialog directly
             with ui.dialog() as edit_dialog, ui.card().classes('w-96'):
@@ -98,6 +119,12 @@ def show_edit_form_for_user(user, parent_dialog=None):
                     ui.label('Status (active):')
                     status_switch = ui.switch('', value=status_value)
                 
+                # NFC scanning section
+                ui.separator()
+                with ui.row().classes('w-full justify-between items-center q-mb-md'):
+                    ui.button('Scan Wenglor Pass', on_click=scan_nfc)
+                    nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Pass scanned</b>' if nfc_value else '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
+                
                 with ui.row().classes('justify-end'):
                     ui.button('Cancel', on_click=edit_dialog.close).classes('q-mr-sm')
                     ui.button('Apply', on_click=lambda: apply_changes(
@@ -105,13 +132,13 @@ def show_edit_form_for_user(user, parent_dialog=None):
                         name_input.value,
                         department_select.value,
                         status_switch.value,
+                        nfc_value,
                         edit_dialog,
                         parent_dialog
                     )).classes('bg-primary')
                     
             # Open the new dialog
             edit_dialog.open()
-            #ui.notify(f'Edit form opened for user: {fresh_user.name}', color='positive')
         
     except Exception as e:
         ui.notify(f'Error opening edit form: {str(e)}', color='negative')
@@ -130,7 +157,7 @@ def open_edit_form(user, parent_dialog):
         ui.notify(f'Error: {str(e)}', color='negative')
 
 
-def apply_changes(user_id, new_name, new_department, new_status, dialog, parent_dialog=None):
+def apply_changes(user_id, new_name, new_department, new_status, nfc_value, dialog, parent_dialog=None):
     """
     Applies changes to the user in the database.
     
@@ -139,6 +166,7 @@ def apply_changes(user_id, new_name, new_department, new_status, dialog, parent_
         new_name: New user name
         new_department: New department name
         new_status: New user status
+        nfc_value: New NFC value
         dialog: Dialog to close after saving
         parent_dialog: Parent dialog to close if needed
     """
@@ -146,7 +174,7 @@ def apply_changes(user_id, new_name, new_department, new_status, dialog, parent_
         # Create a new session for this operation
         with SessionLocal() as session:
             # Update user with new session
-            updated_user = crud.update_user(session, user_id, name=new_name, dep=new_department, status=new_status, get_user_func=crud.get_user_including_inactive)
+            updated_user = crud.update_user(session, user_id, name=new_name, dep=new_department, status=new_status, nfc=nfc_value, get_user_func=crud.get_user_including_inactive)
             
             if updated_user:
                 ui.notify(f'User {new_name} successfully updated', color='positive')
