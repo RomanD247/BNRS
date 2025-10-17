@@ -5,6 +5,12 @@ import os
 import csv
 import tempfile
 import datetime
+try:
+    import tkinter as tk
+    from tkinter import filedialog, messagebox
+    TKINTER_AVAILABLE = True
+except ImportError:
+    TKINTER_AVAILABLE = False
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -25,13 +31,34 @@ def export_to_csv(data, filename=None):
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"report_{timestamp}.csv"
     
+    try:
+        # Check if running in native mode (desktop app)
+        from nicegui import app
+        is_native = app.native.main_window is not None
+        
+        if is_native:
+            # Native mode - save file with dialog
+            export_to_csv_native(data, filename)
+        else:
+            # Browser mode - use download
+            export_to_csv_browser(data, filename)
+            
+    except (ImportError, AttributeError):
+        # Fallback to browser mode if native is not available or not running
+        export_to_csv_browser(data, filename)
+
+def export_to_csv_browser(data, filename):
+    """Export CSV for browser mode using ui.download"""
     # Create a temporary file
     with tempfile.NamedTemporaryFile(mode='w', newline='', delete=False, suffix='.csv') as temp_file:
-        # Define headers from the first data record
-        fieldnames = data[0].keys() if data else []
+        # Define headers from all data records to ensure all fields are included
+        fieldnames = set()
+        for row in data:
+            fieldnames.update(row.keys())
+        fieldnames = sorted(list(fieldnames))  # Sort for consistent column order
         
         # Write data to CSV
-        writer = csv.DictWriter(temp_file, fieldnames=fieldnames)
+        writer = csv.DictWriter(temp_file, fieldnames=fieldnames, extrasaction='ignore')
         writer.writeheader()
         writer.writerows(data)
         
@@ -49,6 +76,49 @@ def export_to_csv(data, filename=None):
             print(f"Failed to remove temporary file: {e}")
     
     ui.timer(10, cleanup, once=True)
+
+def export_to_csv_native(data, filename):
+    """Export CSV for native mode directly to Downloads folder"""
+    try:
+        # Get Downloads folder path
+        downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+        
+        # Create Downloads folder if it doesn't exist
+        if not os.path.exists(downloads_path):
+            os.makedirs(downloads_path)
+        
+        # Full file path
+        file_path = os.path.join(downloads_path, filename)
+        
+        # Handle file name conflicts by adding a number
+        counter = 1
+        original_file_path = file_path
+        while os.path.exists(file_path):
+            name, ext = os.path.splitext(original_file_path)
+            file_path = f"{name}_{counter}{ext}"
+            counter += 1
+        
+        # Write data to the file
+        with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
+            # Define headers from all data records to ensure all fields are included
+            fieldnames = set()
+            for row in data:
+                fieldnames.update(row.keys())
+            fieldnames = sorted(list(fieldnames))  # Sort for consistent column order
+            
+            # Write data to CSV
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction='ignore')
+            writer.writeheader()
+            writer.writerows(data)
+        
+        ui.notify(f'File saved to Downloads: {os.path.basename(file_path)}', color='positive')
+        
+    except Exception as e:
+        ui.notify(f'Error saving file: {str(e)}', color='negative')
+        print(f"CSV export error: {e}")
+        
+        # Fallback to browser mode if native save fails
+        export_to_csv_browser(data, filename)
 
 # Function for user report
 def show_user_rental_statistics():

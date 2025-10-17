@@ -612,7 +612,7 @@ def main():
                 ui.html('- Use the <b>"Filter by Equipment Type"</b> dropdown to filter equipment by type.')
                 ui.html('- Access the rental history by clicking the <b>"Rental History"</b> button.')
                 ui.html('- If you have any suggestions for the app or have found any bugs, you can leave your anonymous feedback by clicking the <b>“Submit feedback”</b> button.')
-            #get_rental_history_button().style('width: 100%')
+            ui.button('Rental History', icon='history', on_click=show_rental_history).style('height: 65px; align-self: flex-start')
             #ui.button('Scan', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%')   #!NFC_feature
             
             #ui.button('Scan to Rent', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%; height: 100px')   #!NFC_feature
@@ -638,7 +638,7 @@ def main():
                 ).style('width: 200px; margin-right: 10px; margin-left: 10px')
                 
                 # ui.button(icon='refresh', on_click=full_refresh).props('flat round').tooltip('Refresh all data')
-                ui.button('Rental History', icon='history', on_click=show_rental_history).style('height: 65px; margin-left: 40px')
+                
 
             with ui.row():
                 #Available list

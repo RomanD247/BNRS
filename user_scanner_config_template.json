@@ -1,0 +1,51 @@
+{
+  "scanner_mode": "keyboard",
+  "timeouts": {
+    "input_timeout": 30.0,
+    "focus_restore_timeout": 5.0,
+    "dialog_auto_close_timeout": 2.0,
+    "error_display_timeout": 5.0
+  },
+  "behavior": {
+    "auto_focus_restore": true,
+    "show_manual_input": true,
+    "confirm_on_enter": true,
+    "clear_on_error": true,
+    "beep_on_scan": false,
+    "vibrate_on_error": false
+  },
+  "validation": {
+    "strict_mode": false,
+    "allow_special_chars": false,
+    "case_sensitive": false,
+    "trim_whitespace": true,
+    "normalize_input": true
+  },
+  "ui": {
+    "theme": "auto",
+    "show_progress": true,
+    "show_remaining_time": true,
+    "dialog_position": "center",
+    "auto_focus_input": true
+  },
+  "performance": {
+    "main_loop_interval": 0.2,
+    "status_update_interval": 5.0,
+    "max_focus_restore_attempts": 3,
+    "buffer_expiration_check_interval": 10.0,
+    "enable_resource_optimization": true,
+    "use_adaptive_intervals": true
+  },
+  "logging": {
+    "log_level": "INFO",
+    "log_scan_events": false,
+    "log_performance": false,
+    "log_to_file": false,
+    "log_file_path": "scanner.log"
+  },
+  "compatibility": {
+    "legacy_nfc_fallback": true,
+    "preserve_nfc_variables": true,
+    "emulate_nfc_behavior": true
+  }
+}
