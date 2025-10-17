@@ -40,6 +40,8 @@ class State:
         self.etype_map = {}
         self.etypes = get_all_etypes(db)
         self.filter_select = None
+        self.name_filter = ""
+        self.name_filter_input = None
     
     def refresh_users(self):
         """Updates the list of users from the database"""
@@ -67,6 +69,10 @@ class State:
             self.filter_select.options = etype_options
             self.filter_select.update()
             ui.notify('Equipment type filter updated.')
+    
+    def set_name_filter(self, filter_text):
+        """Set the name filter and update the filter state"""
+        self.name_filter = filter_text.lower().strip() if filter_text else ""
 
 state = State()
 
@@ -102,8 +108,10 @@ def create_equipment_card(equipment, is_rented=False):
 
 def update_lists():
     """Update both equipment list UI containers based on current state data."""
-    # Data fetching is now done by the caller (full_refresh or filter_by_etype)
-    # Only update the UI here
+    # Ensure UI updates reflect current filter state by applying filters if needed
+    # This ensures that when lists are refreshed, the current filter state is maintained
+    if state.selected_etype_id is not None or state.name_filter:
+        apply_combined_filters()
     
     # Clear and repopulate available container
     if available_container:
@@ -138,7 +146,7 @@ def show_rent_dialog(equipment):
             create_rental(db, state.selected_user, equipment.id_eq, comment=comment_field.value)
             ui.notify('Equipment rented successfully!')
             dialog.close()
-            reset_filter()
+            refresh_with_filters()
             # Clear the selected user and user select field
             state.selected_user = None
             user_select.set_value(None)
@@ -213,7 +221,7 @@ def show_return_dialog(rental):
         return_equipment(db, rental.id_re)
         ui.notify('Equipment returned successfully!')
         dialog.close()
-        reset_filter()
+        refresh_with_filters()
 
     with ui.dialog() as dialog, ui.card().style('width: 350px'):
         with ui.row().classes('w-full justify-between items-center'):
@@ -236,23 +244,77 @@ def filter_by_etype(e):
     """Filter equipment lists by equipment type"""
     selected_name = e.value
     state.selected_etype_id = state.etype_map.get(selected_name)
-    # Fetch filtered data into state
-    if state.selected_etype_id is not None:
-        state.available_equipment = get_available_equipment_by_type(db, state.selected_etype_id)
-        state.rented_equipment = get_active_rentals_by_equipment_type(db, state.selected_etype_id)
-    else:
-        # If filter is cleared, fetch all data
-        state.available_equipment = get_available_equipment(db)
-        state.rented_equipment = get_active_rentals(db)
+    
+    # Use combined filtering to preserve name filter when type filter changes
+    apply_combined_filters()
+    
     # Update UI with new state data
     update_lists()
 
+def filter_equipment_by_name(equipment_list, name_filter):
+    """Filter equipment list by name containing the filter text (case-insensitive)"""
+    if not name_filter:
+        return equipment_list
+    return [eq for eq in equipment_list if name_filter.lower() in eq.name.lower()]
+
+def filter_rentals_by_equipment_name(rental_list, name_filter):
+    """Filter rental list by equipment name containing the filter text (case-insensitive)"""
+    if not name_filter:
+        return rental_list
+    return [rental for rental in rental_list if name_filter.lower() in rental.equipment.name.lower()]
+
+def apply_combined_filters():
+    """Apply both type and name filters simultaneously to equipment lists"""
+    # Get base equipment lists (all or filtered by type)
+    if state.selected_etype_id is not None:
+        available = get_available_equipment_by_type(db, state.selected_etype_id)
+        rented = get_active_rentals_by_equipment_type(db, state.selected_etype_id)
+    else:
+        available = get_available_equipment(db)
+        rented = get_active_rentals(db)
+    
+    # Apply name filter if active
+    if state.name_filter:
+        available = filter_equipment_by_name(available, state.name_filter)
+        rented = filter_rentals_by_equipment_name(rented, state.name_filter)
+    
+    # Update state
+    state.available_equipment = available
+    state.rented_equipment = rented
+
+def on_name_filter_change(filter_text):
+    """Handle name filter input changes and trigger combined filtering"""
+    # Update state with new filter text
+    state.set_name_filter(filter_text)
+    
+    # Apply combined filters (type + name)
+    apply_combined_filters()
+    
+    # Update UI lists
+    update_lists()
+
+def refresh_with_filters():
+    """Refresh equipment data while maintaining current filter state"""
+    # Refresh users and etypes from DB into state
+    state.refresh_users()
+    state.refresh_etypes()
+    
+    # Apply current filters to get updated data
+    apply_combined_filters()
+    
+    # Update the UI lists
+    update_lists()
+
 def reset_filter():
-    """Reset equipment type filter to show all equipment"""
+    """Reset both equipment type and name filters to show all equipment"""
     state.selected_etype_id = None
-    # Reset the visual selection in the dropdown
+    state.name_filter = ""
+    
+    # Reset the visual selection in both filter inputs
     if state.filter_select:
         state.filter_select.set_value(None)
+    if state.name_filter_input:
+        state.name_filter_input.set_value("")
     
     # Fetch all data into state
     state.available_equipment = get_available_equipment(db)
@@ -269,21 +331,23 @@ def reset_filter():
 def full_refresh():
     """Reloads all data from the database and updates the UI."""
     
+    # Preserve current filter state before refresh
+    current_etype_id = state.selected_etype_id
+    current_name_filter = state.name_filter
+    
     # Expire session cache before fetching
     db.expire_all()
-
-    # Reset filter selection state
-    state.selected_etype_id = None
-    if state.filter_select:
-        state.filter_select.set_value(None) # Reset the dropdown visually
 
     # Refresh users and etypes from DB into state
     state.refresh_users()
     state.refresh_etypes() 
 
-    # Fetch ALL equipment lists (available and rented) from DB into state
-    state.available_equipment = get_available_equipment(db)
-    state.rented_equipment = get_active_rentals(db)
+    # Restore filter state after refresh
+    state.selected_etype_id = current_etype_id
+    state.name_filter = current_name_filter
+
+    # Apply active filters after full data refresh to preserve filter state
+    apply_combined_filters()
 
     # Update the UI lists (available_container and rented_container) using data now in state
     update_lists()
@@ -293,6 +357,18 @@ def full_refresh():
         etype_options = [etype.name for etype in state.etypes]
         state.filter_select.options = etype_options
         state.filter_select.update() # Update the UI element
+        
+        # Restore the visual selection in the type filter if it was active
+        if current_etype_id is not None:
+            # Find the etype name for the current ID
+            for etype in state.etypes:
+                if etype.id_et == current_etype_id:
+                    state.filter_select.set_value(etype.name)
+                    break
+    
+    # Restore the visual value in the name filter input if it was active
+    if state.name_filter_input and current_name_filter:
+        state.name_filter_input.set_value(current_name_filter)
     
     # Refresh departments list in gui_adduser module
     from gui import gui_adduser
@@ -539,12 +615,12 @@ def main():
             #get_rental_history_button().style('width: 100%')
             #ui.button('Scan', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%')   #!NFC_feature
             
-            ui.button('Scan to Rent', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%; height: 100px')   #!NFC_feature
-            ui.button('Attach Wenglor Pass to User', icon='contactless', on_click=show_add_nfc_dialog).style('width: 100%; margin-top: 50px')
+            #ui.button('Scan to Rent', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%; height: 100px')   #!NFC_feature
+            #ui.button('Attach Wenglor Pass to User', icon='contactless', on_click=show_add_nfc_dialog).style('width: 100%; margin-top: 50px')
             
 
         with ui.column():
-            # Equipment type filter
+            # Equipment type and name filters
             with ui.row().classes('items-center'):
                 ui.label('Filter by Equipment Type:').classes('text-h6')
                 etype_options = [etype.name for etype in state.etypes]
@@ -553,6 +629,14 @@ def main():
                     label='Equipment Type',
                     on_change=filter_by_etype#,                    with_input=True
                 ).style('width: 200px; margin-right: 10px;').props('use-chips')
+                
+                ui.label('Filter by Name:').classes('text-h6').style('margin-left: 20px')
+                state.name_filter_input = ui.input(
+                    label='Equipment Name',
+                    placeholder='Type equipment name...',
+                    on_change=lambda e: on_name_filter_change(e.value)
+                ).style('width: 200px; margin-right: 10px; margin-left: 10px')
+                
                 # ui.button(icon='refresh', on_click=full_refresh).props('flat round').tooltip('Refresh all data')
                 ui.button('Rental History', icon='history', on_click=show_rental_history).style('height: 65px; margin-left: 40px')
 
