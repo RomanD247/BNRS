@@ -110,6 +110,210 @@ async def get_nfc_input(prompt_message: str) -> str:
     await closed  # Wait until dialog is closed
     return result
 
+async def get_user_input_with_selection():
+    """
+    Shows dialog that simultaneously waits for NFC input (virtual keyboard) 
+    and provides manual user selection from dropdown
+    
+    Returns:
+        User object or None if cancelled
+    """
+    dialog = ui.dialog()
+    result = asyncio.Future()
+    selected_user = None
+    nfc_input_value = ""
+    
+    def on_cancel():
+        dialog.close()
+        result.set_result(None)
+    
+    def on_manual_select():
+        if selected_user:
+            dialog.close()
+            result.set_result(selected_user)
+        else:
+            ui.notify("Please select a user", color="warning")
+    
+    def on_user_select_change(e):
+        nonlocal selected_user
+        if e.value in users_dict:
+            selected_user = users_dict[e.value]
+        else:
+            selected_user = None
+    
+    def on_nfc_input_submit():
+        nonlocal nfc_input_value
+        if nfc_input_field.value.strip():
+            nfc_input_value = nfc_input_field.value.strip().lower()
+            # Find user by NFC
+            user = crud.find_user_by_nfc(db, nfc_input_value)
+            if user:
+                dialog.close()
+                result.set_result(user)
+            else:
+                ui.notify("User not found", color="negative")
+                nfc_input_field.set_value("")
+                nfc_display_label.text = "Ready to scan..."
+    
+    def on_nfc_input_change(e):
+        # Update display when input changes
+        if nfc_input_field.value:
+            nfc_display_label.text = f"Scanning: {nfc_input_field.value}"
+        else:
+            nfc_display_label.text = "Ready to scan..."
+    
+    # Get all users for dropdown
+    users = crud.get_all_users(db)
+    users_dict = {}
+    options = []
+    
+    for user in sorted(users, key=lambda x: x.name):
+        display_text = f"{user.name} ({user.department.name})"
+        users_dict[display_text] = user
+        options.append(display_text)
+    
+    with dialog, ui.card().style('width: 450px;'):
+        with ui.row().classes('w-full justify-between items-center'):
+            ui.label('Select User').style('font-size: 150%')
+            ui.button(icon='close', on_click=on_cancel).props('flat round')
+        
+        ui.separator()
+        
+        # NFC scanning section
+        ui.label('Scan Wenglor Pass:').style('font-weight: bold; margin: 10px 0 5px 0;')
+        nfc_display_label = ui.label("Ready to scan...").style('font-size: 16px; text-align: center; margin: 5px 0; padding: 10px; border: 1px dashed #ccc; border-radius: 4px;')
+        
+        # Invisible input field for NFC scanning
+        nfc_input_field = ui.input().style('position: absolute; top: -1000px; left: -1000px;').props('autofocus')
+        nfc_input_field.on('keydown.enter', on_nfc_input_submit)
+        nfc_input_field.on('input', on_nfc_input_change)
+        
+        ui.separator()
+        ui.label('OR').classes('text-center').style('margin: 10px 0;')
+        ui.separator()
+        
+        # Manual selection section
+        ui.label('Select from list:').style('font-weight: bold; margin: 10px 0 5px 0;')
+        user_select = ui.select(
+            options=options,
+            label='Select user',
+            with_input=True,
+            on_change=on_user_select_change
+        ).style('width: 100%; margin: 5px 0;')
+        
+        ui.button('Confirm Selection', on_click=on_manual_select).style('width: 100%; margin: 5px 0;')
+    
+    dialog.open()
+    
+    # Aggressive focus maintenance for NFC input
+    async def maintain_focus():
+        while not result.done():
+            await asyncio.sleep(0.1)
+            if not result.done():
+                nfc_input_field.run_method('focus')
+    
+    asyncio.create_task(maintain_focus())
+    
+    # Wait for user choice
+    choice = await result
+    return choice
+
+async def get_user_selection():
+    """
+    Shows dialog for user selection - either by NFC scan or manual selection from dropdown
+    
+    Returns:
+        User object or None if cancelled
+    """
+    dialog = ui.dialog()
+    result = asyncio.Future()
+    selected_user = None
+    
+    def on_cancel():
+        dialog.close()
+        result.set_result(None)
+    
+    def on_nfc_scan():
+        dialog.close()
+        result.set_result("nfc_scan")
+    
+    def on_manual_select():
+        if selected_user:
+            dialog.close()
+            result.set_result(selected_user)
+        else:
+            ui.notify("Please select a user", color="warning")
+    
+    def on_user_select_change(e):
+        nonlocal selected_user
+        if e.value in users_dict:
+            selected_user = users_dict[e.value]
+        else:
+            selected_user = None
+    
+    # Get all users for dropdown
+    users = crud.get_all_users(db)
+    users_dict = {}
+    options = []
+    
+    for user in sorted(users, key=lambda x: x.name):
+        display_text = f"{user.name} ({user.department.name})"
+        users_dict[display_text] = user
+        options.append(display_text)
+    
+    with dialog, ui.card().style('width: 400px;'):
+        with ui.row().classes('w-full justify-between items-center'):
+            ui.label('Select User').style('font-size: 150%')
+            ui.button(icon='close', on_click=on_cancel).props('flat round')
+        
+        ui.separator()
+        
+        ui.label('Choose how to identify the user:').style('margin: 10px 0;')
+        
+        # NFC scan option
+        with ui.row().classes('w-full items-center'):
+            ui.button('Scan Wenglor Pass', icon='nfc', on_click=on_nfc_scan).style('width: 100%; margin: 5px 0;')
+        
+        ui.separator()
+        ui.label('OR').classes('text-center').style('margin: 10px 0;')
+        ui.separator()
+        
+        # Manual selection option
+        ui.label('Select from list:').style('margin: 10px 0;')
+        user_select = ui.select(
+            options=options,
+            label='Select user',
+            with_input=True,
+            on_change=on_user_select_change
+        ).style('width: 100%; margin: 5px 0;')
+        
+        ui.button('Confirm Selection', on_click=on_manual_select).style('width: 100%; margin: 5px 0;')
+    
+    dialog.open()
+    
+    # Wait for user choice
+    choice = await result
+    
+    if choice == "nfc_scan":
+        # Proceed with NFC scanning
+        user_nfc = await get_nfc_input("Scan your pass")
+        if not user_nfc:
+            return None
+        
+        # Find user by NFC
+        user = crud.find_user_by_nfc(db, user_nfc)
+        if not user:
+            ui.notify(f"User not found", color="negative")
+            return None
+        
+        return user
+    elif choice:
+        # User was selected manually
+        return choice
+    else:
+        # Cancelled
+        return None
+
 async def nfc_equipment_rental_workflow(update_callback=None):
     """
     Process of creating a new rental or returning equipment using NFC:
@@ -187,17 +391,10 @@ async def nfc_equipment_rental_workflow(update_callback=None):
         await confirmed
         
     else:        
-        # Get user NFC
-        user_nfc = await get_nfc_input("Scan your pass")
-        if not user_nfc:
-            ui.notify("Pass scanning cancelled", color="warning")
-            return
-        
-        # Find user by NFC
-        user = crud.find_user_by_nfc(db, user_nfc)
+        # Show user input dialog (simultaneous NFC scan and manual selection)
+        user = await get_user_input_with_selection()
         if not user:
-            ui.notify(f"User not found", color="negative")
-            #ui.notify(f"User with NFC {user_nfc} not found", color="negative") #for debug
+            ui.notify("User selection cancelled", color="warning")
             return
         
         # Show confirmation dialog
