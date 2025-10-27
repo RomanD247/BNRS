@@ -803,3 +803,181 @@ def update_user_nfc(db: Session, user_id: int, nfc: str = None) -> Optional[User
         db.commit()
         db.refresh(user)
     return user
+
+def update_rental(db: Session, rental_id: int, user_id: int = None, 
+                 equipment_id: int = None, rental_start: datetime.datetime = None, 
+                 rental_end: datetime.datetime = None, comment: str = None) -> Optional[Rental]:
+    """
+    Update rental record with comprehensive validation and error handling
+    
+    Args:
+        db: Database session
+        rental_id: ID of the rental to update
+        user_id: New user ID (optional)
+        equipment_id: New equipment ID (optional)
+        rental_start: New rental start datetime (optional)
+        rental_end: New rental end datetime (optional)
+        comment: New comment (optional)
+        
+    Returns:
+        Updated rental object or None if rental not found
+        
+    Raises:
+        ValueError: If validation fails (user/equipment not found, invalid date range, etc.)
+    """
+    try:
+        # Input validation
+        if rental_id is None or rental_id <= 0:
+            raise ValueError("Invalid rental ID provided")
+        
+        # Get the rental record
+        rental = get_rental(db, rental_id)
+        if not rental:
+            raise ValueError(f"Rental record with ID {rental_id} not found")
+        
+        # Store original values for rollback reference
+        original_user_id = rental.user_id
+        original_equipment_id = rental.equipment_id
+        original_rental_start = rental.rental_start
+        original_rental_end = rental.rental_end
+        original_comment = rental.comment
+        
+        # Validate user_id if provided
+        if user_id is not None:
+            if user_id <= 0:
+                raise ValueError("Invalid user ID provided")
+            
+            user = get_user(db, user_id)
+            if not user:
+                raise ValueError(f"User with ID {user_id} not found or is inactive")
+            
+            # Check if user status is active
+            if not user.status:
+                raise ValueError(f"Cannot assign rental to inactive user: {user.name}")
+            
+            rental.user_id = user_id
+        
+        # Validate equipment_id if provided
+        if equipment_id is not None:
+            if equipment_id <= 0:
+                raise ValueError("Invalid equipment ID provided")
+            
+            equipment = get_equipment(db, equipment_id)
+            if not equipment:
+                raise ValueError(f"Equipment with ID {equipment_id} not found or is inactive")
+            
+            # Check if equipment status is active
+            if not equipment.status:
+                raise ValueError(f"Cannot assign inactive equipment to rental: {equipment.name}")
+            
+            # Check if equipment is already rented by another rental (excluding current rental)
+            existing_rental = db.query(Rental).filter(
+                Rental.equipment_id == equipment_id,
+                Rental.rental_end == None,
+                Rental.id_re != rental_id
+            ).first()
+            
+            if existing_rental:
+                raise ValueError(f"Equipment '{equipment.name}' is already rented by another user")
+            
+            rental.equipment_id = equipment_id
+        
+        # Validate and update rental_start if provided
+        if rental_start is not None:
+            # Check if start date is reasonable (not too far in the past or future)
+            now = datetime.datetime.now()
+            min_date = now - datetime.timedelta(days=3650)  # 10 years ago
+            max_date = now + datetime.timedelta(days=365)   # 1 year in future
+            
+            if rental_start < min_date:
+                raise ValueError("Rental start date cannot be more than 10 years in the past")
+            
+            if rental_start > max_date:
+                raise ValueError("Rental start date cannot be more than 1 year in the future")
+            
+            rental.rental_start = rental_start
+        
+        # Validate and update rental_end if provided
+        if rental_end is not None:
+            # Check if end date is reasonable
+            now = datetime.datetime.now()
+            max_date = now + datetime.timedelta(days=365)   # 1 year in future
+            
+            if rental_end > max_date:
+                raise ValueError("Rental end date cannot be more than 1 year in the future")
+            
+            rental.rental_end = rental_end
+        
+        # Validate date range (rental_start <= rental_end)
+        if rental.rental_end is not None and rental.rental_start is not None:
+            if rental.rental_start > rental.rental_end:
+                raise ValueError("Rental start date cannot be later than rental end date")
+            
+            # Check for reasonable rental duration (not more than 2 years)
+            duration = rental.rental_end - rental.rental_start
+            if duration.days > 730:  # 2 years
+                raise ValueError("Rental duration cannot exceed 2 years")
+            
+            # Check for negative or zero duration
+            if duration.total_seconds() <= 0:
+                raise ValueError("Rental duration must be greater than zero")
+        
+        # Validate comment if provided
+        if comment is not None:
+            if len(comment) > 500:
+                raise ValueError("Comment cannot exceed 500 characters")
+            
+            rental.comment = comment
+        
+        # Commit changes with error handling
+        try:
+            db.commit()
+            db.refresh(rental)
+            return rental
+            
+        except Exception as commit_error:
+            # Rollback changes
+            db.rollback()
+            
+            # Restore original values
+            rental.user_id = original_user_id
+            rental.equipment_id = original_equipment_id
+            rental.rental_start = original_rental_start
+            rental.rental_end = original_rental_end
+            rental.comment = original_comment
+            
+            # Provide specific error messages based on the type of database error
+            error_str = str(commit_error).lower()
+            
+            if 'foreign key constraint' in error_str:
+                if 'user' in error_str:
+                    raise ValueError("Database constraint error: Invalid user reference")
+                elif 'equipment' in error_str:
+                    raise ValueError("Database constraint error: Invalid equipment reference")
+                else:
+                    raise ValueError("Database constraint error: Invalid data reference")
+            
+            elif 'unique constraint' in error_str:
+                raise ValueError("Database constraint error: Duplicate data detected")
+            
+            elif 'not null constraint' in error_str:
+                raise ValueError("Database constraint error: Required field is missing")
+            
+            elif 'check constraint' in error_str:
+                raise ValueError("Database constraint error: Data validation failed")
+            
+            else:
+                raise ValueError(f"Database error occurred while updating rental: {str(commit_error)}")
+    
+    except ValueError:
+        # Re-raise ValueError exceptions (these are our validation errors)
+        raise
+    
+    except Exception as unexpected_error:
+        # Handle any other unexpected errors
+        try:
+            db.rollback()
+        except:
+            pass  # Ignore rollback errors
+        
+        raise ValueError(f"Unexpected error occurred while updating rental: {str(unexpected_error)}")

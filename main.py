@@ -5,6 +5,7 @@ from gui.gui_changeUser import edit_users_dialog
 from gui.gui_changeDep import edit_departments_dialog
 from gui.gui_changeEtype import edit_etypes_dialog
 from gui.gui_changeEquip import edit_equipment_dialog
+from gui.gui_changeRental import edit_rentals_dialog
 from gui.gui_reports import get_user_report_button, get_equipment_report_button, get_equipment_name_report_button, show_rental_history, get_department_report_button, get_feedback_button
 from NfcScan import nfc_equipment_rental_workflow, get_nfc_input
 
@@ -401,6 +402,9 @@ def create_password_dialog():
                 with ui.button(on_click=edit_etypes_dialog).style('width: 100px; height: 100px;'):
                     ui.icon('inventory_2')
                     ui.label('Edit device type') 
+                with ui.button(on_click=edit_rentals_dialog).style('width: 100px; height: 100px;'):
+                    ui.icon('edit_note')
+                    ui.label('Edit Rentals')
                 with ui.button(on_click=lambda: show_add_equipment_dialog(filter_callback=state.update_filter_select, lists_update_callback=update_lists)).style('width: 100px; height: 100px;'):
                     ui.icon('add')
                     ui.label('Add Device')
