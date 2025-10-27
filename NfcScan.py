@@ -50,59 +50,64 @@ def get_card_uid():
 
 async def get_nfc_input(prompt_message: str) -> str:
     """
-    Opens a dialog box with a prompt and waits for NFC card to be scanned.
+    Opens a dialog box with a prompt and waits for keyboard input (virtual keyboard scanner).
 
     Args:
         prompt_message: Message displayed in the dialog box.
 
     Returns:
-        Card UID as string.
+        Scanned data as string.
     """
-    global scanning_active
     result = ""
     dialog = ui.dialog()
     closed = asyncio.Future()
-    stop_scanning = False
 
-    async def scan_card():
-        nonlocal result, stop_scanning
-        scanning_active = True  # Enable card scanning
-        print("Scanning started")  # Debug print
-        
-        while not stop_scanning:
-            uid = get_card_uid()
-            if uid:
-                result = uid
-                input_display.text = "✓ Card scanned successfully"
-                input_display.style('color: green')
-                await asyncio.sleep(1)  # Show success message for 1 second
-                stop_scanning = True  # Stop scanning after successful scan
-                dialog.close()
-                closed.set_result(None)
-                break
-            await asyncio.sleep(0.1)  # Reduced sleep time for more responsive scanning
+    def on_input_submit():
+        nonlocal result
+        if input_field.value.strip():
+            result = input_field.value.strip().lower()
+            dialog.close()
+            closed.set_result(None)
 
-    def close_dialog():
-        nonlocal stop_scanning
-        stop_scanning = True
-        scanning_active = False  # Disable card scanning when dialog is closed
+    def on_cancel():
         dialog.close()
         closed.set_result(None)
+
+    def on_input_change(e):
+        # Update display when input changes
+        if input_field.value:
+            display_label.text = f"Scanning: {input_field.value}"
+        else:
+            display_label.text = "Ready to scan..."
 
     with dialog, ui.card().style('width: 350px;'):
         with ui.row().classes('w-full justify-center items-center'):
             ui.label(prompt_message).style('font-size: 24px; font-weight: bold; text-align: center')
-            #ui.button(icon='close', on_click=close_dialog).props('flat round')
         with ui.separator():
             pass
-        input_display = ui.label("Waiting for scan...").classes('w-full justify-center items-center').style('font-size: 16px; text-align: center')
         
-        # Start the card scanning task
-        asyncio.create_task(scan_card())
+        display_label = ui.label("Ready to scan...").classes('w-full justify-center items-center').style('font-size: 16px; text-align: center; margin: 20px 0;')
+        
+        # Invisible input field that maintains focus
+        input_field = ui.input().style('position: absolute; top: -1000px; left: -1000px;').props('autofocus')
+        input_field.on('keydown.enter', on_input_submit)
+        input_field.on('input', on_input_change)
+        
+        with ui.row().classes('w-full justify-end'):
+            ui.button('Cancel', on_click=on_cancel).props('flat')
 
     dialog.open()
-    await closed  # Wait until dialog is closed (via card scan or cancel button)
-    scanning_active = False  # Ensure scanning is disabled after dialog closes
+    
+    # Aggressive focus maintenance
+    async def maintain_focus():
+        while not closed.done():
+            await asyncio.sleep(0.1)
+            if not closed.done():
+                input_field.run_method('focus')
+    
+    asyncio.create_task(maintain_focus())
+    
+    await closed  # Wait until dialog is closed
     return result
 
 async def nfc_equipment_rental_workflow(update_callback=None):

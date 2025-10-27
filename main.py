@@ -615,7 +615,7 @@ def main():
             ui.button('Rental History', icon='history', on_click=show_rental_history).style('height: 65px; align-self: flex-start')
             #ui.button('Scan', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%')   #!NFC_feature
             
-            #ui.button('Scan to Rent', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%; height: 100px')   #!NFC_feature
+            ui.button('Scan to Rent', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%; height: 100px')   #!NFC_feature
             #ui.button('Attach Wenglor Pass to User', icon='contactless', on_click=show_add_nfc_dialog).style('width: 100%; margin-top: 50px')
             
 
@@ -636,6 +636,8 @@ def main():
                     placeholder='Type equipment name...',
                     on_change=lambda e: on_name_filter_change(e.value)
                 ).style('width: 200px; margin-right: 10px; margin-left: 10px')
+                
+                ui.button(icon='clear', on_click=reset_filter).style('height: 40px; margin-left: 20px').tooltip('Clear all filters')
                 
                 # ui.button(icon='refresh', on_click=full_refresh).props('flat round').tooltip('Refresh all data')
                 
