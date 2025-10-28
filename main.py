@@ -385,12 +385,12 @@ def create_password_dialog():
     success_dialog = ui.dialog()
 
     with success_dialog:
-        with ui.card().style('height: 500px'):
+        with ui.card().style('max-width: none; width: 600px; height: 500px'):
             with ui.row().classes('w-full justify-between items-center'):
                 ui.label('Admin panel').style('font-size: 150%')
                 ui.button(icon='close', on_click=success_dialog.close).props('flat round')
             with ui.row():
-                with ui.button(on_click=edit_users_dialog).style('width:100px; height: 100px;'):
+                with ui.button(on_click=edit_users_dialog).style('width: 100px; height: 100px;'):
                     ui.icon('person')
                     ui.label('Edit users')
                 with ui.button(on_click=edit_departments_dialog).style('width: 100px; height: 100px;'):
@@ -509,7 +509,7 @@ def show_add_nfc_dialog():
         users_without_nfc = fresh_db.query(User).filter(User.nfc == None, User.status == True).all()
         
         if not users_without_nfc:
-            ui.notify('No users without Wenglor Pass', color='warning')
+            ui.notify('No users without Code', color='warning')
             return
             
         # Sort by name
@@ -523,7 +523,7 @@ def show_add_nfc_dialog():
         width: 500px;
     '''):
             with ui.row().classes('w-full justify-between items-center'):
-                ui.label('Adding Wenglor Pass to User').style('font-size: 150%')
+                ui.label('Adding Code to User').style('font-size: 150%')
                 ui.button(icon='close', on_click=dialog.close).props('flat round')
             
             # Create dropdown list of users
@@ -553,18 +553,18 @@ def show_add_nfc_dialog():
             
             async def scan_nfc():
                 nonlocal nfc_value
-                nfc_value = await get_nfc_input("Scan Wenglor Pass")
+                nfc_value = await get_nfc_input("Scan a Code")
                 nfc_value = nfc_value.lower() if nfc_value else None
                 
                 if nfc_value:
                     # Check if this NFC code is already taken
                     existing_user = find_user_by_nfc(fresh_db, nfc_value)
                     if existing_user:
-                        ui.notify(f'Wenglor Pass already registered to user {existing_user.name}', type='warning')
+                        ui.notify(f'Code already registered to user {existing_user.name}', type='warning')
                         nfc_value = None
                         nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
                     else:
-                        nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Pass scanned</b>'
+                        nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Code scanned</b>'
                 else:
                     nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
             
@@ -576,19 +576,19 @@ def show_add_nfc_dialog():
                     return
                     
                 if not nfc_value:
-                    ui.notify('Wenglor Pass not scanned', color='negative')
+                    ui.notify('Data Matrix Code not scanned', color='negative')
                     return
                 
                 try:
                     # Updating the user's NFC code
                     update_user_nfc(fresh_db, selected_user_id, nfc_value)
-                    ui.notify('Wenglor Pass successfully added to user', color='positive')
+                    ui.notify('Data Matrix Code successfully added to user', color='positive')
                     dialog.close()
                 except Exception as e:
                     ui.notify(f'Error during update: {str(e)}', color='negative')
             
             with ui.row().classes('w-full justify-between items-center q-mb-md'):
-                ui.button('Scan Wenglor Pass', on_click=scan_nfc)
+                ui.button('Scan Data Matrix Code', on_click=scan_nfc)
                 nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
             
             with ui.row().classes('justify-end'):
@@ -615,12 +615,11 @@ def main():
                 ui.html('- To add a new user, press the <b>"+"</b> button next to the user selection field in the Rent dialog.')
                 ui.html('- Use the <b>"Filter by Equipment Type"</b> dropdown to filter equipment by type.')
                 ui.html('- Access the rental history by clicking the <b>"Rental History"</b> button.')
-                ui.html('- If you have any suggestions for the app or have found any bugs, you can leave your anonymous feedback by clicking the <b>“Submit feedback”</b> button.')
-            ui.button('Rental History', icon='history', on_click=show_rental_history).style('height: 65px; align-self: flex-start')
-            #ui.button('Scan', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%')   #!NFC_feature
-            
-            ui.button('Scan to Rent', icon='nfc', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%; height: 100px')   #!NFC_feature
-            #ui.button('Attach Wenglor Pass to User', icon='contactless', on_click=show_add_nfc_dialog).style('width: 100%; margin-top: 50px')
+                # ui.html('- If you have any suggestions for the app or have found any bugs, you can leave your anonymous feedback by clicking the <b>“Submit feedback”</b> button.')
+            # ui.button('Scan to Rent', icon='qr_code', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%; height: 65px')   #!NFC_feature
+            # ui.button('Attach a code to User', icon='developer_board', on_click=show_add_nfc_dialog).style('width: 100%; height: 65px')
+            # ui.separator()
+            ui.button('Rental History', icon='history', on_click=show_rental_history).style('width: 100%; height: 65px; margin-top: 25px')
             
 
         with ui.column():
@@ -670,7 +669,7 @@ def main():
         on_click = get_long_hold_callbacks()
         admin_button.on('click', on_click)
     
-    ui.button('Submit Feedback', icon='feedback', on_click=show_feedback_dialog).style('width: 200px; height: 75px; position: fixed; left: 30px; bottom: 30px')
+    # ui.button('Submit Feedback', icon='feedback', on_click=show_feedback_dialog).style('width: 200px; height: 75px; position: fixed; left: 30px; bottom: 30px')
     with ui.row().style('position: fixed; right: 30px; bottom: 30px'):
         button = ui.button(on_click=lambda: toggle_dark_mode(button))
         # Set the initial icon

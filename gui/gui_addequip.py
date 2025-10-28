@@ -66,17 +66,17 @@ def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
 
     async def scan_nfc():
         nonlocal nfc_value, nfc_label
-        nfc_value = await get_nfc_input("Scan Wenglor Pass")
+        nfc_value = await get_nfc_input("Scan Data Matrix Code")
         nfc_value = nfc_value.lower()
         if nfc_value:
             # Check if this NFC code is already taken
             existing_equipment = find_equipment_by_nfc(db, nfc_value)
             if existing_equipment:
-                ui.notify(f'Wenglor Pass already registered to equipment {existing_equipment.name}', type='warning')
+                ui.notify(f'Data Matrix Code already registered to equipment {existing_equipment.name}', type='warning')
                 nfc_value = None
                 nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
             else:
-                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Pass scanned</b>'
+                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Code scanned</b>'
         else:
             with ui.row().classes('items-center'):
                 nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
@@ -128,7 +128,7 @@ def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
         # Add a button and tag for NFC
         ui.separator()
         with ui.row().classes('w-full justify-between items-center'):
-            ui.button('Scan Wenglor Pass', on_click=scan_nfc)
+            ui.button('Scan Data Matrix Code', on_click=scan_nfc)
             nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
             
         ui.separator() 

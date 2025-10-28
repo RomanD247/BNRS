@@ -19,9 +19,9 @@ def edit_rentals_dialog():
     try:
         # Create a fresh session to ensure we get updated data
         with SessionLocal() as fresh_db:
-            with ui.dialog() as dialog, ui.card().style('width: 800px; height: 600px'):
+            with ui.dialog() as dialog, ui.card().style('max-width: none; width: 1200px; height: 600px'):
                 with ui.row().classes('w-full justify-between items-center'):
-                    ui.label('Select a rental record to edit').classes('text-h6 q-mb-md, w-740')
+                    ui.label('Select a rental record to edit').classes('text-h6 q-mb-md, w-1140')
                     ui.button(icon='close', on_click=dialog.close).props('flat round')
                 
                 # Create a scroll area for the rental list
@@ -47,10 +47,17 @@ def edit_rentals_dialog():
                             rows = []
                             for rental in rentals:
                                 try:
+                                    # Format equipment display with name and serial number
+                                    equipment_display = 'Unknown Equipment'
+                                    if rental.equipment:
+                                        equipment_name = rental.equipment.name
+                                        equipment_serial = rental.equipment.serialnum if rental.equipment.serialnum else 'No S/N'
+                                        equipment_display = f"{equipment_name} (S/N: {equipment_serial})"
+                                    
                                     rows.append({
                                         'id_re': rental.id_re,
                                         'user_name': rental.user.name if rental.user else 'Unknown User',
-                                        'equipment_name': rental.equipment.name if rental.equipment else 'Unknown Equipment',
+                                        'equipment_name': equipment_display,
                                         'rental_start': rental.rental_start.strftime('%Y-%m-%d %H:%M:%S') if rental.rental_start else 'No start date',
                                         'rental_end': rental.rental_end.strftime('%Y-%m-%d %H:%M:%S') if rental.rental_end else 'Not returned',
                                         'comment': rental.comment or ''
@@ -140,7 +147,12 @@ def show_edit_form_for_rental(rental, parent_dialog=None):
                     print(f"Warning: Rental {fresh_rental.id_re} has invalid user reference")
                 
                 try:
-                    equipment_value = fresh_rental.equipment.name if fresh_rental.equipment else None
+                    if fresh_rental.equipment:
+                        equipment_name = fresh_rental.equipment.name
+                        equipment_serial = fresh_rental.equipment.serialnum if fresh_rental.equipment.serialnum else 'No S/N'
+                        equipment_value = f"{equipment_name} (S/N: {equipment_serial})"
+                    else:
+                        equipment_value = None
                 except AttributeError:
                     equipment_value = None
                     print(f"Warning: Rental {fresh_rental.id_re} has invalid equipment reference")
@@ -174,8 +186,12 @@ def show_edit_form_for_rental(rental, parent_dialog=None):
                         value=user_value
                     ).classes('w-full q-mb-sm')
                     
-                    # Equipment selection dropdown
-                    equipment_options = [eq.name for eq in equipment_list]
+                    # Equipment selection dropdown with serial numbers
+                    equipment_options = []
+                    for eq in equipment_list:
+                        serial_display = eq.serialnum if eq.serialnum else 'No S/N'
+                        equipment_options.append(f"{eq.name} (S/N: {serial_display})")
+                    
                     equipment_select = ui.select(
                         label='Equipment',
                         options=equipment_options,
@@ -286,15 +302,18 @@ def save_rental_changes(rental_id, user_name, equipment_name, rental_start_str, 
                 # Validate and get equipment ID
                 equipment_id = None
                 if equipment_name:
-                    equipment = next((eq for eq in equipment_list if eq.name == equipment_name), None)
+                    # Extract equipment name from the display format "Name (S/N: Serial)"
+                    actual_equipment_name = equipment_name.split(' (S/N:')[0] if ' (S/N:' in equipment_name else equipment_name
+                    
+                    equipment = next((eq for eq in equipment_list if eq.name == actual_equipment_name), None)
                     if not equipment:
-                        ui.notify(f'Selected equipment "{equipment_name}" not found in system', color='negative')
+                        ui.notify(f'Selected equipment "{actual_equipment_name}" not found in system', color='negative')
                         return
                     
                     # Double-check equipment exists in database
                     db_equipment = crud.get_equipment(session, equipment.id_eq)
                     if not db_equipment:
-                        ui.notify(f'Selected equipment "{equipment_name}" no longer exists in database', color='negative')
+                        ui.notify(f'Selected equipment "{actual_equipment_name}" no longer exists in database', color='negative')
                         return
                     
                     equipment_id = equipment.id_eq

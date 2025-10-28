@@ -180,7 +180,7 @@ async def get_user_input_with_selection():
         ui.separator()
         
         # NFC scanning section
-        ui.label('Scan Wenglor Pass:').style('font-weight: bold; margin: 10px 0 5px 0;')
+        ui.label('Scan Data Matrix Code:').style('font-weight: bold; margin: 10px 0 5px 0;')
         nfc_display_label = ui.label("Ready to scan...").style('font-size: 16px; text-align: center; margin: 5px 0; padding: 10px; border: 1px dashed #ccc; border-radius: 4px;')
         
         # Invisible input field for NFC scanning
@@ -272,7 +272,7 @@ async def get_user_selection():
         
         # NFC scan option
         with ui.row().classes('w-full items-center'):
-            ui.button('Scan Wenglor Pass', icon='nfc', on_click=on_nfc_scan).style('width: 100%; margin: 5px 0;')
+            ui.button('Scan Data Matrix Code', icon='qr_code', on_click=on_nfc_scan).style('width: 100%; margin: 5px 0;')
         
         ui.separator()
         ui.label('OR').classes('text-center').style('margin: 10px 0;')

@@ -38,7 +38,7 @@ def edit_users_dialog():
                                 with ui.column():
                                     ui.icon('check_box' if user.status == True else 'check_box_outline_blank').classes(f'text-2xl {"text-green-500" if user.status else "text-red-500"}')
                                     if user.nfc:
-                                        ui.icon('nfc').classes('text-2xl text-orange-500')
+                                        ui.icon('qr_code').classes('text-2xl text-orange-500')
                                 with ui.column():
                                     ui.label(f'{user.name}').style('font-size: 110%; font-weight: bold')
                                     ui.label(f'{user.department.name}') 
@@ -86,17 +86,17 @@ def show_edit_form_for_user(user, parent_dialog=None):
 
             async def scan_nfc():
                 nonlocal nfc_value, nfc_label
-                nfc_value = await get_nfc_input("Scan Wenglor Pass")
+                nfc_value = await get_nfc_input("Scan Data Matrix Code")
                 nfc_value = nfc_value.lower()
                 if nfc_value:
                     # Check if this NFC code is already taken by another user
                     existing_user = crud.find_user_by_nfc(fresh_db, nfc_value)
                     if existing_user and existing_user.id_us != fresh_user.id_us:
-                        ui.notify(f'Wenglor Pass already registered to user {existing_user.name}', type='warning')
+                        ui.notify(f'Data Matrix Code already registered to user {existing_user.name}', type='warning')
                         nfc_value = fresh_user.nfc  # Reset to original value
                         nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
                     else:
-                        nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Pass scanned</b>'
+                        nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Code scanned</b>'
                 else:
                     nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
             
@@ -122,8 +122,8 @@ def show_edit_form_for_user(user, parent_dialog=None):
                 # NFC scanning section
                 ui.separator()
                 with ui.row().classes('w-full justify-between items-center q-mb-md'):
-                    ui.button('Scan Wenglor Pass', on_click=scan_nfc)
-                    nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Pass scanned</b>' if nfc_value else '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
+                    ui.button('Scan Data Matrix Code', on_click=scan_nfc)
+                    nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Code scanned</b>' if nfc_value else '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
                 
                 with ui.row().classes('justify-end'):
                     ui.button('Cancel', on_click=edit_dialog.close).classes('q-mr-sm')

@@ -74,17 +74,17 @@ def show_add_user_dialog(callback=None):
 
     async def scan_nfc():
         nonlocal nfc_value, nfc_label
-        nfc_value = await get_nfc_input("Scan Wenglor Pass")
+        nfc_value = await get_nfc_input("Scan Data Matrix Code")
         nfc_value = nfc_value.lower()
         if nfc_value:
             # Check if this NFC code is already taken
             existing_user = find_user_by_nfc(db, nfc_value)
             if existing_user:
-                ui.notify(f'Wenglor Pass already registered to user {existing_user.name}', type='warning')
+                ui.notify(f'Data Matrix Code already registered to user {existing_user.name}', type='warning')
                 nfc_value = None
                 nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
             else:
-                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Pass scanned</b>'
+                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Code scanned</b>'
         else:
             with ui.row().classes('items-center'):
                 nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
@@ -132,7 +132,7 @@ def show_add_user_dialog(callback=None):
             # Add a button and tag for NFC #!NFC_feature
         ui.separator()
         with ui.row().classes('w-full justify-between items-center'):
-            ui.button('Scan Wenglor Pass', on_click=scan_nfc)
+            ui.button('Scan Data Matrix Code', on_click=scan_nfc)
             nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
             
             
