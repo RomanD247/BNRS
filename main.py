@@ -7,12 +7,15 @@ from gui.gui_changeEtype import edit_etypes_dialog
 from gui.gui_changeEquip import edit_equipment_dialog
 from gui.gui_changeRental import edit_rentals_dialog
 from gui.gui_reports import get_user_report_button, get_equipment_report_button, get_equipment_name_report_button, show_rental_history, get_department_report_button, get_feedback_button
-from NfcScan import nfc_equipment_rental_workflow, get_nfc_input
+from NfcScan import nfc_equipment_rental_workflow, get_nfc_input, generate_all_users_codes, generate_all_equipment_codes
+from MatrixCode import update_user_codes, update_equipment_codes
 
 import asyncio
 import sys
 import os
 import time
+import tkinter as tk
+from tkinter import filedialog, messagebox
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from crud import (
@@ -377,6 +380,196 @@ def full_refresh():
 
     ui.notify('Data refreshed successfully!', type='positive')
 
+class CodesGenerationDialog:
+    """Dialog window for managing Data Matrix codes generation"""
+    
+    def __init__(self):
+        """Dialog window initialization"""
+        self.dialog = None
+        self.status_label = None
+        
+    def open(self):
+        """Opens the dialog window"""
+        with ui.dialog() as self.dialog, ui.card().style('width: 400px'):
+            with ui.row().classes('w-full justify-between items-center'):
+                ui.label('Data Matrix Codes operations').style('font-size: 150%')
+                ui.button(icon='close', on_click=self.dialog.close).props('flat round')
+            
+            ui.separator()
+            
+            # Information message
+            ui.label('Clicking the button will open a folder selection dialog to save the codes').style('font-size: 14px; color: #666; margin: 10px 0;')
+            
+            # Main generation buttons
+            with ui.row():#.classes('w-full q-gutter-md'):
+                ui.button(
+                    'Download Users Codes',
+                    icon='person',
+                    on_click=self.generate_users_codes
+                ).style('width: 100px; height: 100px;')
+                
+                ui.button(
+                    'Download Equipments Codes', 
+                    icon='inventory',
+                    on_click=self.generate_equipment_codes
+                ).style('width: 100px; height: 100px;')
+            
+            ui.separator()
+
+            ui.label('Updating codes for all users or equipment. This operation must be done after changing the Name or the Serial Number.').style('font-size: 14px; color: #666; margin: 10px 0;')
+            
+            with ui.row():#.classes('w-full q-gutter-md'):
+                ui.button(
+                    'Update Users Codes',
+                    icon='person',
+                    on_click=self.handle_update_user_codes
+                ).style('width: 100px; height: 100px;')
+                
+                ui.button(
+                    'Update Equipments Codes', 
+                    icon='inventory',
+                    on_click=self.handle_update_equipment_codes
+                ).style('width: 100px; height: 100px;')
+
+            # Status and results
+            self.status_label = ui.label('').style('font-weight: bold')
+        
+        self.dialog.open()
+    
+
+    def generate_users_codes(self):
+        """Handler for generating codes for all users"""
+        # Select folder for saving when button is clicked
+        root = tk.Tk()
+        root.withdraw()  # Hide main window
+        root.lift()  # Bring window to front
+        root.attributes('-topmost', True)  # Make window on top of all
+        root.after_idle(root.attributes, '-topmost', False)  # Remove topmost after dialog is shown
+        
+        # Open folder selection dialog
+        directory = filedialog.askdirectory(
+            title="Select folder to save user codes",
+            parent=root
+        )
+        
+        root.destroy()  # Close temporary window
+        
+        if not directory:
+            ui.notify('Folder not selected, operation cancelled', type='warning')
+            return
+        
+        try:
+            self.status_label.text = 'Generating user codes...'
+            ui.notify('Starting user codes generation...', type='info')
+            
+            # Call generation function
+            created_count, total_count = generate_all_users_codes(directory)
+            
+            # Display results
+            result_text = f'Created {created_count} out of {total_count} user codes'
+            self.status_label.text = result_text
+            
+            if created_count > 0:
+                ui.notify(f'Successfully created {created_count} user codes in folder: {directory}', type='positive')
+            else:
+                ui.notify('Failed to create user codes', type='warning')
+                
+        except Exception as e:
+            error_msg = f'Error generating user codes: {str(e)}'
+            self.status_label.text = error_msg
+            ui.notify(error_msg, type='negative')
+    
+    def generate_equipment_codes(self):
+        """Handler for generating codes for all equipment"""
+        # Select folder for saving when button is clicked
+        root = tk.Tk()
+        root.withdraw()  # Hide main window
+        root.lift()  # Bring window to front
+        root.attributes('-topmost', True)  # Make window on top of all
+        root.after_idle(root.attributes, '-topmost', False)  # Remove topmost after dialog is shown
+        
+        # Open folder selection dialog
+        directory = filedialog.askdirectory(
+            title="Select folder to save equipment codes",
+            parent=root
+        )
+        
+        root.destroy()  # Close temporary window
+        
+        if not directory:
+            ui.notify('Folder not selected, operation cancelled', type='warning')
+            return
+        
+        try:
+            self.status_label.text = 'Generating equipment codes...'
+            ui.notify('Starting equipment codes generation...', type='info')
+            
+            # Call generation function
+            created_count, total_count = generate_all_equipment_codes(directory)
+            
+            # Display results
+            result_text = f'Created {created_count} out of {total_count} equipment codes'
+            self.status_label.text = result_text
+            
+            if created_count > 0:
+                ui.notify(f'Successfully created {created_count} equipment codes in folder: {directory}', type='positive')
+            else:
+                ui.notify('Failed to create equipment codes', type='warning')
+                
+        except Exception as e:
+            error_msg = f'Error generating equipment codes: {str(e)}'
+            self.status_label.text = error_msg
+            ui.notify(error_msg, type='negative')
+
+    def handle_update_user_codes(self):
+        """Handler for updating user codes button."""
+        try:
+            ui.notify('Starting user NFC codes update...', type='info')
+            
+            # Call update function from MatrixCode module
+            result = update_user_codes()
+            
+            # Process operation results
+            if result['success']:
+                success_msg = f"Successfully updated {result['updated_count']} user NFC codes"
+                ui.notify(success_msg, type='positive')
+            else:
+                error_msg = f"Error: {result['message']}"
+                if result['error']:
+                    error_msg += f" ({result['error']})"
+                ui.notify(error_msg, type='negative')
+                
+        except Exception as e:
+            error_msg = f'Unexpected error updating user NFC codes: {str(e)}'
+            ui.notify(error_msg, type='negative')
+
+    def handle_update_equipment_codes(self):
+        """Handler for updating equipment codes button."""
+        try:
+            ui.notify('Starting equipment NFC codes update...', type='info')
+            
+            # Call update function from MatrixCode module
+            result = update_equipment_codes()
+            
+            # Process operation results
+            if result['success']:
+                success_msg = f"Successfully updated {result['updated_count']} equipment NFC codes"
+                ui.notify(success_msg, type='positive')
+            else:
+                error_msg = f"Error: {result['message']}"
+                if result['error']:
+                    error_msg += f" ({result['error']})"
+                ui.notify(error_msg, type='negative')
+                
+        except Exception as e:
+            error_msg = f'Unexpected error updating equipment NFC codes: {str(e)}'
+            ui.notify(error_msg, type='negative')
+
+def open_codes_dialog():
+    """Opens the codes generation dialog"""
+    dialog = CodesGenerationDialog()
+    dialog.open()
+
 #Fuctions for password for Admin mode
 # Admin Panel here
 def create_password_dialog():
@@ -412,6 +605,9 @@ def create_password_dialog():
                     ui.icon('add')
                     ui.label('Add Department')
                 get_feedback_button()
+                with ui.button(on_click=lambda: open_codes_dialog()).style('width: 100px; height: 100px;'):
+                    ui.icon('qr_code')
+                    ui.label('Generate Codes')
                 with ui.button(on_click=full_refresh,  color='warning').tooltip('After editing all data must be refreshed').style('width: 100px; height: 100px'):
                     ui.icon('refresh')
                     ui.label('Refresh all data') 
@@ -549,7 +745,7 @@ def show_add_nfc_dialog():
             
             # To store NFC value
             nfc_value = None
-            #nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
+            #nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Code: Not set</b>')
             
             async def scan_nfc():
                 nonlocal nfc_value
@@ -562,11 +758,11 @@ def show_add_nfc_dialog():
                     if existing_user:
                         ui.notify(f'Code already registered to user {existing_user.name}', type='warning')
                         nfc_value = None
-                        nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
+                        nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Code: Not set</b>'
                     else:
                         nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Code scanned</b>'
                 else:
-                    nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
+                    nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Code: Not set</b>'
             
             def on_save():
                 nonlocal selected_user_id, nfc_value
@@ -589,7 +785,7 @@ def show_add_nfc_dialog():
             
             with ui.row().classes('w-full justify-between items-center q-mb-md'):
                 ui.button('Scan Data Matrix Code', on_click=scan_nfc)
-                nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
+                nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Code: Not set</b>')
             
             with ui.row().classes('justify-end'):
                 ui.button('Apply', on_click=on_save).classes('bg-primary')
@@ -615,10 +811,11 @@ def main():
                 ui.html('- To add a new user, press the <b>"+"</b> button next to the user selection field in the Rent dialog.')
                 ui.html('- Use the <b>"Filter by Equipment Type"</b> dropdown to filter equipment by type.')
                 ui.html('- Access the rental history by clicking the <b>"Rental History"</b> button.')
+                ui.html('- To use Barcode Scanner, press the <b>"Scan to Rent"</b> button, then scan the Code on the device. After that scan your personal code it you have it.')
                 # ui.html('- If you have any suggestions for the app or have found any bugs, you can leave your anonymous feedback by clicking the <b>“Submit feedback”</b> button.')
-            # ui.button('Scan to Rent', icon='qr_code', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%; height: 65px')   #!NFC_feature
-            # ui.button('Attach a code to User', icon='developer_board', on_click=show_add_nfc_dialog).style('width: 100%; height: 65px')
-            # ui.separator()
+            ui.button('Scan to Rent', icon='qr_code', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%; height: 65px')   #!NFC_feature
+            #ui.button('Attach a code to User', icon='developer_board', on_click=show_add_nfc_dialog).style('width: 100%; height: 65px')
+            ui.separator()
             ui.button('Rental History', icon='history', on_click=show_rental_history).style('width: 100%; height: 65px; margin-top: 25px')
             
 

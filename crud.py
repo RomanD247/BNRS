@@ -240,6 +240,15 @@ def get_user_rentals(db: Session, user_id: int) -> List[Rental]:
         .options(joinedload(Rental.equipment).joinedload(Equipment.etype))\
         .filter(Rental.user_id == user_id).all()
 
+def delete_rental(db: Session, rental_id: int) -> bool:
+    """Delete rental record completely from database"""
+    rental = get_rental(db, rental_id)
+    if rental:
+        db.delete(rental)
+        db.commit()
+        return True
+    return False
+
 def get_equipment_renters(db: Session, equipment_id: int) -> List[User]:
     """Get all users who have rented specific equipment"""
     return db.query(User)\
@@ -899,14 +908,20 @@ def update_rental(db: Session, rental_id: int, user_id: int = None,
         
         # Validate and update rental_end if provided
         if rental_end is not None:
-            # Check if end date is reasonable
-            now = datetime.datetime.now()
-            max_date = now + datetime.timedelta(days=365)   # 1 year in future
-            
-            if rental_end > max_date:
-                raise ValueError("Rental end date cannot be more than 1 year in the future")
-            
-            rental.rental_end = rental_end
+            # Special handling for clearing the rental_end field
+            if rental_end == 'CLEAR_FIELD':
+                print(f"DEBUG: Clearing rental_end field for rental {rental_id}")
+                rental.rental_end = None
+            else:
+                # Check if end date is reasonable
+                now = datetime.datetime.now()
+                max_date = now + datetime.timedelta(days=365)   # 1 year in future
+                
+                if rental_end > max_date:
+                    raise ValueError("Rental end date cannot be more than 1 year in the future")
+                
+                print(f"DEBUG: Setting rental_end to {rental_end} for rental {rental_id}")
+                rental.rental_end = rental_end
         
         # Validate date range (rental_start <= rental_end)
         if rental.rental_end is not None and rental.rental_start is not None:

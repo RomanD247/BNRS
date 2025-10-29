@@ -36,7 +36,7 @@ def edit_equipment_dialog():
                                 with ui.column():
                                     ui.icon('check_box' if equipment.status == True else 'check_box_outline_blank').classes(f'text-2xl {"text-green-500" if equipment.status else "text-red-500"}')
                                     if equipment.nfc:
-                                            ui.icon('nfc').classes('text-2xl text-orange-500')
+                                            ui.icon('qr_code').classes('text-2xl text-orange-500')
                                 with ui.column():
                                     ui.label(f'Name: {equipment.name}').classes('text-weight-bold').style('margin-top: -10px')
                                     ui.label(f'S/N: {equipment.serialnum}').style('margin-top: -10px')

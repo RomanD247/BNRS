@@ -2,3 +2,5 @@ SQLAlchemy==2.0.25
 NiceGUI==2.0.0
 pandas==2.0.3
 python-dotenv==1.0.0
+pylibdmtx==0.1.10
+Pillow==10.1.0

@@ -204,12 +204,19 @@ def show_edit_form_for_rental(rental, parent_dialog=None):
                         value=rental_start_value
                     ).props('type=datetime-local').classes('w-full q-mb-sm')
                     
-                    # Rental end datetime input
-                    rental_end_input = ui.input(
-                        'Rental End',
-                        value=rental_end_value,
-                        placeholder='Leave empty if not returned'
-                    ).props('type=datetime-local').classes('w-full q-mb-sm')
+                    # Rental end datetime input with clear button
+                    with ui.row().classes('w-full q-mb-sm items-end'):
+                        rental_end_input = ui.input(
+                            'Rental End',
+                            value=rental_end_value,
+                            placeholder='Leave empty if not returned'
+                        ).props('type=datetime-local').classes('flex-grow')
+                        
+                        # Clear button for rental end date
+                        ui.button(
+                            'Clear',
+                            on_click=lambda: rental_end_input.set_value('')
+                        ).classes('q-ml-sm').props('size=sm color=secondary')
                     
                     # Comment text input
                     comment_input = ui.textarea(
@@ -218,20 +225,33 @@ def show_edit_form_for_rental(rental, parent_dialog=None):
                         placeholder='Optional comment'
                     ).classes('w-full q-mb-sm')
                     
-                    with ui.row().classes('justify-end'):
-                        ui.button('Cancel', on_click=edit_dialog.close).classes('q-mr-sm')
-                        ui.button('Save', on_click=lambda: save_rental_changes(
-                            fresh_rental.id_re,
-                            user_select.value,
-                            equipment_select.value,
-                            rental_start_input.value,
-                            rental_end_input.value,
-                            comment_input.value,
-                            users,
-                            equipment_list,
-                            edit_dialog,
-                            parent_dialog
-                        )).classes('bg-primary')
+                    with ui.row().classes('justify-between'):
+                        # Delete button on the left
+                        ui.button(
+                            'Delete Record', 
+                            icon='delete',
+                            on_click=lambda: delete_rental_record(
+                                fresh_rental.id_re,
+                                edit_dialog,
+                                parent_dialog
+                            )
+                        ).classes('bg-negative')
+                        
+                        # Cancel and Save buttons on the right
+                        with ui.row():
+                            ui.button('Cancel', on_click=edit_dialog.close).classes('q-mr-sm')
+                            ui.button('Save', on_click=lambda: save_rental_changes(
+                                fresh_rental.id_re,
+                                user_select.value,
+                                equipment_select.value,
+                                rental_start_input.value,
+                                rental_end_input.value,
+                                comment_input.value,
+                                users,
+                                equipment_list,
+                                edit_dialog,
+                                parent_dialog
+                            )).classes('bg-primary')
                         
                 # Open the new dialog
                 edit_dialog.open()
@@ -374,13 +394,24 @@ def save_rental_changes(rental_id, user_name, equipment_name, rental_start_str, 
                     return
                 
                 # Update the rental record
+                # Special handling for clearing rental_end - we need to explicitly pass None
+                # even when the field is empty to clear the database value
+                if not rental_end_str or rental_end_str.strip() == '':
+                    # Force clear the rental_end field by setting it to a special marker
+                    # that the crud function will recognize as "clear this field"
+                    rental_end_to_pass = 'CLEAR_FIELD'
+                    print(f"DEBUG: Clearing rental_end for rental {rental_id}")
+                else:
+                    rental_end_to_pass = rental_end
+                    print(f"DEBUG: Setting rental_end to {rental_end} for rental {rental_id}")
+                
                 updated_rental = crud.update_rental(
                     session, 
                     rental_id, 
                     user_id=user_id,
                     equipment_id=equipment_id,
                     rental_start=rental_start,
-                    rental_end=rental_end,
+                    rental_end=rental_end_to_pass,
                     comment=comment
                 )
                 
@@ -427,3 +458,54 @@ def save_rental_changes(rental_id, user_name, equipment_name, rental_start_str, 
         # Handle any other unexpected errors
         ui.notify(f'Unexpected error during save operation: {str(e)}', color='negative')
         print(f"Unexpected error in save_rental_changes: {str(e)}")  # for debugging
+
+
+def delete_rental_record(rental_id, dialog, parent_dialog=None):
+    """
+    Deletes a rental record from the database after confirmation.
+    
+    Args:
+        rental_id: ID of the rental record to delete
+        dialog: Current edit dialog to close
+        parent_dialog: Parent dialog to close if needed
+    """
+    def confirm_delete():
+        try:
+            # Create a new session for this operation
+            with SessionLocal() as session:
+                # Check if rental record exists before deleting
+                existing_rental = crud.get_rental(session, rental_id)
+                if not existing_rental:
+                    ui.notify(f'Rental record with ID {rental_id} no longer exists in database', color='negative')
+                    return
+                
+                # Delete the rental record
+                success = crud.delete_rental(session, rental_id)
+                
+                if success:
+                    ui.notify(f'Rental record ID {rental_id} successfully deleted', color='positive')
+                    dialog.close()
+                    
+                    # If parent dialog exists, close it too
+                    if parent_dialog:
+                        parent_dialog.close()
+                    
+                    # Reopen the rental list with refreshed data
+                    ui.timer(0.1, edit_rentals_dialog, once=True)
+                else:
+                    ui.notify('Failed to delete rental record - record not found', color='negative')
+                    
+        except Exception as e:
+            ui.notify(f'Error deleting rental record: {str(e)}', color='negative')
+            print(f"Error in delete_rental_record: {str(e)}")
+    
+    # Show confirmation dialog
+    with ui.dialog() as confirm_dialog, ui.card():
+        ui.label(f'Are you sure you want to delete rental record ID {rental_id}?').classes('text-h6 q-mb-md')
+        ui.label('This action cannot be undone!').classes('text-negative q-mb-md')
+        
+        with ui.row().classes('justify-end'):
+            ui.button('Cancel', on_click=confirm_dialog.close).classes('q-mr-sm')
+            ui.button('Delete', on_click=lambda: [confirm_delete(), confirm_dialog.close()]).classes('bg-negative')
+    
+    confirm_dialog.open()
