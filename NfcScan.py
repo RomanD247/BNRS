@@ -1183,6 +1183,140 @@ def generate_all_equipment_codes(output_directory: str) -> tuple[int, int]:
         return (0, 0)
 
 
+def generate_single_user_code_file(user_id: int, output_directory: str) -> tuple[bool, str]:
+    """
+    Generates Data Matrix code for a single user and saves to specified folder
+    
+    Args:
+        user_id: User ID
+        output_directory: Path to folder for saving files
+    
+    Returns:
+        Tuple (success status, message/filename)
+    """
+    import os
+    
+    try:
+        # Input parameter validation
+        if not output_directory or not isinstance(output_directory, str):
+            return (False, "Error: output_directory must be a non-empty string")
+        
+        # Check directory existence and accessibility
+        if not os.path.exists(output_directory):
+            try:
+                os.makedirs(output_directory, exist_ok=True)
+            except Exception as e:
+                return (False, f"Error: Cannot create output directory: {str(e)}")
+        
+        if not os.path.isdir(output_directory):
+            return (False, "Error: Output path is not a directory")
+        
+        if not os.access(output_directory, os.W_OK):
+            return (False, "Error: No write permission for directory")
+        
+        # Get user from database
+        try:
+            user = crud.get_user(db, user_id)
+        except Exception as e:
+            return (False, f"Error: Failed to retrieve user: {str(e)}")
+        
+        if not user:
+            return (False, "Error: User not found")
+            
+        if not user.nfc or not user.nfc.strip():
+            return (False, "Error: User has no NFC code")
+            
+        # Generate Data Matrix image
+        image = generate_user_datamatrix(user.id_us)
+        if image is None:
+            return (False, "Error: Failed to generate Data Matrix image")
+        
+        # Prepare filename
+        clean_name = _clean_filename(user.name)
+        base_filename = f"user_{user.id_us}_{clean_name}"
+        
+        # Ensure filename uniqueness
+        filename = _ensure_unique_filename(output_directory, base_filename, ".png")
+        file_path = os.path.join(output_directory, filename)
+        
+        # Save image
+        try:
+            image.save(file_path, "PNG")
+            return (True, filename)
+        except Exception as e:
+            return (False, f"Error saving file: {str(e)}")
+            
+    except Exception as e:
+        return (False, f"Unexpected error: {str(e)}")
+
+
+def generate_single_equipment_code_file(equipment_id: int, output_directory: str) -> tuple[bool, str]:
+    """
+    Generates Data Matrix code for a single equipment item and saves to specified folder
+    
+    Args:
+        equipment_id: Equipment ID
+        output_directory: Path to folder for saving files
+    
+    Returns:
+        Tuple (success status, message/filename)
+    """
+    import os
+    
+    try:
+        # Input parameter validation
+        if not output_directory or not isinstance(output_directory, str):
+            return (False, "Error: output_directory must be a non-empty string")
+        
+        # Check directory existence and accessibility
+        if not os.path.exists(output_directory):
+            try:
+                os.makedirs(output_directory, exist_ok=True)
+            except Exception as e:
+                return (False, f"Error: Cannot create output directory: {str(e)}")
+        
+        if not os.path.isdir(output_directory):
+            return (False, "Error: Output path is not a directory")
+        
+        if not os.access(output_directory, os.W_OK):
+            return (False, "Error: No write permission for directory")
+        
+        # Get equipment from database
+        try:
+            equipment = crud.get_equipment(db, equipment_id)
+        except Exception as e:
+            return (False, f"Error: Failed to retrieve equipment: {str(e)}")
+        
+        if not equipment:
+            return (False, "Error: Equipment not found")
+            
+        if not equipment.nfc or not equipment.nfc.strip():
+            return (False, "Error: Equipment has no NFC code")
+            
+        # Generate Data Matrix image
+        image = generate_equipment_datamatrix(equipment.id_eq)
+        if image is None:
+            return (False, "Error: Failed to generate Data Matrix image")
+        
+        # Prepare filename
+        clean_name = _clean_filename(equipment.name)
+        base_filename = f"equipment_{equipment.id_eq}_{clean_name}"
+        
+        # Ensure filename uniqueness
+        filename = _ensure_unique_filename(output_directory, base_filename, ".png")
+        file_path = os.path.join(output_directory, filename)
+        
+        # Save image
+        try:
+            image.save(file_path, "PNG")
+            return (True, filename)
+        except Exception as e:
+            return (False, f"Error saving file: {str(e)}")
+            
+    except Exception as e:
+        return (False, f"Unexpected error: {str(e)}")
+
+
 def run_datamatrix_tests():
     """
     Run all Data Matrix generation and validation tests.

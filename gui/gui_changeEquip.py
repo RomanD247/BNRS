@@ -7,7 +7,9 @@ import crud
 from sqlalchemy.orm import Session
 from database import SessionLocal
 from models import Equipment
-from NfcScan import get_nfc_input
+from NfcScan import get_nfc_input, generate_single_equipment_code_file
+import tkinter as tk
+from tkinter import filedialog
 
 # Create a single DB instance
 db = SessionLocal()
@@ -101,6 +103,34 @@ def show_edit_form_for_equipment(equipment, parent_dialog=None):
                         nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>NFC Tag scanned</b>'
                 else:
                     nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>NFC Tag: Not set</b>'
+
+            def download_qr_code():
+                if not fresh_equipment.nfc:
+                    ui.notify('Equipment has no NFC code saved', type='warning')
+                    return
+
+                # Select folder for saving
+                root = tk.Tk()
+                root.withdraw()
+                root.lift()
+                root.attributes('-topmost', True)
+                root.after_idle(root.attributes, '-topmost', False)
+                
+                directory = filedialog.askdirectory(
+                    title="Select folder to save QR code",
+                    parent=root
+                )
+                
+                root.destroy()
+                
+                if not directory:
+                    return
+
+                success, message = generate_single_equipment_code_file(fresh_equipment.id_eq, directory)
+                if success:
+                    ui.notify(f'QR code saved: {message}', type='positive')
+                else:
+                    ui.notify(f'Failed to save QR code: {message}', type='negative')
             
             # Use dialog directly
             with ui.dialog() as edit_dialog, ui.card().classes('w-96'):
@@ -128,7 +158,10 @@ def show_edit_form_for_equipment(equipment, parent_dialog=None):
                 # NFC scanning section
                 ui.separator()
                 with ui.row().classes('w-full justify-between items-center q-mb-md'):
-                    ui.button('Scan NFC Tag', on_click=scan_nfc)
+                    with ui.row():
+                        ui.button('Scan NFC Tag', on_click=scan_nfc)
+                        if fresh_equipment.nfc:
+                            ui.button(icon='download', on_click=download_qr_code).props('flat round').tooltip('Download QR Code')
                     nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>NFC Tag scanned</b>' if nfc_value else '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>NFC Tag: Not set</b>')
                 
                 with ui.row().classes('justify-end'):
@@ -212,4 +245,4 @@ def apply_changes(equipment_id, new_name, new_serialnum, new_etype, new_status, 
             ui.timer(0.1, edit_equipment_dialog, once=True)
     except Exception as e:
         ui.notify(f'Error updating: {str(e)}', color='negative')
-        print(f"Error in apply_changes: {str(e)}")  # for debugging 
+        print(f"Error in apply_changes: {str(e)}")  # for debugging
