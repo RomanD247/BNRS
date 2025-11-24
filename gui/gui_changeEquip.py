@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from nicegui import ui
+from nicegui import ui, run
 import crud
 from sqlalchemy.orm import Session
 from database import SessionLocal
@@ -104,24 +104,25 @@ def show_edit_form_for_equipment(equipment, parent_dialog=None):
                 else:
                     nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>NFC Tag: Not set</b>'
 
-            def download_qr_code():
+            async def download_qr_code():
                 if not fresh_equipment.nfc:
                     ui.notify('Equipment has no NFC code saved', type='warning')
                     return
 
-                # Select folder for saving
-                root = tk.Tk()
-                root.withdraw()
-                root.lift()
-                root.attributes('-topmost', True)
-                root.after_idle(root.attributes, '-topmost', False)
-                
-                directory = filedialog.askdirectory(
-                    title="Select folder to save QR code",
-                    parent=root
-                )
-                
-                root.destroy()
+                def pick_folder():
+                    root = tk.Tk()
+                    root.withdraw()
+                    root.attributes('-topmost', True)
+                    root.lift()
+                    root.focus_force()
+                    directory = filedialog.askdirectory(
+                        title="Select folder to save QR code",
+                        parent=root
+                    )
+                    root.destroy()
+                    return directory
+
+                directory = await run.io_bound(pick_folder)
                 
                 if not directory:
                     return

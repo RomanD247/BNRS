@@ -1,4 +1,4 @@
-from nicegui import native, ui
+from nicegui import native, ui, run
 from gui.gui_adduser import show_add_user_dialog, show_add_department_dialog
 from gui.gui_addequip import show_add_equipment_dialog
 from gui.gui_changeUser import edit_users_dialog
@@ -435,24 +435,27 @@ class CodesGenerationDialog:
             self.status_label = ui.label('').style('font-weight: bold')
         
         self.dialog.open()
-    
 
-    def generate_users_codes(self):
+    async def generate_users_codes(self):
         """Handler for generating codes for all users"""
         # Select folder for saving when button is clicked
-        root = tk.Tk()
-        root.withdraw()  # Hide main window
-        root.lift()  # Bring window to front
-        root.attributes('-topmost', True)  # Make window on top of all
-        root.after_idle(root.attributes, '-topmost', False)  # Remove topmost after dialog is shown
-        
-        # Open folder selection dialog
-        directory = filedialog.askdirectory(
-            title="Select folder to save user codes",
-            parent=root
-        )
-        
-        root.destroy()  # Close temporary window
+        def pick_folder():
+            root = tk.Tk()
+            root.withdraw()  # Hide main window
+            root.attributes('-topmost', True)  # Make window on top of all
+            root.lift()  # Bring window to front
+            root.focus_force()
+            
+            # Open folder selection dialog
+            directory = filedialog.askdirectory(
+                title="Select folder to save user codes",
+                parent=root
+            )
+            
+            root.destroy()  # Close temporary window
+            return directory
+
+        directory = await run.io_bound(pick_folder)
         
         if not directory:
             ui.notify('Folder not selected, operation cancelled', type='warning')
@@ -479,22 +482,26 @@ class CodesGenerationDialog:
             self.status_label.text = error_msg
             ui.notify(error_msg, type='negative')
     
-    def generate_equipment_codes(self):
+    async def generate_equipment_codes(self):
         """Handler for generating codes for all equipment"""
         # Select folder for saving when button is clicked
-        root = tk.Tk()
-        root.withdraw()  # Hide main window
-        root.lift()  # Bring window to front
-        root.attributes('-topmost', True)  # Make window on top of all
-        root.after_idle(root.attributes, '-topmost', False)  # Remove topmost after dialog is shown
-        
-        # Open folder selection dialog
-        directory = filedialog.askdirectory(
-            title="Select folder to save equipment codes",
-            parent=root
-        )
-        
-        root.destroy()  # Close temporary window
+        def pick_folder():
+            root = tk.Tk()
+            root.withdraw()  # Hide main window
+            root.attributes('-topmost', True)  # Make window on top of all
+            root.lift()  # Bring window to front
+            root.focus_force()
+            
+            # Open folder selection dialog
+            directory = filedialog.askdirectory(
+                title="Select folder to save equipment codes",
+                parent=root
+            )
+            
+            root.destroy()  # Close temporary window
+            return directory
+
+        directory = await run.io_bound(pick_folder)
         
         if not directory:
             ui.notify('Folder not selected, operation cancelled', type='warning')
@@ -811,7 +818,7 @@ def main():
                 ui.html('- To add a new user, press the <b>"+"</b> button next to the user selection field in the Rent dialog.')
                 ui.html('- Use the <b>"Filter by Equipment Type"</b> dropdown to filter equipment by type.')
                 ui.html('- Access the rental history by clicking the <b>"Rental History"</b> button.')
-                ui.html('- To use Barcode Scanner, press the <b>"Scan to Rent"</b> button, then scan the Code on the device. After that scan your personal code it you have it.')
+                ui.html('- To use Barcode Scanner, press the <b>"Scan to Rent"</b> button, then scan the Code on the device. After that scan your personal code if you have it.')
                 # ui.html('- If you have any suggestions for the app or have found any bugs, you can leave your anonymous feedback by clicking the <b>“Submit feedback”</b> button.')
             ui.button('Scan to Rent', icon='qr_code', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%; height: 65px')   #!NFC_feature
             #ui.button('Attach a code to User', icon='developer_board', on_click=show_add_nfc_dialog).style('width: 100%; height: 65px')
