@@ -87,15 +87,33 @@ def show_edit_form_for_department(department, parent_dialog=None):
                     ui.label('Status (active):')
                     status_switch = ui.switch('', value=status_value)
                 
+                
+                    
+                # Bulk Apply button
+                ui.button('Apply to All Users', on_click=lambda: apply_changes(
+                    fresh_department.id_dep,
+                    name_input.value,
+                    status_switch.value,
+                    True, # update_users = True
+                    edit_dialog,
+                    parent_dialog
+                )).classes('bg-secondary')
+                
                 with ui.row().classes('justify-end'):
-                    ui.button('Cancel', on_click=edit_dialog.close).classes('q-mr-sm')
+
+                    # Standard Apply button
                     ui.button('Apply', on_click=lambda: apply_changes(
                         fresh_department.id_dep,
                         name_input.value,
                         status_switch.value,
+                        False, # update_users = False
                         edit_dialog,
                         parent_dialog
-                    )).classes('bg-primary')
+                    )).classes('bg-primary q-mr-sm')
+                    
+                    ui.button('Cancel', on_click=edit_dialog.close).classes('q-mr-sm')
+                    
+
                     
             # Open the new dialog
             edit_dialog.open()
@@ -106,7 +124,7 @@ def show_edit_form_for_department(department, parent_dialog=None):
         print(f"Error in show_edit_form_for_department: {str(e)}")  # for debugging
 
 
-def apply_changes(department_id, new_name, new_status, dialog, parent_dialog=None):
+def apply_changes(department_id, new_name, new_status, update_users, dialog, parent_dialog=None):
     """
     Applies changes to the department in the database.
     
@@ -114,6 +132,7 @@ def apply_changes(department_id, new_name, new_status, dialog, parent_dialog=Non
         department_id: Department ID
         new_name: New department name
         new_status: New department status
+        update_users: Boolean, whether to update status of all users in this department
         dialog: Dialog to close after saving
         parent_dialog: Parent dialog to close if needed
     """
@@ -130,6 +149,12 @@ def apply_changes(department_id, new_name, new_status, dialog, parent_dialog=Non
             # Update department with new values
             department.name = new_name
             department.status = new_status
+            
+            # Bulk update users if requested
+            if update_users:
+                count = crud.update_department_users_status(session, department_id, new_status)
+                ui.notify(f'Updated status for {count} users', color='positive')
+            
             session.commit()
             
             ui.notify(f'Department {new_name} successfully updated', color='positive')

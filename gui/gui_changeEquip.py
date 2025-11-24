@@ -71,14 +71,8 @@ def show_edit_form_for_equipment(equipment, parent_dialog=None):
             # Get fresh equipment data
             fresh_equipment = fresh_db.query(Equipment).filter(Equipment.id_eq == equipment.id_eq).first()
             
-            if not fresh_equipment:
-                ui.notify(f'The equipment no longer exists in the database', color='negative')
-                if parent_dialog:
-                    parent_dialog.close()
-                return
-            
             # Get all equipment types for the dropdown
-            etypes = crud.get_all_etypes(fresh_db)
+            etypes = crud.get_all_etypes_including_inactive(fresh_db)
             
             # Create variables to store changes
             name_value = fresh_equipment.name

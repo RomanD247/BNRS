@@ -187,6 +187,24 @@ def get_all_users_including_inactive(db: Session) -> List[User]:
     """Get all users including inactive ones"""
     return db.query(User).options(joinedload(User.department)).order_by(User.name).all()
 
+def update_department_users_status(db: Session, department_id: int, new_status: bool) -> int:
+    """
+    Update status for all users in a department
+    Returns number of users updated
+    """
+    result = db.query(User).filter(User.id_dep == department_id).update({User.status: new_status})
+    db.commit()
+    return result
+
+def update_etype_equipment_status(db: Session, etype_id: int, new_status: bool) -> int:
+    """
+    Update status for all equipment of a specific type
+    Returns number of equipment updated
+    """
+    result = db.query(Equipment).filter(Equipment.etype_id == etype_id).update({Equipment.status: new_status})
+    db.commit()
+    return result
+
 # Rental CRUD operations
 def create_rental(db: Session, user_id: int, equipment_id: int, comment: str = None) -> Rental:
     """Create new rental"""

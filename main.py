@@ -818,7 +818,7 @@ def main():
                 ui.html('- To add a new user, press the <b>"+"</b> button next to the user selection field in the Rent dialog.')
                 ui.html('- Use the <b>"Filter by Equipment Type"</b> dropdown to filter equipment by type.')
                 ui.html('- Access the rental history by clicking the <b>"Rental History"</b> button.')
-                ui.html('- To use Barcode Scanner, press the <b>"Scan to Rent"</b> button, then scan the Code on the device. After that scan your personal code if you have it.')
+                ui.html('- To use Barcode Scanner, press the <b>"Scan to Rent"</b> button, then scan the Code on the device. After that scan your personal code it you have it.')
                 # ui.html('- If you have any suggestions for the app or have found any bugs, you can leave your anonymous feedback by clicking the <b>“Submit feedback”</b> button.')
             ui.button('Scan to Rent', icon='qr_code', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%; height: 65px')   #!NFC_feature
             #ui.button('Attach a code to User', icon='developer_board', on_click=show_add_nfc_dialog).style('width: 100%; height: 65px')

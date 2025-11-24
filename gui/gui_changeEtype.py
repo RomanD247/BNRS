@@ -20,7 +20,7 @@ def edit_etypes_dialog():
         with SessionLocal() as fresh_db:
             with ui.dialog() as dialog, ui.card().style('width: 600px; height: 800px'):
                 with ui.row().classes('w-full justify-between items-center'):
-                    ui.label('Select an equipment type to edit').classes('text-h6 q-mb-md, w-540')
+                    ui.label('Select an equipment type to edit').classes('text-h6 q-mb-md w-540')
                     ui.button(icon='close', on_click=dialog.close).props('flat round')
                 
                 # Create a scroll area for the equipment types list
@@ -36,10 +36,10 @@ def edit_etypes_dialog():
                                 ui.label(f'{etype.name}').classes('text-weight-bold')
                             
                             # Separate function to create a handler for each equipment type
-                            def make_handler(et):
-                                return lambda: show_edit_form_for_etype(et, dialog)
+                            def make_handler(et_id):
+                                return lambda: show_edit_form_for_etype(et_id, dialog)
                             
-                            card.on('click', make_handler(etype))
+                            card.on('click', make_handler(etype.id_et))
             
             dialog.open()
         
@@ -48,20 +48,19 @@ def edit_etypes_dialog():
         print(f"Error in edit_etypes_dialog: {str(e)}")  # for debugging
 
 
-def show_edit_form_for_etype(etype, parent_dialog=None):
+def show_edit_form_for_etype(etype_id, parent_dialog=None):
     """
     Creates and shows the equipment type edit form.
     
     Args:
-        etype: Etype object to edit
+        etype_id: ID of Etype object to edit
         parent_dialog: Parent dialog that opened this form
     """
     try:
         # Create a fresh session to get updated data
         with SessionLocal() as fresh_db:
             # Get fresh equipment type data
-            # Since there's no specific function for this in crud, we use a direct query
-            fresh_etype = fresh_db.query(Etype).filter(Etype.id_et == etype.id_et).first()
+            fresh_etype = fresh_db.query(Etype).filter(Etype.id_et == etype_id).first()
             
             if not fresh_etype:
                 ui.notify(f'The equipment type no longer exists in the database', color='negative')
@@ -73,7 +72,6 @@ def show_edit_form_for_etype(etype, parent_dialog=None):
             name_value = fresh_etype.name
             status_value = fresh_etype.status
 
-            
             # Use dialog directly
             with ui.dialog() as edit_dialog, ui.card().classes('w-96'):
                 ui.label(f'Editing equipment type: {fresh_etype.name}').classes('text-h6 q-mb-md')
@@ -86,26 +84,39 @@ def show_edit_form_for_etype(etype, parent_dialog=None):
                     ui.label('Status (active):')
                     status_switch = ui.switch('', value=status_value)
                 
+                # Bulk Apply button
+                ui.button('Apply to All Equipment', on_click=lambda: apply_changes(
+                    fresh_etype.id_et,
+                    name_input.value,
+                    status_switch.value,
+                    True, # update_equipment = True
+                    edit_dialog,
+                    parent_dialog
+                )).classes('bg-secondary')
+
                 with ui.row().classes('justify-end'):
-                    ui.button('Cancel', on_click=edit_dialog.close).classes('q-mr-sm')
+                    
+                    # Standard Apply button (updates only this type)
                     ui.button('Apply', on_click=lambda: apply_changes(
                         fresh_etype.id_et,
                         name_input.value,
                         status_switch.value,
+                        False, # update_equipment = False
                         edit_dialog,
                         parent_dialog
-                    )).classes('bg-primary')
+                    )).classes('bg-primary q-mr-sm')
                     
+                    ui.button('Cancel', on_click=edit_dialog.close).classes('q-mr-sm')
+
             # Open the new dialog
             edit_dialog.open()
-            #ui.notify(f'Edit form opened for equipment type: {fresh_etype.name}', color='positive')
         
     except Exception as e:
         ui.notify(f'Error opening the edit form: {str(e)}', color='negative')
         print(f"Error in show_edit_form_for_etype: {str(e)}")  # for debugging
 
 
-def apply_changes(etype_id, new_name, new_status, dialog, parent_dialog=None):
+def apply_changes(etype_id, new_name, new_status, update_equipment, dialog, parent_dialog=None):
     """
     Applies changes to the equipment type in the database.
     
@@ -113,6 +124,7 @@ def apply_changes(etype_id, new_name, new_status, dialog, parent_dialog=None):
         etype_id: Equipment type ID
         new_name: New equipment type name
         new_status: New equipment type status
+        update_equipment: Boolean, whether to update status of all equipment of this type
         dialog: Dialog to close after saving
         parent_dialog: Parent dialog to close if needed
     """
@@ -129,6 +141,12 @@ def apply_changes(etype_id, new_name, new_status, dialog, parent_dialog=None):
             # Update equipment type with new values
             etype.name = new_name
             etype.status = new_status
+            
+            # Bulk update equipment if requested
+            if update_equipment:
+                count = crud.update_etype_equipment_status(session, etype_id, new_status)
+                ui.notify(f'Updated status for {count} equipment items', color='positive')
+            
             session.commit()
             
             ui.notify(f'Equipment type {new_name} successfully updated', color='positive')
@@ -142,4 +160,4 @@ def apply_changes(etype_id, new_name, new_status, dialog, parent_dialog=None):
             ui.timer(0.1, edit_etypes_dialog, once=True)
     except Exception as e:
         ui.notify(f'Error updating: {str(e)}', color='negative')
-        print(f"Error in apply_changes: {str(e)}")  # for debugging 
+        print(f"Error in apply_changes: {str(e)}")  # for debugging

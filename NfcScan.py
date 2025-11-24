@@ -94,7 +94,7 @@ def _create_datamatrix_image(data: str, text_lines: list[str]) -> Image.Image | 
             return None
         
         # Calculate final image dimensions
-        margin = 20
+        margin = 15
         text_spacing = 10
         line_height = 20
         
@@ -103,7 +103,7 @@ def _create_datamatrix_image(data: str, text_lines: list[str]) -> Image.Image | 
         text_height = len(valid_text_lines) * line_height if valid_text_lines else 0
         
         total_width = code_size + 2 * margin
-        total_height = code_size + 2 * margin + text_spacing + text_height
+        total_height = code_size + 1 * margin + text_spacing + text_height
         
         # Check reasonable image dimensions
         if total_width > 2000 or total_height > 2000:

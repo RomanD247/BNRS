@@ -69,7 +69,7 @@ def show_edit_form_for_user(user, parent_dialog=None):
         # Create a fresh session to get updated data
         with SessionLocal() as fresh_db:
             # Get data with fresh session
-            departments = crud.get_all_departments(fresh_db)
+            departments = crud.get_all_departments_including_inactive(fresh_db)
             
             # Get fresh user data
             fresh_user = crud.get_user_including_inactive(fresh_db, user.id_us)
