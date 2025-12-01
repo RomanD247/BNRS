@@ -353,15 +353,15 @@ async def get_user_input_with_selection(equipment=None):
         
         # Equipment information section (if equipment is provided)
         if equipment:
-            ui.label('Scanned Equipment:').style('font-weight: bold; margin: 10px 0 5px 0;')
-            with ui.row().classes('w-full justify-between items-center'):
+            ui.label('Scanned Equipment:').style('margin: 10px 0 5px 0;')
+            with ui.row().classes('w-full justify-between items-center').style('border: 1px solid black; padding: 10px;'):
                 ui.label(f"{equipment.name}").style('font-weight: bold; font-size: 16px;')
-                ui.label(f"S/N: {equipment.serialnum or 'Not specified'}").style('margin-bottom: 10px;')
+                ui.label(f"S/N: {equipment.serialnum or 'Not specified'}").style('font-weight: bold; font-size: 16px;')
             ui.separator()
         
         # NFC scanning section
         with ui.row().classes('w-full justify-between items-center'):
-            ui.label('Scan Data Matrix Code:').style('font-weight: bold; margin: 10px 0 5px 0;')
+            ui.label('Scan User\'s Data Matrix Code:').style('font-weight: bold; margin: 10px 0 5px 0; text-decoration: underline;')
             nfc_display_label = ui.label("Ready to scan...").style('font-size: 16px; text-align: center; margin: 5px 0; padding: 10px; border: 1px dashed #ccc; border-radius: 4px;')
         
         # Invisible input field for NFC scanning
@@ -370,15 +370,15 @@ async def get_user_input_with_selection(equipment=None):
         nfc_input_field.on('input', on_nfc_input_change)
         
         ui.separator()
-        ui.label('OR').classes('text-center').style('margin: 10px 0;')
+        ui.label('OR').classes('text-center').style('margin: 0px 0;')
         #ui.separator()
         
         # Manual selection section
-        ui.label('Select from list:').style('font-weight: bold; margin: 10px 0 5px 0;')
+        ui.label('Select from list:').style('font-weight: bold; margin: 0px 0 0px 0; text-decoration: underline;')
         user_select = ui.select(
             options=options,
             label='Select user',
-            with_input=True,
+            #with_input=True,
             on_change=on_user_select_change
         ).style('width: 100%; margin: 5px 0;')
         
@@ -621,7 +621,7 @@ async def nfc_equipment_rental_workflow(update_callback=None):
         return
     
     # Get equipment NFC
-    equipment_nfc = await get_nfc_input("Scan device")
+    equipment_nfc = await get_nfc_input("Scan Device's Code")
     if not equipment_nfc:
         ui.notify("Device scanning cancelled", color="warning")
         return

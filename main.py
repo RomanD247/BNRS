@@ -1,5 +1,5 @@
 from nicegui import native, ui, run
-from gui.gui_adduser import show_add_user_dialog, show_add_department_dialog
+from gui.gui_adduser import show_add_user_dialog, show_add_department_dialog, refresh_departments
 from gui.gui_addequip import show_add_equipment_dialog
 from gui.gui_changeUser import edit_users_dialog
 from gui.gui_changeDep import edit_departments_dialog
@@ -375,18 +375,17 @@ def full_refresh():
         state.name_filter_input.set_value(current_name_filter)
     
     # Refresh departments list in gui_adduser module
-    from gui import gui_adduser
-    gui_adduser.refresh_departments()
-
+    refresh_departments()
     ui.notify('Data refreshed successfully!', type='positive')
-
+    
+#Fuctions for password for Admin mode
+# Admin Panel here
 class CodesGenerationDialog:
     """Dialog window for managing Data Matrix codes generation"""
     
     def __init__(self):
         """Dialog window initialization"""
         self.dialog = None
-        self.status_label = None
         
     def open(self):
         """Opens the dialog window"""
@@ -432,7 +431,6 @@ class CodesGenerationDialog:
                 ).style('width: 100px; height: 100px;')
 
             # Status and results
-            self.status_label = ui.label('').style('font-weight: bold')
         
         self.dialog.open()
 
@@ -462,24 +460,19 @@ class CodesGenerationDialog:
             return
         
         try:
-            self.status_label.text = 'Generating user codes...'
             ui.notify('Starting user codes generation...', type='info')
             
             # Call generation function
             created_count, total_count = generate_all_users_codes(directory)
             
             # Display results
-            result_text = f'Created {created_count} out of {total_count} user codes'
-            self.status_label.text = result_text
-            
             if created_count > 0:
-                ui.notify(f'Successfully created {created_count} user codes in folder: {directory}', type='positive')
+                ui.notify(f'Successfully created {created_count} out of {total_count} user codes in folder: {directory}', type='positive')
             else:
                 ui.notify('Failed to create user codes', type='warning')
                 
         except Exception as e:
             error_msg = f'Error generating user codes: {str(e)}'
-            self.status_label.text = error_msg
             ui.notify(error_msg, type='negative')
     
     async def generate_equipment_codes(self):
@@ -508,24 +501,19 @@ class CodesGenerationDialog:
             return
         
         try:
-            self.status_label.text = 'Generating equipment codes...'
             ui.notify('Starting equipment codes generation...', type='info')
             
             # Call generation function
             created_count, total_count = generate_all_equipment_codes(directory)
             
             # Display results
-            result_text = f'Created {created_count} out of {total_count} equipment codes'
-            self.status_label.text = result_text
-            
             if created_count > 0:
-                ui.notify(f'Successfully created {created_count} equipment codes in folder: {directory}', type='positive')
+                ui.notify(f'Successfully created {created_count} out of {total_count} equipment codes in folder: {directory}', type='positive')
             else:
                 ui.notify('Failed to create equipment codes', type='warning')
                 
         except Exception as e:
             error_msg = f'Error generating equipment codes: {str(e)}'
-            self.status_label.text = error_msg
             ui.notify(error_msg, type='negative')
 
     def handle_update_user_codes(self):
@@ -577,49 +565,56 @@ def open_codes_dialog():
     dialog = CodesGenerationDialog()
     dialog.open()
 
-#Fuctions for password for Admin mode
-# Admin Panel here
 def create_password_dialog():
     """Creates dialogs for entering a password and successful entry."""
     password_dialog = ui.dialog().props('persistent')
     success_dialog = ui.dialog()
 
     with success_dialog:
-        with ui.card().style('max-width: none; width: 600px; height: 500px'):
+        with ui.card().style('max-width: none; width: 500px; height: 600px'):
             with ui.row().classes('w-full justify-between items-center'):
-                ui.label('Admin panel').style('font-size: 150%')
+                ui.label('Admin panel').style('font-size: 200%; font-weight: bold')
                 ui.button(icon='close', on_click=success_dialog.close).props('flat round')
+            ui.separator()
             with ui.row():
-                with ui.button(on_click=edit_users_dialog).style('width: 100px; height: 100px;'):
-                    ui.icon('person')
-                    ui.label('Edit users')
-                with ui.button(on_click=edit_departments_dialog).style('width: 100px; height: 100px;'):
-                    ui.icon('business')
-                    ui.label('Edit deps') 
-                with ui.button(on_click=edit_equipment_dialog).style('width: 100px; height: 100px;'):
-                    ui.icon('sd_card')
-                    ui.label('Edit device') 
-                with ui.button(on_click=edit_etypes_dialog).style('width: 100px; height: 100px;'):
-                    ui.icon('inventory_2')
-                    ui.label('Edit device type') 
+                ui.label('User options').style('font-size: 150%; font-weight: bold')
+                with ui.row().classes('flex-wrap gap-2'):
+                    with ui.button(on_click=edit_users_dialog).style('width: 100px; height: 100px;'):
+                        ui.icon('person')
+                        ui.label('Edit users')
+                    with ui.button(on_click=lambda: show_add_department_dialog()).style('width: 100px; height: 100px;'):
+                        ui.icon('add')
+                        ui.label('Add Department')
+                    with ui.button(on_click=edit_departments_dialog).style('width: 100px; height: 100px;'):
+                        ui.icon('business')
+                        ui.label('Edit deps') 
+                ui.separator()
+                ui.label('Device options').style('font-size: 150%; font-weight: bold')
+                with ui.row().classes('flex-wrap gap-2'):
+                    with ui.button(on_click=lambda: show_add_equipment_dialog(filter_callback=state.update_filter_select, lists_update_callback=update_lists)).style('width: 100px; height: 100px;'):
+                        ui.icon('add')
+                        ui.label('Add Device')
+                    with ui.button(on_click=edit_equipment_dialog).style('width: 100px; height: 100px;'):
+                        ui.icon('sd_card')
+                        ui.label('Edit device') 
+                    with ui.button(on_click=edit_etypes_dialog).style('width: 100px; height: 100px;'):
+                        ui.icon('inventory_2')
+                        ui.label('Edit device type') 
+                    #get_feedback_button()
+            ui.separator()
+            ui.label('Other options').style('font-size: 150%; font-weight: bold')                
+            with ui.row():
                 with ui.button(on_click=edit_rentals_dialog).style('width: 100px; height: 100px;'):
                     ui.icon('edit_note')
-                    ui.label('Edit Rentals')
-                with ui.button(on_click=lambda: show_add_equipment_dialog(filter_callback=state.update_filter_select, lists_update_callback=update_lists)).style('width: 100px; height: 100px;'):
-                    ui.icon('add')
-                    ui.label('Add Device')
-                with ui.button(on_click=lambda: show_add_department_dialog()).style('width: 100px; height: 100px;'):
-                    ui.icon('add')
-                    ui.label('Add Department')
-                get_feedback_button()
+                    ui.label('Edit Rentals')  
                 with ui.button(on_click=lambda: open_codes_dialog()).style('width: 100px; height: 100px;'):
                     ui.icon('qr_code')
                     ui.label('Generate Codes')
                 with ui.button(on_click=full_refresh,  color='warning').tooltip('After editing all data must be refreshed').style('width: 100px; height: 100px'):
                     ui.icon('refresh')
-                    ui.label('Refresh all data') 
+                    ui.label('Refresh all data')  
             ui.separator()
-            ui.label('Reports').style('font-size: 150%')
+            ui.label('Reports').style('font-size: 150%; font-weight: bold')
             with ui.row():
                 get_user_report_button()
                 get_equipment_report_button()
@@ -639,7 +634,7 @@ def create_password_dialog():
             ui.button('Enter', on_click=lambda: check_password(password_input))
     
     def check_password(input_field):
-        if input_field.value == "supp":  #Change password
+        if input_field.value == "supp":  #Change !password
             password_dialog.close()
             success_dialog.open()
         else:

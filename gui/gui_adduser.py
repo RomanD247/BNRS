@@ -130,10 +130,10 @@ def show_add_user_dialog(callback=None):
         selected_label = ui.label('You must choose department!')
         
             # Add a button and tag for NFC #!NFC_feature
-        ui.separator()
-        with ui.row().classes('w-full justify-between items-center'):
-            ui.button('Scan Data Matrix Code', on_click=scan_nfc)
-            nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
+        # ui.separator()
+        # with ui.row().classes('w-full justify-between items-center'):
+        #     ui.button('Scan Data Matrix Code', on_click=scan_nfc)
+        #     nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
             
             
         ui.separator() 

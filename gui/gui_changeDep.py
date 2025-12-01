@@ -99,6 +99,7 @@ def show_edit_form_for_department(department, parent_dialog=None):
                     parent_dialog
                 )).classes('bg-secondary')
                 
+                ui.label('This button will apply the same status to all users in this department').classes('text-caption q-mb-md')
                 with ui.row().classes('justify-end'):
 
                     # Standard Apply button

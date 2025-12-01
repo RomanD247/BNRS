@@ -93,7 +93,7 @@ def show_edit_form_for_etype(etype_id, parent_dialog=None):
                     edit_dialog,
                     parent_dialog
                 )).classes('bg-secondary')
-
+                ui.label('This button will apply the same status to all equipment of this type').classes('text-caption q-mb-md')
                 with ui.row().classes('justify-end'):
                     
                     # Standard Apply button (updates only this type)
