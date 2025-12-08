@@ -74,8 +74,8 @@ def show_add_user_dialog(callback=None):
 
     async def scan_nfc():
         nonlocal nfc_value, nfc_label
-        nfc_value = await get_nfc_input("Scan Data Matrix Code")
-        nfc_value = nfc_value.lower()
+        nfc_value, scan_status = await get_nfc_input("Scan Data Matrix Code")
+        nfc_value = nfc_value.lower() if nfc_value else None
         if nfc_value:
             # Check if this NFC code is already taken
             existing_user = find_user_by_nfc(db, nfc_value)

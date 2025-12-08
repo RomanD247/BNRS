@@ -1,0 +1,4 @@
+# file: C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\models.py
+# hypothesis_version: 6.148.7
+
+['Department', 'Equipment', 'Etype', 'User', 'department', 'departments', 'departments.id_dep', 'equipment', 'equipment.id_eq', 'equipments', 'etype', 'etypes', 'etypes.id_et', 'feedback', 'rentals', 'users', 'users.id_us']

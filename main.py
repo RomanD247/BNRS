@@ -9,6 +9,7 @@ from gui.gui_changeRental import edit_rentals_dialog
 from gui.gui_reports import get_user_report_button, get_equipment_report_button, get_equipment_name_report_button, show_rental_history, get_department_report_button, get_feedback_button
 from NfcScan import nfc_equipment_rental_workflow, get_nfc_input, generate_all_users_codes, generate_all_equipment_codes
 from MatrixCode import update_user_codes, update_equipment_codes
+from scanner_logging import setup_logging
 
 import asyncio
 import sys
@@ -751,7 +752,7 @@ def show_add_nfc_dialog():
             
             async def scan_nfc():
                 nonlocal nfc_value
-                nfc_value = await get_nfc_input("Scan a Code")
+                nfc_value, scan_status = await get_nfc_input("Scan a Code")
                 nfc_value = nfc_value.lower() if nfc_value else None
                 
                 if nfc_value:
@@ -878,6 +879,9 @@ def main():
             button.props('icon=dark_mode')
 
 if __name__ in {'__main__', '__mp_main__'}:
+    # Initialize logging system
+    setup_logging(log_level="INFO", console_output=True, file_output=True)
+    
     main()
     ui.run(reload=False, title='WenglorMEL Rental System 2.1', favicon='assets/icon.ico', window_size=(1800, 1000), port=15716, native=True)
     #port=native.find_open_port()

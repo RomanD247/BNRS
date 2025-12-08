@@ -11,6 +11,13 @@ import time
 from smartcard.Exceptions import CardConnectionException, NoCardException
 from pylibdmtx.pylibdmtx import encode
 from PIL import Image, ImageDraw, ImageFont
+from usb_hid_scanner import USBHIDScanner
+from scanner_config import get_scanner_mode, get_usb_config, set_scanner_mode
+from scanner_error_dialogs import ScannerErrorDialogs
+import logging
+
+# Configure logging for this module
+logger = logging.getLogger(__name__)
 
 db = SessionLocal()
 scanning_active = False  # Global flag to control card scanning
@@ -217,9 +224,267 @@ def get_card_uid():
         print(f"Error reading card: {str(e)}")
         return None
 
-async def get_nfc_input(prompt_message: str) -> str:
+async def get_usb_hid_input(prompt_message: str) -> tuple[str, str]:
+    """
+    Opens a dialog and waits for USB HID scanner input.
+    
+    This function creates a dialog that displays connection status and scanning progress
+    for USB HID scanners. It handles timeouts, cancellation, and connection errors with
+    comprehensive error dialogs and troubleshooting information.
+    
+    Args:
+        prompt_message: Message displayed in the dialog box
+        
+    Returns:
+        Tuple of (scanned_data, status) where:
+        - scanned_data: Scanned data as lowercase string, or empty string if cancelled/error
+        - status: "success", "cancelled", "not_connected", or "error"
+        
+    Requirements: 1.1, 1.2, 1.5, 4.1, 4.2, 4.3, 4.4, 4.5, 5.2, 5.3, 5.4, 5.5
+    """
+    result = ""
+    status = "error"
+    dialog = ui.dialog()
+    closed = asyncio.Future()
+    scanner = None
+    cancelled = False
+    
+    def on_cancel():
+        """Handle cancel button click"""
+        nonlocal cancelled, status
+        cancelled = True
+        status = "cancelled"
+        logger.info("USB HID scan cancelled by user")
+        dialog.close()
+        closed.set_result(None)
+    
+    # Get USB configuration
+    usb_config = get_usb_config()
+    vid = usb_config.get("vid", 4602)
+    pid = usb_config.get("pid", 33282)
+    timeout = usb_config.get("timeout", 30)
+    
+    logger.info(f"Starting USB HID input dialog - VID=0x{vid:04x}, PID=0x{pid:04x}, timeout={timeout}s")
+    
+    with dialog, ui.card().style('width: 400px;'):
+        with ui.row().classes('w-full justify-center items-center'):
+            ui.label(prompt_message).style('font-size: 24px; font-weight: bold; text-align: center')
+        with ui.separator():
+            pass
+        
+        # Connection status label
+        status_label = ui.label("Connecting to scanner...").classes('w-full justify-center items-center').style(
+            'font-size: 16px; text-align: center; margin: 20px 0; color: #666;'
+        )
+        
+        # Scanning progress label
+        progress_label = ui.label("").classes('w-full justify-center items-center').style(
+            'font-size: 14px; text-align: center; margin: 10px 0; color: #999;'
+        )
+        
+        with ui.row().classes('w-full justify-end'):
+            ui.button('Cancel', on_click=on_cancel).props('flat')
+    
+    dialog.open()
+    
+    async def scan_task():
+        """Background task to handle USB HID scanning"""
+        nonlocal result, scanner, status
+        
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries and not cancelled:
+            try:
+                # Create scanner instance
+                scanner = USBHIDScanner(vid, pid, timeout)
+                
+                # Try to connect
+                status_label.text = "Connecting to scanner..."
+                await asyncio.sleep(0.1)  # Allow UI to update
+                
+                try:
+                    connection_result = scanner.connect()
+                except PermissionError as e:
+                    # Permission error - show specific permission dialog
+                    logger.error(f"Permission error connecting to scanner: {e}")
+                    
+                    # Close the scanning dialog
+                    dialog.close()
+                    closed.set_result(None)
+                    
+                    # Show permission error dialog
+                    choice = await ScannerErrorDialogs.show_permission_error(vid, pid)
+                    
+                    if choice == "retry":
+                        retry_count += 1
+                        continue
+                    else:
+                        return
+                
+                if not connection_result:
+                    logger.error("Failed to connect to USB HID scanner")
+                    
+                    # Set status to not_connected
+                    status = "not_connected"
+                    
+                    # Close the scanning dialog
+                    dialog.close()
+                    closed.set_result(None)
+                    
+                    # Show connection error dialog with retry and fallback options
+                    async def retry_connection():
+                        nonlocal retry_count
+                        retry_count += 1
+                    
+                    async def fallback_to_keyboard():
+                        set_scanner_mode("keyboard")
+                        ScannerErrorDialogs.show_notification(
+                            "Switched to keyboard mode. Please restart the scan.",
+                            "info"
+                        )
+                    
+                    choice = await ScannerErrorDialogs.show_connection_error(
+                        vid, pid,
+                        retry_callback=retry_connection,
+                        fallback_callback=fallback_to_keyboard
+                    )
+                    
+                    if choice == "retry":
+                        retry_count += 1
+                        status = "error"  # Reset status for retry
+                        continue
+                    elif choice == "fallback":
+                        # User chose to switch to keyboard mode
+                        return
+                    else:
+                        # User cancelled
+                        status = "cancelled"
+                        return
+                
+                # Connected successfully
+                logger.info("USB HID scanner connected successfully")
+                status_label.text = "✓ Scanner connected"
+                status_label.style('color: #388e3c;')
+                progress_label.text = "Ready to scan..."
+                progress_label.style('color: #666;')
+                
+                await asyncio.sleep(0.5)  # Brief pause to show connection success
+                
+                # Update UI for scanning
+                status_label.text = "Waiting for scan..."
+                status_label.style('color: #1976d2;')
+                progress_label.text = f"Timeout in {timeout} seconds"
+                
+                # Read scan data (this will block for up to timeout seconds)
+                # Run in executor to avoid blocking the event loop
+                loop = asyncio.get_event_loop()
+                scan_data = await loop.run_in_executor(None, scanner.read_scan, timeout)
+                
+                if scan_data:
+                    logger.info(f"Successfully scanned data: '{scan_data}'")
+                    result = scan_data
+                    status = "success"
+                    status_label.text = "✓ Scan successful!"
+                    status_label.style('color: #388e3c;')
+                    progress_label.text = f"Scanned: {scan_data}"
+                    progress_label.style('color: #388e3c;')
+                    
+                    await asyncio.sleep(0.5)  # Brief pause to show success
+                    dialog.close()
+                    closed.set_result(None)
+                    return
+                elif not scanner.is_connected():
+                    # Device was disconnected during read
+                    logger.error("Scanner disconnected during read operation")
+                    
+                    # Close the scanning dialog
+                    dialog.close()
+                    closed.set_result(None)
+                    
+                    # Show disconnection error dialog
+                    choice = await ScannerErrorDialogs.show_disconnection_error()
+                    
+                    if choice == "retry":
+                        retry_count += 1
+                        continue
+                    else:
+                        return
+                else:
+                    # Timeout occurred
+                    logger.warning("USB HID scan timeout")
+                    
+                    # Close the scanning dialog
+                    dialog.close()
+                    closed.set_result(None)
+                    
+                    # Show timeout error dialog
+                    choice = await ScannerErrorDialogs.show_timeout_error(timeout)
+                    
+                    if choice == "retry":
+                        retry_count += 1
+                        continue
+                    else:
+                        return
+                    
+            except UnicodeDecodeError as e:
+                # Corrupted data error
+                logger.error(f"Corrupted data received: {e}")
+                
+                # Close the scanning dialog
+                dialog.close()
+                closed.set_result(None)
+                
+                # Show corrupted data error dialog
+                choice = await ScannerErrorDialogs.show_corrupted_data_error()
+                
+                if choice == "retry":
+                    retry_count += 1
+                    continue
+                else:
+                    return
+                    
+            except Exception as e:
+                logger.error(f"Error during USB HID scan: {e}")
+                
+                # Close the scanning dialog
+                dialog.close()
+                closed.set_result(None)
+                
+                # Show generic error notification
+                ScannerErrorDialogs.show_notification(
+                    f"Scanner error: {str(e)}",
+                    "error"
+                )
+                return
+                
+            finally:
+                # Clean up scanner connection
+                if scanner is not None:
+                    scanner.disconnect()
+        
+        # Max retries reached
+        if retry_count >= max_retries:
+            logger.error("Max retries reached for USB HID scanner")
+            ScannerErrorDialogs.show_notification(
+                "Maximum retry attempts reached. Please check scanner connection.",
+                "error"
+            )
+    
+    # Start the scanning task
+    asyncio.create_task(scan_task())
+    
+    # Wait for dialog to close
+    await closed
+    
+    return result, status
+
+
+async def get_nfc_input_keyboard(prompt_message: str) -> str:
     """
     Opens a dialog box with a prompt and waits for keyboard input (virtual keyboard scanner).
+    
+    This is the original keyboard-based implementation, now renamed for clarity.
 
     Args:
         prompt_message: Message displayed in the dialog box.
@@ -279,10 +544,53 @@ async def get_nfc_input(prompt_message: str) -> str:
     await closed  # Wait until dialog is closed
     return result
 
+
+async def get_nfc_input(prompt_message: str) -> tuple[str, str]:
+    """
+    Opens a dialog and waits for scanner input.
+    Automatically routes to USB HID or keyboard mode based on configuration.
+    
+    This function maintains the same async interface as before, but now supports
+    both USB HID vendor mode and keyboard mode based on the scanner_mode setting
+    in the configuration file.
+    
+    Args:
+        prompt_message: Message displayed in the dialog box
+        
+    Returns:
+        Tuple of (scanned_data, status) where:
+        - scanned_data: Scanned data as lowercase string, or empty string if cancelled/error
+        - status: "success", "cancelled", "not_connected", or "error"
+        
+    Requirements: 3.5, 7.1, 7.2, 7.3, 7.4, 7.5
+    """
+    # Load scanner mode from configuration
+    mode = get_scanner_mode()
+    
+    logger.info(f"get_nfc_input called with mode: {mode}")
+    
+    # Route to appropriate implementation based on mode
+    if mode == "usb_vendor":
+        logger.debug("Routing to USB HID implementation")
+        return await get_usb_hid_input(prompt_message)
+    elif mode == "keyboard":
+        logger.debug("Routing to keyboard implementation")
+        data = await get_nfc_input_keyboard(prompt_message)
+        # Keyboard mode returns just string, convert to tuple format
+        status = "cancelled" if not data else "success"
+        return data, status
+    else:
+        # Unknown mode, log warning and fall back to keyboard
+        logger.warning(f"Unknown scanner mode '{mode}', falling back to keyboard mode")
+        data = await get_nfc_input_keyboard(prompt_message)
+        status = "cancelled" if not data else "success"
+        return data, status
+
+
 async def get_user_input_with_selection(equipment=None):
     """
-    Shows dialog that simultaneously waits for NFC input (virtual keyboard) 
-    and provides manual user selection from dropdown
+    Shows dialog that simultaneously waits for scanner input and provides manual user selection.
+    Supports both USB HID and keyboard scanner modes based on configuration.
     
     Args:
         equipment: Equipment object to display information about (optional)
@@ -294,13 +602,23 @@ async def get_user_input_with_selection(equipment=None):
     result = asyncio.Future()
     selected_user = None
     nfc_input_value = ""
+    scanner_task = None
+    scanner_cancelled = False
+    
+    # Get scanner mode from configuration
+    mode = get_scanner_mode()
+    logger.info(f"get_user_input_with_selection called with scanner mode: {mode}")
     
     def on_cancel():
+        nonlocal scanner_cancelled
+        scanner_cancelled = True
         dialog.close()
         result.set_result(None)
     
     def on_manual_select():
+        nonlocal scanner_cancelled
         if selected_user:
+            scanner_cancelled = True
             dialog.close()
             result.set_result(selected_user)
         else:
@@ -314,12 +632,13 @@ async def get_user_input_with_selection(equipment=None):
             selected_user = None
     
     def on_nfc_input_submit():
-        nonlocal nfc_input_value
+        nonlocal nfc_input_value, scanner_cancelled
         if nfc_input_field.value.strip():
             nfc_input_value = nfc_input_field.value.strip().lower()
             # Find user by NFC
             user = crud.find_user_by_nfc(db, nfc_input_value)
             if user:
+                scanner_cancelled = True
                 dialog.close()
                 result.set_result(user)
             else:
@@ -364,7 +683,7 @@ async def get_user_input_with_selection(equipment=None):
             ui.label('Scan User\'s Data Matrix Code:').style('font-weight: bold; margin: 10px 0 5px 0; text-decoration: underline;')
             nfc_display_label = ui.label("Ready to scan...").style('font-size: 16px; text-align: center; margin: 5px 0; padding: 10px; border: 1px dashed #ccc; border-radius: 4px;')
         
-        # Invisible input field for NFC scanning
+        # Invisible input field for keyboard mode NFC scanning
         nfc_input_field = ui.input().style('position: absolute; top: -1000px; left: -1000px;').props('autofocus')
         nfc_input_field.on('keydown.enter', on_nfc_input_submit)
         nfc_input_field.on('input', on_nfc_input_change)
@@ -378,7 +697,7 @@ async def get_user_input_with_selection(equipment=None):
         user_select = ui.select(
             options=options,
             label='Select user',
-            #with_input=True,
+            with_input=True,
             on_change=on_user_select_change
         ).style('width: 100%; margin: 5px 0;')
         
@@ -386,17 +705,103 @@ async def get_user_input_with_selection(equipment=None):
     
     dialog.open()
     
-    # Aggressive focus maintenance for NFC input
-    async def maintain_focus():
-        while not result.done():
-            await asyncio.sleep(0.1)
-            if not result.done():
-                nfc_input_field.run_method('focus')
+    # Background scanner task for USB HID mode
+    async def usb_scanner_background_task():
+        """Background task to continuously scan for user codes in USB HID mode"""
+        nonlocal scanner_cancelled
+        
+        # Get USB configuration
+        usb_config = get_usb_config()
+        vid = usb_config.get("vid", 4602)
+        pid = usb_config.get("pid", 33282)
+        timeout = usb_config.get("timeout", 30)
+        
+        scanner = None
+        
+        try:
+            # Create and connect scanner
+            scanner = USBHIDScanner(vid, pid, timeout)
+            
+            if not scanner.connect():
+                logger.error("Failed to connect to USB HID scanner in background")
+                nfc_display_label.text = "Scanner connection failed"
+                nfc_display_label.style('color: #d32f2f;')
+                return
+            
+            logger.info("USB HID scanner connected in background mode")
+            nfc_display_label.text = "✓ Scanner ready - waiting for scan..."
+            nfc_display_label.style('color: #388e3c;')
+            
+            # Continuously scan until cancelled or user found
+            while not scanner_cancelled and not result.done():
+                try:
+                    # Read scan data with short timeout for responsiveness
+                    loop = asyncio.get_event_loop()
+                    scan_data = await loop.run_in_executor(None, scanner.read_scan, 2)
+                    
+                    if scan_data and not scanner_cancelled:
+                        logger.info(f"Background scanner received data: '{scan_data}'")
+                        nfc_display_label.text = f"Scanned: {scan_data}"
+                        
+                        # Find user by scanned NFC code
+                        user = crud.find_user_by_nfc(db, scan_data.lower())
+                        if user:
+                            logger.info(f"User found: {user.name}")
+                            scanner_cancelled = True
+                            dialog.close()
+                            result.set_result(user)
+                            return
+                        else:
+                            logger.warning(f"User not found for scanned code: {scan_data}")
+                            ui.notify("User not found", color="negative")
+                            nfc_display_label.text = "User not found - scan again..."
+                            await asyncio.sleep(1)
+                            nfc_display_label.text = "✓ Scanner ready - waiting for scan..."
+                    
+                    # Small delay to prevent tight loop
+                    await asyncio.sleep(0.1)
+                    
+                except Exception as e:
+                    if not scanner_cancelled:
+                        logger.error(f"Error in background scanner: {e}")
+                        await asyncio.sleep(0.5)
+                        
+        except Exception as e:
+            logger.error(f"Error setting up background scanner: {e}")
+            nfc_display_label.text = "Scanner error"
+            nfc_display_label.style('color: #d32f2f;')
+        finally:
+            if scanner is not None:
+                scanner.disconnect()
+                logger.info("Background scanner disconnected")
     
-    asyncio.create_task(maintain_focus())
+    # Start appropriate background task based on scanner mode
+    if mode == "usb_vendor":
+        logger.info("Starting USB HID background scanner task")
+        scanner_task = asyncio.create_task(usb_scanner_background_task())
+    elif mode == "keyboard":
+        logger.info("Using keyboard mode - maintaining focus on input field")
+        # Aggressive focus maintenance for keyboard mode
+        async def maintain_focus():
+            while not result.done():
+                await asyncio.sleep(0.1)
+                if not result.done():
+                    nfc_input_field.run_method('focus')
+        
+        asyncio.create_task(maintain_focus())
     
     # Wait for user choice
     choice = await result
+    
+    # Ensure scanner task is cancelled
+    scanner_cancelled = True
+    if scanner_task is not None:
+        scanner_task.cancel()
+        try:
+            await scanner_task
+        except asyncio.CancelledError:
+            pass
+    
     return choice
 
 
@@ -621,9 +1026,14 @@ async def nfc_equipment_rental_workflow(update_callback=None):
         return
     
     # Get equipment NFC
-    equipment_nfc = await get_nfc_input("Scan Device's Code")
+    equipment_nfc, scan_status = await get_nfc_input("Scan Device's Code")
     if not equipment_nfc:
-        ui.notify("Device scanning cancelled", color="warning")
+        if scan_status == "cancelled":
+            ui.notify("Device scanning cancelled", color="warning")
+        elif scan_status == "not_connected":
+            ui.notify("Scanner not connected", color="negative")
+        else:
+            ui.notify("Device scanning failed", color="negative")
         return
     
     # Find equipment by NFC

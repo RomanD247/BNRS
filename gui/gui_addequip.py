@@ -66,8 +66,8 @@ def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
 
     async def scan_nfc():
         nonlocal nfc_value, nfc_label
-        nfc_value = await get_nfc_input("Scan Data Matrix Code")
-        nfc_value = nfc_value.lower()
+        nfc_value, scan_status = await get_nfc_input("Scan Data Matrix Code")
+        nfc_value = nfc_value.lower() if nfc_value else None
         if nfc_value:
             # Check if this NFC code is already taken
             existing_equipment = find_equipment_by_nfc(db, nfc_value)

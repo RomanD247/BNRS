@@ -1,0 +1,14 @@
+{
+  "scanner_mode": "usb_vendor",
+  "usb_vendor": {
+    "vid": 4602,
+    "pid": 33282,
+    "timeout": 30,
+    "read_size": 64,
+    "encoding": "utf-8"
+  },
+  "keyboard": {
+    "timeout": 30,
+    "auto_focus": true
+  }
+}

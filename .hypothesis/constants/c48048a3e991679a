@@ -1,0 +1,4 @@
+# file: C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\database.py
+# hypothesis_version: 6.148.7
+
+['sqlite:///rental.db']

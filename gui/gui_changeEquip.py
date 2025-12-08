@@ -84,8 +84,8 @@ def show_edit_form_for_equipment(equipment, parent_dialog=None):
 
             async def scan_nfc():
                 nonlocal nfc_value, nfc_label
-                nfc_value = await get_nfc_input("Scan NFC Tag")
-                nfc_value = nfc_value.lower()
+                nfc_value, scan_status = await get_nfc_input("Scan NFC Tag")
+                nfc_value = nfc_value.lower() if nfc_value else None
                 if nfc_value:
                     # Check if this NFC code is already taken by another equipment
                     existing_equipment = crud.find_equipment_by_nfc(fresh_db, nfc_value)

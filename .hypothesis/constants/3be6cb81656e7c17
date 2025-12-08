@@ -1,0 +1,4 @@
+# file: C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\crud.py
+# hypothesis_version: 6.148.7
+
+[100, 365, 500, 730, 3600, 3650, 86400, '%Y-%m-%d %H:%M:%S', '0s', 'CLEAR_FIELD', 'available_equipment', 'check constraint', 'comment', 'current_duration', 'department', 'department_name', 'equipment', 'equipment_count', 'equipment_name', 'equipment_type', 'etype_name', 'name', 'never rented', 'not null constraint', 'rental_count', 'rental_start', 'rented_equipment', 'total_equipment', 'total_rental_seconds', 'total_rental_time', 'total_seconds', 'type_name', 'unique constraint', 'user', 'user_name']
