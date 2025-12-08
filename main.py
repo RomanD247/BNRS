@@ -7,6 +7,7 @@ from gui.gui_changeEtype import edit_etypes_dialog
 from gui.gui_changeEquip import edit_equipment_dialog
 from gui.gui_changeRental import edit_rentals_dialog
 from gui.gui_reports import get_user_report_button, get_equipment_report_button, get_equipment_name_report_button, show_rental_history, get_department_report_button, get_feedback_button
+from gui.gui_scanner_config import show_scanner_config_dialog
 from NfcScan import nfc_equipment_rental_workflow, get_nfc_input, generate_all_users_codes, generate_all_equipment_codes
 from MatrixCode import update_user_codes, update_equipment_codes
 from scanner_logging import setup_logging
@@ -611,6 +612,9 @@ def create_password_dialog():
                 with ui.button(on_click=lambda: open_codes_dialog()).style('width: 100px; height: 100px;'):
                     ui.icon('qr_code')
                     ui.label('Generate Codes')
+                with ui.button(on_click=show_scanner_config_dialog).style('width: 100px; height: 100px;'):
+                    ui.icon('settings')
+                    ui.label('Scanner Settings')
                 with ui.button(on_click=full_refresh,  color='warning').tooltip('After editing all data must be refreshed').style('width: 100px; height: 100px'):
                     ui.icon('refresh')
                     ui.label('Refresh all data')  

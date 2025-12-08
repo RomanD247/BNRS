@@ -1154,3 +1154,726 @@ asyncio.exceptions.InvalidStateError: invalid state
 FROM etypes 
 WHERE etypes.status = 1 ORDER BY etypes.name
 2025-12-08 17:09:07 - sqlalchemy.engine.Engine - INFO - [cached since 0.139s ago] ()
+2025-12-08 17:09:12 - root - INFO - ================================================================================
+2025-12-08 17:09:12 - root - INFO - Scanner logging initialized - Level: INFO, Console: True, File: True
+2025-12-08 17:09:12 - root - INFO - ================================================================================
+2025-12-08 17:09:12 - sqlalchemy.engine.Engine - INFO - SELECT etypes.id_et AS etypes_id_et, etypes.name AS etypes_name, etypes.status AS etypes_status 
+FROM etypes 
+WHERE etypes.status = 1 ORDER BY etypes.name
+2025-12-08 17:09:12 - sqlalchemy.engine.Engine - INFO - [cached since 0.09844s ago] ()
+2025-12-08 17:09:21 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:09:21 - NfcScan - INFO - get_nfc_input called with mode: usb_vendor
+2025-12-08 17:09:21 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:09:21 - NfcScan - INFO - Starting USB HID input dialog - VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:09:21 - usb_hid_scanner - INFO - USBHIDScanner initialized with VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:09:21 - usb_hid_scanner - INFO - Attempting to connect to device VID=0x11fa, PID=0x8202
+2025-12-08 17:09:21 - usb_hid_scanner - INFO - Successfully connected to device VID=0x11fa, PID=0x8202
+2025-12-08 17:09:21 - usb_hid_scanner - INFO - Device info - Manufacturer: Code, Product: CR1500
+2025-12-08 17:09:21 - NfcScan - INFO - USB HID scanner connected successfully
+2025-12-08 17:09:26 - NfcScan - INFO - USB HID scan cancelled by user
+2025-12-08 17:09:28 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:09:28 - NfcScan - INFO - get_nfc_input called with mode: usb_vendor
+2025-12-08 17:09:28 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:09:28 - NfcScan - INFO - Starting USB HID input dialog - VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:09:28 - usb_hid_scanner - INFO - USBHIDScanner initialized with VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:09:28 - usb_hid_scanner - INFO - Attempting to connect to device VID=0x11fa, PID=0x8202
+2025-12-08 17:09:28 - usb_hid_scanner - INFO - Successfully connected to device VID=0x11fa, PID=0x8202
+2025-12-08 17:09:28 - usb_hid_scanner - INFO - Device info - Manufacturer: Code, Product: CR1500
+2025-12-08 17:09:28 - NfcScan - INFO - USB HID scanner connected successfully
+2025-12-08 17:09:36 - usb_hid_scanner - INFO - Successfully parsed scan: '6_mlsl132_42'
+2025-12-08 17:09:36 - usb_hid_scanner - INFO - Successfully parsed scan: '6_mlsl132_42'
+2025-12-08 17:09:36 - NfcScan - INFO - Successfully scanned data: '6_mlsl132_42'
+2025-12-08 17:09:36 - NfcScan - INFO - Successfully scanned data: '6_mlsl132_42'
+2025-12-08 17:09:37 - usb_hid_scanner - INFO - Disconnecting from device VID=0x11fa, PID=0x8202
+2025-12-08 17:09:37 - usb_hid_scanner - INFO - Device disconnected successfully
+2025-12-08 17:09:37 - NfcScan - ERROR - Error during USB HID scan: invalid state
+2025-12-08 17:09:37 - usb_hid_scanner - INFO - Disconnecting from device VID=0x11fa, PID=0x8202
+2025-12-08 17:09:37 - usb_hid_scanner - INFO - Device disconnected successfully
+2025-12-08 17:09:37 - asyncio - ERROR - Task exception was never retrieved
+future: <Task finished name='Task-52' coro=<get_usb_hid_input.<locals>.scan_task() done, defined at c:\Users\RomanD\Desktop\Apps\Rental System\BNRS\NfcScan.py:290> exception=InvalidStateError('invalid state')>
+Traceback (most recent call last):
+  File "c:\Users\RomanD\Desktop\Apps\Rental System\BNRS\NfcScan.py", line 395, in scan_task
+    closed.set_result(None)
+    ~~~~~~~~~~~~~~~~~^^^^^^
+asyncio.exceptions.InvalidStateError: invalid state
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "c:\Users\RomanD\Desktop\Apps\Rental System\BNRS\NfcScan.py", line 452, in scan_task
+    closed.set_result(None)
+    ~~~~~~~~~~~~~~~~~^^^^^^
+asyncio.exceptions.InvalidStateError: invalid state
+2025-12-08 17:09:37 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-12-08 17:09:37 - sqlalchemy.engine.Engine - INFO - SELECT equipment.id_eq AS equipment_id_eq, equipment.name AS equipment_name, equipment.serialnum AS equipment_serialnum, equipment.etype_id AS equipment_etype_id, equipment.status AS equipment_status, equipment.nfc AS equipment_nfc 
+FROM equipment 
+WHERE equipment.nfc = ? AND equipment.status = 1
+ LIMIT ? OFFSET ?
+2025-12-08 17:09:37 - sqlalchemy.engine.Engine - INFO - [generated in 0.00133s] ('6_mlsl132_42', 1, 0)
+2025-12-08 17:09:37 - sqlalchemy.engine.Engine - INFO - SELECT rentals.id_re AS rentals_id_re, rentals.user_id AS rentals_user_id, rentals.equipment_id AS rentals_equipment_id, rentals.rental_start AS rentals_rental_start, rentals.rental_end AS rentals_rental_end, rentals.comment AS rentals_comment 
+FROM rentals 
+WHERE rentals.equipment_id = ? AND rentals.rental_end IS NULL
+ LIMIT ? OFFSET ?
+2025-12-08 17:09:37 - sqlalchemy.engine.Engine - INFO - [generated in 0.00067s] (6, 1, 0)
+2025-12-08 17:09:37 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:09:37 - NfcScan - INFO - get_user_input_with_selection called with scanner mode: usb_vendor
+2025-12-08 17:09:37 - sqlalchemy.engine.Engine - INFO - SELECT users.id_us AS users_id_us, users.name AS users_name, users.id_dep AS users_id_dep, users.status AS users_status, users.nfc AS users_nfc, departments_1.id_dep AS departments_1_id_dep, departments_1.name AS departments_1_name, departments_1.status AS departments_1_status 
+FROM users LEFT OUTER JOIN departments AS departments_1 ON departments_1.id_dep = users.id_dep 
+WHERE users.status = 1 ORDER BY users.name
+2025-12-08 17:09:37 - sqlalchemy.engine.Engine - INFO - [cached since 29.88s ago] ()
+2025-12-08 17:09:37 - NfcScan - INFO - Starting USB HID background scanner task
+2025-12-08 17:09:37 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:09:37 - usb_hid_scanner - INFO - USBHIDScanner initialized with VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:09:37 - usb_hid_scanner - INFO - Attempting to connect to device VID=0x11fa, PID=0x8202
+2025-12-08 17:09:37 - usb_hid_scanner - INFO - Successfully connected to device VID=0x11fa, PID=0x8202
+2025-12-08 17:09:37 - usb_hid_scanner - INFO - Device info - Manufacturer: Code, Product: CR1500
+2025-12-08 17:09:37 - NfcScan - INFO - USB HID scanner connected in background mode
+2025-12-08 17:09:39 - usb_hid_scanner - WARNING - Read timeout after 2.00s
+2025-12-08 17:09:41 - usb_hid_scanner - WARNING - Read timeout after 2.01s
+2025-12-08 17:09:42 - usb_hid_scanner - INFO - Successfully parsed scan: '5_bernd rohloff_2'
+2025-12-08 17:09:42 - NfcScan - INFO - Background scanner received data: '5_bernd rohloff_2'
+2025-12-08 17:09:42 - sqlalchemy.engine.Engine - INFO - SELECT users.id_us AS users_id_us, users.name AS users_name, users.id_dep AS users_id_dep, users.status AS users_status, users.nfc AS users_nfc 
+FROM users 
+WHERE users.nfc = ? AND users.status = 1
+ LIMIT ? OFFSET ?
+2025-12-08 17:09:42 - sqlalchemy.engine.Engine - INFO - [generated in 0.00082s] ('5_bernd rohloff_2', 1, 0)
+2025-12-08 17:09:42 - NfcScan - INFO - User found: Bernd Rohloff
+2025-12-08 17:09:42 - usb_hid_scanner - INFO - Disconnecting from device VID=0x11fa, PID=0x8202
+2025-12-08 17:09:42 - usb_hid_scanner - INFO - Device disconnected successfully
+2025-12-08 17:09:42 - NfcScan - INFO - Background scanner disconnected
+2025-12-08 17:09:42 - sqlalchemy.engine.Engine - INFO - SELECT etypes.id_et AS etypes_id_et, etypes.name AS etypes_name, etypes.status AS etypes_status 
+FROM etypes 
+WHERE etypes.id_et = ?
+2025-12-08 17:09:42 - sqlalchemy.engine.Engine - INFO - [generated in 0.00095s] (1,)
+2025-12-08 17:09:46 - sqlalchemy.engine.Engine - INFO - INSERT INTO rentals (user_id, equipment_id, rental_start, rental_end, comment) VALUES (?, ?, ?, ?, ?)
+2025-12-08 17:09:46 - sqlalchemy.engine.Engine - INFO - [generated in 0.00069s] (5, 6, '2025-12-08 17:09:46.887408', None, '')
+2025-12-08 17:09:46 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-12-08 17:09:46 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-12-08 17:09:46 - sqlalchemy.engine.Engine - INFO - SELECT rentals.id_re, rentals.user_id, rentals.equipment_id, rentals.rental_start, rentals.rental_end, rentals.comment 
+FROM rentals 
+WHERE rentals.id_re = ?
+2025-12-08 17:09:46 - sqlalchemy.engine.Engine - INFO - [generated in 0.00058s] (36,)
+2025-12-08 17:09:46 - sqlalchemy.engine.Engine - INFO - SELECT equipment.id_eq AS equipment_id_eq, equipment.name AS equipment_name, equipment.serialnum AS equipment_serialnum, equipment.etype_id AS equipment_etype_id, equipment.status AS equipment_status, equipment.nfc AS equipment_nfc, etypes_1.id_et AS etypes_1_id_et, etypes_1.name AS etypes_1_name, etypes_1.status AS etypes_1_status 
+FROM equipment LEFT OUTER JOIN etypes AS etypes_1 ON etypes_1.id_et = equipment.etype_id 
+WHERE equipment.status = 1 AND (equipment.id_eq NOT IN (SELECT rentals.equipment_id 
+FROM rentals 
+WHERE rentals.rental_end IS NULL))
+2025-12-08 17:09:46 - sqlalchemy.engine.Engine - INFO - [cached since 39.51s ago] ()
+2025-12-08 17:09:46 - sqlalchemy.engine.Engine - INFO - SELECT rentals.id_re AS rentals_id_re, rentals.user_id AS rentals_user_id, rentals.equipment_id AS rentals_equipment_id, rentals.rental_start AS rentals_rental_start, rentals.rental_end AS rentals_rental_end, rentals.comment AS rentals_comment, departments_1.id_dep AS departments_1_id_dep, departments_1.name AS departments_1_name, departments_1.status AS departments_1_status, users_1.id_us AS users_1_id_us, users_1.name AS users_1_name, users_1.id_dep AS users_1_id_dep, users_1.status AS users_1_status, users_1.nfc AS users_1_nfc, etypes_1.id_et AS etypes_1_id_et, etypes_1.name AS etypes_1_name, etypes_1.status AS etypes_1_status, equipment_1.id_eq AS equipment_1_id_eq, equipment_1.name AS equipment_1_name, equipment_1.serialnum AS equipment_1_serialnum, equipment_1.etype_id AS equipment_1_etype_id, equipment_1.status AS equipment_1_status, equipment_1.nfc AS equipment_1_nfc 
+FROM rentals JOIN equipment ON equipment.id_eq = rentals.equipment_id LEFT OUTER JOIN users AS users_1 ON users_1.id_us = rentals.user_id LEFT OUTER JOIN departments AS departments_1 ON departments_1.id_dep = users_1.id_dep LEFT OUTER JOIN equipment AS equipment_1 ON equipment_1.id_eq = rentals.equipment_id LEFT OUTER JOIN etypes AS etypes_1 ON etypes_1.id_et = equipment_1.etype_id 
+WHERE equipment.status = 1 AND rentals.rental_end IS NULL
+2025-12-08 17:09:46 - sqlalchemy.engine.Engine - INFO - [cached since 39.5s ago] ()
+2025-12-08 17:09:46 - sqlalchemy.engine.Engine - INFO - SELECT users.id_us AS users_id_us, users.name AS users_name, users.id_dep AS users_id_dep, users.status AS users_status, users.nfc AS users_nfc, departments_1.id_dep AS departments_1_id_dep, departments_1.name AS departments_1_name, departments_1.status AS departments_1_status 
+FROM users LEFT OUTER JOIN departments AS departments_1 ON departments_1.id_dep = users.id_dep 
+WHERE users.status = 1 ORDER BY users.name
+2025-12-08 17:09:46 - sqlalchemy.engine.Engine - INFO - [cached since 39.5s ago] ()
+2025-12-08 17:09:46 - sqlalchemy.engine.Engine - INFO - SELECT etypes.id_et AS etypes_id_et, etypes.name AS etypes_name, etypes.status AS etypes_status 
+FROM etypes 
+WHERE etypes.status = 1 ORDER BY etypes.name
+2025-12-08 17:09:46 - sqlalchemy.engine.Engine - INFO - [cached since 39.63s ago] ()
+2025-12-08 17:09:52 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-12-08 17:09:52 - sqlalchemy.engine.Engine - INFO - SELECT rentals.id_re AS rentals_id_re, rentals.user_id AS rentals_user_id, rentals.equipment_id AS rentals_equipment_id, rentals.rental_start AS rentals_rental_start, rentals.rental_end AS rentals_rental_end, rentals.comment AS rentals_comment, departments_1.id_dep AS departments_1_id_dep, departments_1.name AS departments_1_name, departments_1.status AS departments_1_status, users_1.id_us AS users_1_id_us, users_1.name AS users_1_name, users_1.id_dep AS users_1_id_dep, users_1.status AS users_1_status, users_1.nfc AS users_1_nfc, etypes_1.id_et AS etypes_1_id_et, etypes_1.name AS etypes_1_name, etypes_1.status AS etypes_1_status, equipment_1.id_eq AS equipment_1_id_eq, equipment_1.name AS equipment_1_name, equipment_1.serialnum AS equipment_1_serialnum, equipment_1.etype_id AS equipment_1_etype_id, equipment_1.status AS equipment_1_status, equipment_1.nfc AS equipment_1_nfc 
+FROM rentals LEFT OUTER JOIN users AS users_1 ON users_1.id_us = rentals.user_id LEFT OUTER JOIN departments AS departments_1 ON departments_1.id_dep = users_1.id_dep LEFT OUTER JOIN equipment AS equipment_1 ON equipment_1.id_eq = rentals.equipment_id LEFT OUTER JOIN etypes AS etypes_1 ON etypes_1.id_et = equipment_1.etype_id ORDER BY rentals.rental_start DESC
+2025-12-08 17:09:52 - sqlalchemy.engine.Engine - INFO - [generated in 0.00094s] ()
+2025-12-08 17:10:00 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:10:00 - NfcScan - INFO - get_nfc_input called with mode: usb_vendor
+2025-12-08 17:10:00 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:10:00 - NfcScan - INFO - Starting USB HID input dialog - VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:10:00 - usb_hid_scanner - INFO - USBHIDScanner initialized with VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:10:00 - usb_hid_scanner - INFO - Attempting to connect to device VID=0x11fa, PID=0x8202
+2025-12-08 17:10:00 - usb_hid_scanner - INFO - Successfully connected to device VID=0x11fa, PID=0x8202
+2025-12-08 17:10:00 - usb_hid_scanner - INFO - Device info - Manufacturer: Code, Product: CR1500
+2025-12-08 17:10:00 - NfcScan - INFO - USB HID scanner connected successfully
+2025-12-08 17:10:01 - usb_hid_scanner - INFO - Successfully parsed scan: '6_mlsl132_42'
+2025-12-08 17:10:01 - NfcScan - INFO - Successfully scanned data: '6_mlsl132_42'
+2025-12-08 17:10:02 - usb_hid_scanner - INFO - Disconnecting from device VID=0x11fa, PID=0x8202
+2025-12-08 17:10:02 - usb_hid_scanner - INFO - Device disconnected successfully
+2025-12-08 17:10:02 - sqlalchemy.engine.Engine - INFO - SELECT equipment.id_eq AS equipment_id_eq, equipment.name AS equipment_name, equipment.serialnum AS equipment_serialnum, equipment.etype_id AS equipment_etype_id, equipment.status AS equipment_status, equipment.nfc AS equipment_nfc 
+FROM equipment 
+WHERE equipment.nfc = ? AND equipment.status = 1
+ LIMIT ? OFFSET ?
+2025-12-08 17:10:02 - sqlalchemy.engine.Engine - INFO - [cached since 24.8s ago] ('6_mlsl132_42', 1, 0)
+2025-12-08 17:10:02 - sqlalchemy.engine.Engine - INFO - SELECT rentals.id_re AS rentals_id_re, rentals.user_id AS rentals_user_id, rentals.equipment_id AS rentals_equipment_id, rentals.rental_start AS rentals_rental_start, rentals.rental_end AS rentals_rental_end, rentals.comment AS rentals_comment 
+FROM rentals 
+WHERE rentals.equipment_id = ? AND rentals.rental_end IS NULL
+ LIMIT ? OFFSET ?
+2025-12-08 17:10:02 - sqlalchemy.engine.Engine - INFO - [cached since 24.8s ago] (6, 1, 0)
+2025-12-08 17:10:02 - sqlalchemy.engine.Engine - INFO - SELECT etypes.id_et AS etypes_id_et, etypes.name AS etypes_name, etypes.status AS etypes_status 
+FROM etypes 
+WHERE etypes.id_et = ?
+2025-12-08 17:10:02 - sqlalchemy.engine.Engine - INFO - [cached since 19.35s ago] (1,)
+2025-12-08 17:10:02 - sqlalchemy.engine.Engine - INFO - SELECT users.id_us AS users_id_us, users.name AS users_name, users.id_dep AS users_id_dep, users.status AS users_status, users.nfc AS users_nfc, departments_1.id_dep AS departments_1_id_dep, departments_1.name AS departments_1_name, departments_1.status AS departments_1_status 
+FROM users LEFT OUTER JOIN departments AS departments_1 ON departments_1.id_dep = users.id_dep 
+WHERE users.id_us = ?
+2025-12-08 17:10:02 - sqlalchemy.engine.Engine - INFO - [generated in 0.00088s] (5,)
+2025-12-08 17:10:17 - sqlalchemy.engine.Engine - INFO - SELECT rentals.id_re AS rentals_id_re, rentals.user_id AS rentals_user_id, rentals.equipment_id AS rentals_equipment_id, rentals.rental_start AS rentals_rental_start, rentals.rental_end AS rentals_rental_end, rentals.comment AS rentals_comment, departments_1.id_dep AS departments_1_id_dep, departments_1.name AS departments_1_name, departments_1.status AS departments_1_status, users_1.id_us AS users_1_id_us, users_1.name AS users_1_name, users_1.id_dep AS users_1_id_dep, users_1.status AS users_1_status, users_1.nfc AS users_1_nfc, etypes_1.id_et AS etypes_1_id_et, etypes_1.name AS etypes_1_name, etypes_1.status AS etypes_1_status, equipment_1.id_eq AS equipment_1_id_eq, equipment_1.name AS equipment_1_name, equipment_1.serialnum AS equipment_1_serialnum, equipment_1.etype_id AS equipment_1_etype_id, equipment_1.status AS equipment_1_status, equipment_1.nfc AS equipment_1_nfc 
+FROM rentals LEFT OUTER JOIN users AS users_1 ON users_1.id_us = rentals.user_id LEFT OUTER JOIN departments AS departments_1 ON departments_1.id_dep = users_1.id_dep LEFT OUTER JOIN equipment AS equipment_1 ON equipment_1.id_eq = rentals.equipment_id LEFT OUTER JOIN etypes AS etypes_1 ON etypes_1.id_et = equipment_1.etype_id 
+WHERE rentals.id_re = ?
+ LIMIT ? OFFSET ?
+2025-12-08 17:10:17 - sqlalchemy.engine.Engine - INFO - [generated in 0.00089s] (36, 1, 0)
+2025-12-08 17:10:17 - sqlalchemy.engine.Engine - INFO - UPDATE rentals SET rental_end=? WHERE rentals.id_re = ?
+2025-12-08 17:10:17 - sqlalchemy.engine.Engine - INFO - [generated in 0.00060s] ('2025-12-08 17:10:17.932118', 36)
+2025-12-08 17:10:17 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-12-08 17:10:17 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-12-08 17:10:17 - sqlalchemy.engine.Engine - INFO - SELECT rentals.id_re, rentals.user_id, rentals.equipment_id, rentals.rental_start, rentals.rental_end, rentals.comment 
+FROM rentals 
+WHERE rentals.id_re = ?
+2025-12-08 17:10:17 - sqlalchemy.engine.Engine - INFO - [cached since 31.05s ago] (36,)
+2025-12-08 17:10:17 - sqlalchemy.engine.Engine - INFO - SELECT equipment.id_eq AS equipment_id_eq, equipment.name AS equipment_name, equipment.serialnum AS equipment_serialnum, equipment.etype_id AS equipment_etype_id, equipment.status AS equipment_status, equipment.nfc AS equipment_nfc, etypes_1.id_et AS etypes_1_id_et, etypes_1.name AS etypes_1_name, etypes_1.status AS etypes_1_status 
+FROM equipment LEFT OUTER JOIN etypes AS etypes_1 ON etypes_1.id_et = equipment.etype_id 
+WHERE equipment.status = 1 AND (equipment.id_eq NOT IN (SELECT rentals.equipment_id 
+FROM rentals 
+WHERE rentals.rental_end IS NULL))
+2025-12-08 17:10:17 - sqlalchemy.engine.Engine - INFO - [cached since 70.55s ago] ()
+2025-12-08 17:10:17 - sqlalchemy.engine.Engine - INFO - SELECT rentals.id_re AS rentals_id_re, rentals.user_id AS rentals_user_id, rentals.equipment_id AS rentals_equipment_id, rentals.rental_start AS rentals_rental_start, rentals.rental_end AS rentals_rental_end, rentals.comment AS rentals_comment, departments_1.id_dep AS departments_1_id_dep, departments_1.name AS departments_1_name, departments_1.status AS departments_1_status, users_1.id_us AS users_1_id_us, users_1.name AS users_1_name, users_1.id_dep AS users_1_id_dep, users_1.status AS users_1_status, users_1.nfc AS users_1_nfc, etypes_1.id_et AS etypes_1_id_et, etypes_1.name AS etypes_1_name, etypes_1.status AS etypes_1_status, equipment_1.id_eq AS equipment_1_id_eq, equipment_1.name AS equipment_1_name, equipment_1.serialnum AS equipment_1_serialnum, equipment_1.etype_id AS equipment_1_etype_id, equipment_1.status AS equipment_1_status, equipment_1.nfc AS equipment_1_nfc 
+FROM rentals JOIN equipment ON equipment.id_eq = rentals.equipment_id LEFT OUTER JOIN users AS users_1 ON users_1.id_us = rentals.user_id LEFT OUTER JOIN departments AS departments_1 ON departments_1.id_dep = users_1.id_dep LEFT OUTER JOIN equipment AS equipment_1 ON equipment_1.id_eq = rentals.equipment_id LEFT OUTER JOIN etypes AS etypes_1 ON etypes_1.id_et = equipment_1.etype_id 
+WHERE equipment.status = 1 AND rentals.rental_end IS NULL
+2025-12-08 17:10:17 - sqlalchemy.engine.Engine - INFO - [cached since 70.54s ago] ()
+2025-12-08 17:10:17 - sqlalchemy.engine.Engine - INFO - SELECT users.id_us AS users_id_us, users.name AS users_name, users.id_dep AS users_id_dep, users.status AS users_status, users.nfc AS users_nfc, departments_1.id_dep AS departments_1_id_dep, departments_1.name AS departments_1_name, departments_1.status AS departments_1_status 
+FROM users LEFT OUTER JOIN departments AS departments_1 ON departments_1.id_dep = users.id_dep 
+WHERE users.status = 1 ORDER BY users.name
+2025-12-08 17:10:17 - sqlalchemy.engine.Engine - INFO - [cached since 70.54s ago] ()
+2025-12-08 17:10:17 - sqlalchemy.engine.Engine - INFO - SELECT etypes.id_et AS etypes_id_et, etypes.name AS etypes_name, etypes.status AS etypes_status 
+FROM etypes 
+WHERE etypes.status = 1 ORDER BY etypes.name
+2025-12-08 17:10:17 - sqlalchemy.engine.Engine - INFO - [cached since 70.67s ago] ()
+2025-12-08 17:10:22 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:10:22 - NfcScan - INFO - get_nfc_input called with mode: usb_vendor
+2025-12-08 17:10:22 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:10:22 - NfcScan - INFO - Starting USB HID input dialog - VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:10:22 - usb_hid_scanner - INFO - USBHIDScanner initialized with VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:10:22 - usb_hid_scanner - INFO - Attempting to connect to device VID=0x11fa, PID=0x8202
+2025-12-08 17:10:22 - usb_hid_scanner - INFO - Successfully connected to device VID=0x11fa, PID=0x8202
+2025-12-08 17:10:22 - usb_hid_scanner - INFO - Device info - Manufacturer: Code, Product: CR1500
+2025-12-08 17:10:22 - NfcScan - INFO - USB HID scanner connected successfully
+2025-12-08 17:10:23 - usb_hid_scanner - INFO - Successfully parsed scan: '6_mlsl132_42'
+2025-12-08 17:10:23 - NfcScan - INFO - Successfully scanned data: '6_mlsl132_42'
+2025-12-08 17:10:24 - usb_hid_scanner - INFO - Disconnecting from device VID=0x11fa, PID=0x8202
+2025-12-08 17:10:24 - usb_hid_scanner - INFO - Device disconnected successfully
+2025-12-08 17:10:24 - sqlalchemy.engine.Engine - INFO - SELECT equipment.id_eq AS equipment_id_eq, equipment.name AS equipment_name, equipment.serialnum AS equipment_serialnum, equipment.etype_id AS equipment_etype_id, equipment.status AS equipment_status, equipment.nfc AS equipment_nfc 
+FROM equipment 
+WHERE equipment.nfc = ? AND equipment.status = 1
+ LIMIT ? OFFSET ?
+2025-12-08 17:10:24 - sqlalchemy.engine.Engine - INFO - [cached since 46.81s ago] ('6_mlsl132_42', 1, 0)
+2025-12-08 17:10:24 - sqlalchemy.engine.Engine - INFO - SELECT rentals.id_re AS rentals_id_re, rentals.user_id AS rentals_user_id, rentals.equipment_id AS rentals_equipment_id, rentals.rental_start AS rentals_rental_start, rentals.rental_end AS rentals_rental_end, rentals.comment AS rentals_comment 
+FROM rentals 
+WHERE rentals.equipment_id = ? AND rentals.rental_end IS NULL
+ LIMIT ? OFFSET ?
+2025-12-08 17:10:24 - sqlalchemy.engine.Engine - INFO - [cached since 46.81s ago] (6, 1, 0)
+2025-12-08 17:10:24 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:10:24 - NfcScan - INFO - get_user_input_with_selection called with scanner mode: usb_vendor
+2025-12-08 17:10:24 - sqlalchemy.engine.Engine - INFO - SELECT users.id_us AS users_id_us, users.name AS users_name, users.id_dep AS users_id_dep, users.status AS users_status, users.nfc AS users_nfc, departments_1.id_dep AS departments_1_id_dep, departments_1.name AS departments_1_name, departments_1.status AS departments_1_status 
+FROM users LEFT OUTER JOIN departments AS departments_1 ON departments_1.id_dep = users.id_dep 
+WHERE users.status = 1 ORDER BY users.name
+2025-12-08 17:10:24 - sqlalchemy.engine.Engine - INFO - [cached since 76.69s ago] ()
+2025-12-08 17:10:24 - NfcScan - INFO - Starting USB HID background scanner task
+2025-12-08 17:10:24 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:10:24 - usb_hid_scanner - INFO - USBHIDScanner initialized with VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:10:24 - usb_hid_scanner - INFO - Attempting to connect to device VID=0x11fa, PID=0x8202
+2025-12-08 17:10:24 - usb_hid_scanner - INFO - Successfully connected to device VID=0x11fa, PID=0x8202
+2025-12-08 17:10:24 - usb_hid_scanner - INFO - Device info - Manufacturer: Code, Product: CR1500
+2025-12-08 17:10:24 - NfcScan - INFO - USB HID scanner connected in background mode
+2025-12-08 17:10:25 - usb_hid_scanner - ERROR - IO error during read: read error
+2025-12-08 17:10:26 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:26 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:26 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:26 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:26 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:26 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:26 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:26 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:26 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:26 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:27 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:27 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:27 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:27 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:27 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:27 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:27 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:27 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:27 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:27 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:28 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:28 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:28 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:28 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:28 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:28 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:28 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:28 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:28 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:28 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:29 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:29 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:29 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:29 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:29 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:29 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:29 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:29 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:29 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:30 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:30 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:30 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:30 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:30 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:30 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:30 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:30 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:30 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:30 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:31 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:31 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:31 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:31 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:31 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:31 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:31 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:31 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:31 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:31 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:32 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:32 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:32 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:32 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:32 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:32 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:32 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:32 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:32 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:32 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:33 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:33 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:33 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:33 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:33 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:33 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:33 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:33 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:33 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:33 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:34 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:34 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:34 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:34 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:34 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:34 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:34 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:34 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:34 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:34 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:35 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:35 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:35 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:35 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:35 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:35 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:35 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:35 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:35 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:36 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:36 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:36 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:36 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:36 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:36 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:36 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:36 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:36 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:36 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:37 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:37 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:37 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:37 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:37 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:37 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:37 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:37 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:37 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:37 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:38 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:38 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:38 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:38 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:38 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:38 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:38 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:38 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:38 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:38 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:39 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:39 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:39 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:39 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:39 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:39 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:39 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:39 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:39 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:39 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:40 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:40 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:40 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:40 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:40 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:40 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:40 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:40 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:40 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:40 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:41 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:41 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:41 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:41 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:41 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:41 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:41 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:41 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:41 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:42 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:42 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:42 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:42 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:42 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:42 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:42 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:42 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:42 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:42 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:43 - usb_hid_scanner - ERROR - Cannot read: device not connected
+2025-12-08 17:10:43 - usb_hid_scanner - INFO - Disconnecting from device VID=0x11fa, PID=0x8202
+2025-12-08 17:10:43 - usb_hid_scanner - INFO - Device disconnected successfully
+2025-12-08 17:10:43 - NfcScan - INFO - Background scanner disconnected
+2025-12-08 17:10:52 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-12-08 17:10:52 - sqlalchemy.engine.Engine - INFO - SELECT etypes.id_et AS etypes_id_et, etypes.name AS etypes_name, etypes.status AS etypes_status 
+FROM etypes ORDER BY etypes.name
+2025-12-08 17:10:52 - sqlalchemy.engine.Engine - INFO - [generated in 0.00065s] ()
+2025-12-08 17:10:52 - sqlalchemy.engine.Engine - INFO - ROLLBACK
+2025-12-08 17:10:55 - sqlalchemy.engine.Engine - INFO - SELECT users.id_us AS users_id_us, users.name AS users_name, users.id_dep AS users_id_dep, users.status AS users_status, users.nfc AS users_nfc, departments_1.id_dep AS departments_1_id_dep, departments_1.name AS departments_1_name, departments_1.status AS departments_1_status 
+FROM users LEFT OUTER JOIN departments AS departments_1 ON departments_1.id_dep = users.id_dep 
+WHERE users.status = 1 ORDER BY users.name
+2025-12-08 17:10:55 - sqlalchemy.engine.Engine - INFO - [cached since 107.6s ago] ()
+2025-12-08 17:10:55 - sqlalchemy.engine.Engine - INFO - SELECT etypes.id_et AS etypes_id_et, etypes.name AS etypes_name, etypes.status AS etypes_status 
+FROM etypes 
+WHERE etypes.status = 1 ORDER BY etypes.name
+2025-12-08 17:10:55 - sqlalchemy.engine.Engine - INFO - [cached since 107.7s ago] ()
+2025-12-08 17:10:55 - sqlalchemy.engine.Engine - INFO - SELECT equipment.id_eq AS equipment_id_eq, equipment.name AS equipment_name, equipment.serialnum AS equipment_serialnum, equipment.etype_id AS equipment_etype_id, equipment.status AS equipment_status, equipment.nfc AS equipment_nfc, etypes_1.id_et AS etypes_1_id_et, etypes_1.name AS etypes_1_name, etypes_1.status AS etypes_1_status 
+FROM equipment LEFT OUTER JOIN etypes AS etypes_1 ON etypes_1.id_et = equipment.etype_id 
+WHERE equipment.status = 1 AND (equipment.id_eq NOT IN (SELECT rentals.equipment_id 
+FROM rentals 
+WHERE rentals.rental_end IS NULL))
+2025-12-08 17:10:55 - sqlalchemy.engine.Engine - INFO - [cached since 107.6s ago] ()
+2025-12-08 17:10:55 - sqlalchemy.engine.Engine - INFO - SELECT rentals.id_re AS rentals_id_re, rentals.user_id AS rentals_user_id, rentals.equipment_id AS rentals_equipment_id, rentals.rental_start AS rentals_rental_start, rentals.rental_end AS rentals_rental_end, rentals.comment AS rentals_comment, departments_1.id_dep AS departments_1_id_dep, departments_1.name AS departments_1_name, departments_1.status AS departments_1_status, users_1.id_us AS users_1_id_us, users_1.name AS users_1_name, users_1.id_dep AS users_1_id_dep, users_1.status AS users_1_status, users_1.nfc AS users_1_nfc, etypes_1.id_et AS etypes_1_id_et, etypes_1.name AS etypes_1_name, etypes_1.status AS etypes_1_status, equipment_1.id_eq AS equipment_1_id_eq, equipment_1.name AS equipment_1_name, equipment_1.serialnum AS equipment_1_serialnum, equipment_1.etype_id AS equipment_1_etype_id, equipment_1.status AS equipment_1_status, equipment_1.nfc AS equipment_1_nfc 
+FROM rentals JOIN equipment ON equipment.id_eq = rentals.equipment_id LEFT OUTER JOIN users AS users_1 ON users_1.id_us = rentals.user_id LEFT OUTER JOIN departments AS departments_1 ON departments_1.id_dep = users_1.id_dep LEFT OUTER JOIN equipment AS equipment_1 ON equipment_1.id_eq = rentals.equipment_id LEFT OUTER JOIN etypes AS etypes_1 ON etypes_1.id_et = equipment_1.etype_id 
+WHERE equipment.status = 1 AND rentals.rental_end IS NULL
+2025-12-08 17:10:55 - sqlalchemy.engine.Engine - INFO - [cached since 107.6s ago] ()
+2025-12-08 17:10:55 - sqlalchemy.engine.Engine - INFO - SELECT departments.id_dep AS departments_id_dep, departments.name AS departments_name, departments.status AS departments_status 
+FROM departments 
+WHERE departments.status = 1 ORDER BY departments.name
+2025-12-08 17:10:55 - sqlalchemy.engine.Engine - INFO - [cached since 107.8s ago] ()
+2025-12-08 17:49:57 - root - INFO - ================================================================================
+2025-12-08 17:49:57 - root - INFO - Scanner logging initialized - Level: INFO, Console: True, File: True
+2025-12-08 17:49:57 - root - INFO - ================================================================================
+2025-12-08 17:49:57 - sqlalchemy.engine.Engine - INFO - SELECT etypes.id_et AS etypes_id_et, etypes.name AS etypes_name, etypes.status AS etypes_status 
+FROM etypes 
+WHERE etypes.status = 1 ORDER BY etypes.name
+2025-12-08 17:49:57 - sqlalchemy.engine.Engine - INFO - [cached since 0.1653s ago] ()
+2025-12-08 17:50:03 - root - INFO - ================================================================================
+2025-12-08 17:50:03 - root - INFO - Scanner logging initialized - Level: INFO, Console: True, File: True
+2025-12-08 17:50:03 - root - INFO - ================================================================================
+2025-12-08 17:50:03 - sqlalchemy.engine.Engine - INFO - SELECT etypes.id_et AS etypes_id_et, etypes.name AS etypes_name, etypes.status AS etypes_status 
+FROM etypes 
+WHERE etypes.status = 1 ORDER BY etypes.name
+2025-12-08 17:50:03 - sqlalchemy.engine.Engine - INFO - [cached since 0.1422s ago] ()
+2025-12-08 17:50:13 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:50:13 - NfcScan - INFO - get_nfc_input called with mode: usb_vendor
+2025-12-08 17:50:13 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:50:13 - NfcScan - INFO - Starting USB HID input dialog - VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:50:13 - usb_hid_scanner - INFO - USBHIDScanner initialized with VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:50:13 - usb_hid_scanner - INFO - Attempting to connect to device VID=0x11fa, PID=0x8202
+2025-12-08 17:50:13 - usb_hid_scanner - INFO - Successfully connected to device VID=0x11fa, PID=0x8202
+2025-12-08 17:50:13 - usb_hid_scanner - INFO - Device info - Manufacturer: Code, Product: CR1500
+2025-12-08 17:50:13 - NfcScan - INFO - USB HID scanner connected successfully
+2025-12-08 17:50:14 - NfcScan - INFO - USB HID scan cancelled by user
+2025-12-08 17:50:23 - gui.gui_scanner_config - INFO - Opening scanner configuration dialog
+2025-12-08 17:50:23 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:50:23 - usb_hid_scanner - INFO - USBHIDScanner initialized with VID=0x11fa, PID=0x8202, timeout=5s
+2025-12-08 17:50:23 - usb_hid_scanner - INFO - Attempting to connect to device VID=0x11fa, PID=0x8202
+2025-12-08 17:50:23 - usb_hid_scanner - INFO - Successfully connected to device VID=0x11fa, PID=0x8202
+2025-12-08 17:50:23 - usb_hid_scanner - INFO - Device info - Manufacturer: Code, Product: CR1500
+2025-12-08 17:50:23 - usb_hid_scanner - INFO - Disconnecting from device VID=0x11fa, PID=0x8202
+2025-12-08 17:50:23 - usb_hid_scanner - INFO - Device disconnected successfully
+2025-12-08 17:50:23 - gui.gui_scanner_config - INFO - Scanner connected: VID=0x11fa, PID=0x8202
+2025-12-08 17:50:23 - gui.gui_scanner_config - INFO - Refreshing USB HID device list
+2025-12-08 17:50:23 - usb_hid_scanner - INFO - Found 22 HID devices
+2025-12-08 17:50:23 - gui.gui_scanner_config - INFO - Found 22 USB HID devices
+2025-12-08 17:50:23 - gui.gui_scanner_config - INFO - Scanner configuration dialog opened
+2025-12-08 17:50:33 - gui.gui_scanner_config - INFO - Refreshing USB HID device list
+2025-12-08 17:50:33 - usb_hid_scanner - INFO - Found 22 HID devices
+2025-12-08 17:50:33 - gui.gui_scanner_config - INFO - Found 22 USB HID devices
+2025-12-08 17:50:43 - usb_hid_scanner - WARNING - Read timeout after 30.01s
+2025-12-08 17:50:43 - NfcScan - WARNING - USB HID scan timeout
+2025-12-08 17:50:43 - NfcScan - ERROR - Error during USB HID scan: invalid state
+2025-12-08 17:50:43 - usb_hid_scanner - INFO - Disconnecting from device VID=0x11fa, PID=0x8202
+2025-12-08 17:50:43 - usb_hid_scanner - INFO - Device disconnected successfully
+2025-12-08 17:50:43 - asyncio - ERROR - Task exception was never retrieved
+future: <Task finished name='Task-52' coro=<get_usb_hid_input.<locals>.scan_task() done, defined at c:\Users\RomanD\Desktop\Apps\Rental System\BNRS\NfcScan.py:290> exception=InvalidStateError('invalid state')>
+Traceback (most recent call last):
+  File "c:\Users\RomanD\Desktop\Apps\Rental System\BNRS\NfcScan.py", line 419, in scan_task
+    closed.set_result(None)
+    ~~~~~~~~~~~~~~~~~^^^^^^
+asyncio.exceptions.InvalidStateError: invalid state
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "c:\Users\RomanD\Desktop\Apps\Rental System\BNRS\NfcScan.py", line 452, in scan_task
+    closed.set_result(None)
+    ~~~~~~~~~~~~~~~~~^^^^^^
+asyncio.exceptions.InvalidStateError: invalid state
+2025-12-08 17:50:49 - gui.gui_scanner_config - INFO - Resetting configuration to defaults
+2025-12-08 17:50:49 - scanner_config - INFO - Updating USB configuration - VID: 4602, PID: 33282, kwargs: {}
+2025-12-08 17:50:49 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:50:49 - scanner_config - INFO - Changing VID/PID from 0x11fa/0x8202 to 0x11fa/0x8202
+2025-12-08 17:50:49 - scanner_config - INFO - Configuration saved to scanner_config.json
+2025-12-08 17:50:49 - scanner_config - INFO - USB configuration updated and saved successfully
+2025-12-08 17:50:49 - scanner_config - INFO - Attempting to set scanner mode to: usb_vendor
+2025-12-08 17:50:49 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:50:49 - scanner_config - INFO - Configuration saved to scanner_config.json
+2025-12-08 17:50:49 - scanner_config - INFO - Scanner mode changed from 'usb_vendor' to 'usb_vendor'
+2025-12-08 17:50:49 - gui.gui_scanner_config - INFO - Configuration reset to defaults
+2025-12-08 17:51:02 - gui.gui_scanner_config - INFO - Testing connection: VID=0x11fa, PID=0x8202
+2025-12-08 17:51:02 - usb_hid_scanner - INFO - USBHIDScanner initialized with VID=0x11fa, PID=0x8202, timeout=5s
+2025-12-08 17:51:02 - usb_hid_scanner - INFO - Attempting to connect to device VID=0x11fa, PID=0x8202
+2025-12-08 17:51:02 - usb_hid_scanner - INFO - Successfully connected to device VID=0x11fa, PID=0x8202
+2025-12-08 17:51:02 - usb_hid_scanner - INFO - Device info - Manufacturer: Code, Product: CR1500
+2025-12-08 17:51:02 - usb_hid_scanner - INFO - Disconnecting from device VID=0x11fa, PID=0x8202
+2025-12-08 17:51:02 - usb_hid_scanner - INFO - Device disconnected successfully
+2025-12-08 17:51:02 - gui.gui_scanner_config - INFO - Connection test successful
+2025-12-08 17:51:09 - gui.gui_scanner_config - INFO - Mode change requested: usb_vendor -> keyboard
+2025-12-08 17:51:11 - gui.gui_scanner_config - INFO - Saving configuration: VID=0x11fa, PID=0x8202, Mode=keyboard
+2025-12-08 17:51:11 - scanner_config - INFO - Updating USB configuration - VID: 4602, PID: 33282, kwargs: {}
+2025-12-08 17:51:11 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:51:11 - scanner_config - INFO - Changing VID/PID from 0x11fa/0x8202 to 0x11fa/0x8202
+2025-12-08 17:51:11 - scanner_config - INFO - Configuration saved to scanner_config.json
+2025-12-08 17:51:11 - scanner_config - INFO - USB configuration updated and saved successfully
+2025-12-08 17:51:11 - scanner_config - INFO - Attempting to set scanner mode to: keyboard
+2025-12-08 17:51:11 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:51:11 - scanner_config - INFO - Configuration saved to scanner_config.json
+2025-12-08 17:51:11 - scanner_config - INFO - Scanner mode changed from 'usb_vendor' to 'keyboard'
+2025-12-08 17:51:11 - gui.gui_scanner_config - INFO - Configuration saved successfully
+2025-12-08 17:51:15 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:51:15 - NfcScan - INFO - get_nfc_input called with mode: keyboard
+2025-12-08 17:51:26 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-12-08 17:51:26 - sqlalchemy.engine.Engine - INFO - SELECT equipment.id_eq AS equipment_id_eq, equipment.name AS equipment_name, equipment.serialnum AS equipment_serialnum, equipment.etype_id AS equipment_etype_id, equipment.status AS equipment_status, equipment.nfc AS equipment_nfc 
+FROM equipment 
+WHERE equipment.nfc = ? AND equipment.status = 1
+ LIMIT ? OFFSET ?
+2025-12-08 17:51:26 - sqlalchemy.engine.Engine - INFO - [generated in 0.00064s] ('1_mlsl121_42', 1, 0)
+2025-12-08 17:51:26 - sqlalchemy.engine.Engine - INFO - SELECT rentals.id_re AS rentals_id_re, rentals.user_id AS rentals_user_id, rentals.equipment_id AS rentals_equipment_id, rentals.rental_start AS rentals_rental_start, rentals.rental_end AS rentals_rental_end, rentals.comment AS rentals_comment 
+FROM rentals 
+WHERE rentals.equipment_id = ? AND rentals.rental_end IS NULL
+ LIMIT ? OFFSET ?
+2025-12-08 17:51:26 - sqlalchemy.engine.Engine - INFO - [generated in 0.00054s] (1, 1, 0)
+2025-12-08 17:51:26 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:51:26 - NfcScan - INFO - get_user_input_with_selection called with scanner mode: keyboard
+2025-12-08 17:51:26 - sqlalchemy.engine.Engine - INFO - SELECT users.id_us AS users_id_us, users.name AS users_name, users.id_dep AS users_id_dep, users.status AS users_status, users.nfc AS users_nfc, departments_1.id_dep AS departments_1_id_dep, departments_1.name AS departments_1_name, departments_1.status AS departments_1_status 
+FROM users LEFT OUTER JOIN departments AS departments_1 ON departments_1.id_dep = users.id_dep 
+WHERE users.status = 1 ORDER BY users.name
+2025-12-08 17:51:26 - sqlalchemy.engine.Engine - INFO - [cached since 89.2s ago] ()
+2025-12-08 17:51:26 - NfcScan - INFO - Using keyboard mode - maintaining focus on input field
+2025-12-08 17:51:34 - sqlalchemy.engine.Engine - INFO - SELECT users.id_us AS users_id_us, users.name AS users_name, users.id_dep AS users_id_dep, users.status AS users_status, users.nfc AS users_nfc 
+FROM users 
+WHERE users.nfc = ? AND users.status = 1
+ LIMIT ? OFFSET ?
+2025-12-08 17:51:34 - sqlalchemy.engine.Engine - INFO - [generated in 0.00068s] ('sdf', 1, 0)
+2025-12-08 17:51:42 - sqlalchemy.engine.Engine - INFO - SELECT users.id_us AS users_id_us, users.name AS users_name, users.id_dep AS users_id_dep, users.status AS users_status, users.nfc AS users_nfc 
+FROM users 
+WHERE users.nfc = ? AND users.status = 1
+ LIMIT ? OFFSET ?
+2025-12-08 17:51:42 - sqlalchemy.engine.Engine - INFO - [cached since 8.337s ago] ('1_roman dyachkov_1', 1, 0)
+2025-12-08 17:51:42 - sqlalchemy.engine.Engine - INFO - SELECT etypes.id_et AS etypes_id_et, etypes.name AS etypes_name, etypes.status AS etypes_status 
+FROM etypes 
+WHERE etypes.id_et = ?
+2025-12-08 17:51:42 - sqlalchemy.engine.Engine - INFO - [generated in 0.00054s] (1,)
+2025-12-08 17:51:52 - gui.gui_scanner_config - INFO - Opening scanner configuration dialog
+2025-12-08 17:51:52 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:51:52 - usb_hid_scanner - INFO - USBHIDScanner initialized with VID=0x11fa, PID=0x8202, timeout=5s
+2025-12-08 17:51:52 - usb_hid_scanner - INFO - Attempting to connect to device VID=0x11fa, PID=0x8202
+2025-12-08 17:51:52 - usb_hid_scanner - INFO - Successfully connected to device VID=0x11fa, PID=0x8202
+2025-12-08 17:51:52 - usb_hid_scanner - INFO - Device info - Manufacturer: Code, Product: CR1500
+2025-12-08 17:51:52 - usb_hid_scanner - INFO - Disconnecting from device VID=0x11fa, PID=0x8202
+2025-12-08 17:51:52 - usb_hid_scanner - INFO - Device disconnected successfully
+2025-12-08 17:51:52 - gui.gui_scanner_config - INFO - Scanner connected: VID=0x11fa, PID=0x8202
+2025-12-08 17:51:52 - gui.gui_scanner_config - INFO - Refreshing USB HID device list
+2025-12-08 17:51:52 - usb_hid_scanner - INFO - Found 22 HID devices
+2025-12-08 17:51:52 - gui.gui_scanner_config - INFO - Found 22 USB HID devices
+2025-12-08 17:51:52 - gui.gui_scanner_config - INFO - Scanner configuration dialog opened
+2025-12-08 17:51:55 - gui.gui_scanner_config - INFO - Mode change requested: keyboard -> usb_vendor
+2025-12-08 17:52:00 - gui.gui_scanner_config - INFO - Saving configuration: VID=0x11fa, PID=0x8202, Mode=usb_vendor
+2025-12-08 17:52:00 - scanner_config - INFO - Updating USB configuration - VID: 4602, PID: 33282, kwargs: {}
+2025-12-08 17:52:00 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:52:00 - scanner_config - INFO - Changing VID/PID from 0x11fa/0x8202 to 0x11fa/0x8202
+2025-12-08 17:52:00 - scanner_config - INFO - Configuration saved to scanner_config.json
+2025-12-08 17:52:00 - scanner_config - INFO - USB configuration updated and saved successfully
+2025-12-08 17:52:00 - scanner_config - INFO - Attempting to set scanner mode to: usb_vendor
+2025-12-08 17:52:00 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:52:00 - scanner_config - INFO - Configuration saved to scanner_config.json
+2025-12-08 17:52:00 - scanner_config - INFO - Scanner mode changed from 'keyboard' to 'usb_vendor'
+2025-12-08 17:52:00 - gui.gui_scanner_config - INFO - Configuration saved successfully
+2025-12-08 17:52:40 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:52:40 - NfcScan - INFO - get_nfc_input called with mode: usb_vendor
+2025-12-08 17:52:40 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:52:40 - NfcScan - INFO - Starting USB HID input dialog - VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:52:40 - usb_hid_scanner - INFO - USBHIDScanner initialized with VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:52:40 - usb_hid_scanner - INFO - Attempting to connect to device VID=0x11fa, PID=0x8202
+2025-12-08 17:52:40 - usb_hid_scanner - INFO - Successfully connected to device VID=0x11fa, PID=0x8202
+2025-12-08 17:52:40 - usb_hid_scanner - INFO - Device info - Manufacturer: Code, Product: CR1500
+2025-12-08 17:52:40 - NfcScan - INFO - USB HID scanner connected successfully
+2025-12-08 17:52:48 - usb_hid_scanner - INFO - Successfully parsed scan: '6_mlsl132_42'
+2025-12-08 17:52:48 - NfcScan - INFO - Successfully scanned data: '6_mlsl132_42'
+2025-12-08 17:52:49 - usb_hid_scanner - INFO - Disconnecting from device VID=0x11fa, PID=0x8202
+2025-12-08 17:52:49 - usb_hid_scanner - INFO - Device disconnected successfully
+2025-12-08 17:52:49 - sqlalchemy.engine.Engine - INFO - SELECT equipment.id_eq AS equipment_id_eq, equipment.name AS equipment_name, equipment.serialnum AS equipment_serialnum, equipment.etype_id AS equipment_etype_id, equipment.status AS equipment_status, equipment.nfc AS equipment_nfc 
+FROM equipment 
+WHERE equipment.nfc = ? AND equipment.status = 1
+ LIMIT ? OFFSET ?
+2025-12-08 17:52:49 - sqlalchemy.engine.Engine - INFO - [cached since 82.88s ago] ('6_mlsl132_42', 1, 0)
+2025-12-08 17:52:49 - sqlalchemy.engine.Engine - INFO - SELECT rentals.id_re AS rentals_id_re, rentals.user_id AS rentals_user_id, rentals.equipment_id AS rentals_equipment_id, rentals.rental_start AS rentals_rental_start, rentals.rental_end AS rentals_rental_end, rentals.comment AS rentals_comment 
+FROM rentals 
+WHERE rentals.equipment_id = ? AND rentals.rental_end IS NULL
+ LIMIT ? OFFSET ?
+2025-12-08 17:52:49 - sqlalchemy.engine.Engine - INFO - [cached since 82.88s ago] (6, 1, 0)
+2025-12-08 17:52:49 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:52:49 - NfcScan - INFO - get_user_input_with_selection called with scanner mode: usb_vendor
+2025-12-08 17:52:49 - sqlalchemy.engine.Engine - INFO - SELECT users.id_us AS users_id_us, users.name AS users_name, users.id_dep AS users_id_dep, users.status AS users_status, users.nfc AS users_nfc, departments_1.id_dep AS departments_1_id_dep, departments_1.name AS departments_1_name, departments_1.status AS departments_1_status 
+FROM users LEFT OUTER JOIN departments AS departments_1 ON departments_1.id_dep = users.id_dep 
+WHERE users.status = 1 ORDER BY users.name
+2025-12-08 17:52:49 - sqlalchemy.engine.Engine - INFO - [cached since 172.1s ago] ()
+2025-12-08 17:52:49 - NfcScan - INFO - Starting USB HID background scanner task
+2025-12-08 17:52:49 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:52:49 - usb_hid_scanner - INFO - USBHIDScanner initialized with VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:52:49 - usb_hid_scanner - INFO - Attempting to connect to device VID=0x11fa, PID=0x8202
+2025-12-08 17:52:49 - usb_hid_scanner - INFO - Successfully connected to device VID=0x11fa, PID=0x8202
+2025-12-08 17:52:49 - usb_hid_scanner - INFO - Device info - Manufacturer: Code, Product: CR1500
+2025-12-08 17:52:49 - NfcScan - INFO - USB HID scanner connected in background mode
+2025-12-08 17:52:50 - usb_hid_scanner - INFO - Successfully parsed scan: '5_bernd rohloff_2'
+2025-12-08 17:52:50 - NfcScan - INFO - Background scanner received data: '5_bernd rohloff_2'
+2025-12-08 17:52:50 - sqlalchemy.engine.Engine - INFO - SELECT users.id_us AS users_id_us, users.name AS users_name, users.id_dep AS users_id_dep, users.status AS users_status, users.nfc AS users_nfc 
+FROM users 
+WHERE users.nfc = ? AND users.status = 1
+ LIMIT ? OFFSET ?
+2025-12-08 17:52:50 - sqlalchemy.engine.Engine - INFO - [cached since 76.54s ago] ('5_bernd rohloff_2', 1, 0)
+2025-12-08 17:52:50 - NfcScan - INFO - User found: Bernd Rohloff
+2025-12-08 17:52:50 - usb_hid_scanner - INFO - Disconnecting from device VID=0x11fa, PID=0x8202
+2025-12-08 17:52:50 - usb_hid_scanner - INFO - Device disconnected successfully
+2025-12-08 17:52:50 - NfcScan - INFO - Background scanner disconnected
+2025-12-08 17:52:50 - sqlalchemy.engine.Engine - INFO - SELECT etypes.id_et AS etypes_id_et, etypes.name AS etypes_name, etypes.status AS etypes_status 
+FROM etypes 
+WHERE etypes.id_et = ?
+2025-12-08 17:52:50 - sqlalchemy.engine.Engine - INFO - [cached since 68.2s ago] (1,)
+2025-12-08 17:52:56 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:52:56 - NfcScan - INFO - get_nfc_input called with mode: usb_vendor
+2025-12-08 17:52:56 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:52:56 - NfcScan - INFO - Starting USB HID input dialog - VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:52:56 - usb_hid_scanner - INFO - USBHIDScanner initialized with VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:52:56 - usb_hid_scanner - INFO - Attempting to connect to device VID=0x11fa, PID=0x8202
+2025-12-08 17:52:56 - usb_hid_scanner - INFO - Successfully connected to device VID=0x11fa, PID=0x8202
+2025-12-08 17:52:56 - usb_hid_scanner - INFO - Device info - Manufacturer: Code, Product: CR1500
+2025-12-08 17:52:56 - NfcScan - INFO - USB HID scanner connected successfully
+2025-12-08 17:53:03 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:53:03 - NfcScan - INFO - get_nfc_input called with mode: usb_vendor
+2025-12-08 17:53:03 - scanner_config - INFO - Configuration loaded from scanner_config.json
+2025-12-08 17:53:03 - NfcScan - INFO - Starting USB HID input dialog - VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:53:03 - usb_hid_scanner - INFO - USBHIDScanner initialized with VID=0x11fa, PID=0x8202, timeout=30s
+2025-12-08 17:53:03 - usb_hid_scanner - INFO - Attempting to connect to device VID=0x11fa, PID=0x8202
+2025-12-08 17:53:03 - usb_hid_scanner - INFO - Successfully connected to device VID=0x11fa, PID=0x8202
+2025-12-08 17:53:03 - usb_hid_scanner - INFO - Device info - Manufacturer: Code, Product: CR1500
+2025-12-08 17:53:03 - NfcScan - INFO - USB HID scanner connected successfully
+2025-12-08 17:53:27 - usb_hid_scanner - WARNING - Read timeout after 30.01s
+2025-12-08 17:53:27 - NfcScan - WARNING - USB HID scan timeout
+2025-12-08 17:53:27 - scanner_error_dialogs - INFO - Showing timeout error dialog (timeout=30s)
+2025-12-08 17:53:27 - NfcScan - ERROR - Error during USB HID scan: The current slot cannot be determined because the slot stack for this task is empty.
+This may happen if you try to create UI from a background task.
+To fix this, enter the target slot explicitly using `with container_element:`.
+2025-12-08 17:53:27 - usb_hid_scanner - INFO - Disconnecting from device VID=0x11fa, PID=0x8202
+2025-12-08 17:53:27 - usb_hid_scanner - INFO - Device disconnected successfully
+2025-12-08 17:53:27 - asyncio - ERROR - Task exception was never retrieved
+future: <Task finished name='Task-677' coro=<get_usb_hid_input.<locals>.scan_task() done, defined at c:\Users\RomanD\Desktop\Apps\Rental System\BNRS\NfcScan.py:290> exception=InvalidStateError('invalid state')>
+Traceback (most recent call last):
+  File "c:\Users\RomanD\Desktop\Apps\Rental System\BNRS\NfcScan.py", line 422, in scan_task
+    choice = await ScannerErrorDialogs.show_timeout_error(timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\RomanD\Desktop\Apps\Rental System\BNRS\scanner_error_dialogs.py", line 149, in show_timeout_error
+    dialog = ui.dialog()
+  File "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\bnrs\Lib\site-packages\nicegui\elements\dialog.py", line 22, in __init__
+    super().__init__(tag='q-dialog', value=value, on_value_change=None)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\bnrs\Lib\site-packages\nicegui\elements\mixins\value_element.py", line 31, in __init__
+    super().__init__(**kwargs)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\bnrs\Lib\site-packages\nicegui\element.py", line 52, in __init__
+    self.client = _client or context.client
+                             ^^^^^^^^^^^^^^
+  File "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\bnrs\Lib\site-packages\nicegui\context.py", line 31, in client
+    return self.slot.parent.client
+           ^^^^^^^^^
+  File "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\bnrs\Lib\site-packages\nicegui\context.py", line 23, in slot
+    raise RuntimeError('The current slot cannot be determined because the slot stack for this task is empty.\n'
+                       'This may happen if you try to create UI from a background task.\n'
+                       'To fix this, enter the target slot explicitly using `with container_element:`.')
+RuntimeError: The current slot cannot be determined because the slot stack for this task is empty.
+This may happen if you try to create UI from a background task.
+To fix this, enter the target slot explicitly using `with container_element:`.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "c:\Users\RomanD\Desktop\Apps\Rental System\BNRS\NfcScan.py", line 452, in scan_task
+    closed.set_result(None)
+    ~~~~~~~~~~~~~~~~~^^^^^^
+asyncio.exceptions.InvalidStateError: invalid state
+2025-12-08 17:53:34 - usb_hid_scanner - WARNING - Read timeout after 30.01s
+2025-12-08 17:53:34 - NfcScan - WARNING - USB HID scan timeout
+2025-12-08 17:53:34 - scanner_error_dialogs - INFO - Showing timeout error dialog (timeout=30s)
+2025-12-08 17:53:34 - NfcScan - ERROR - Error during USB HID scan: The current slot cannot be determined because the slot stack for this task is empty.
+This may happen if you try to create UI from a background task.
+To fix this, enter the target slot explicitly using `with container_element:`.
+2025-12-08 17:53:34 - usb_hid_scanner - INFO - Disconnecting from device VID=0x11fa, PID=0x8202
+2025-12-08 17:53:34 - usb_hid_scanner - INFO - Device disconnected successfully
+2025-12-08 17:53:34 - asyncio - ERROR - Task exception was never retrieved
+future: <Task finished name='Task-690' coro=<get_usb_hid_input.<locals>.scan_task() done, defined at c:\Users\RomanD\Desktop\Apps\Rental System\BNRS\NfcScan.py:290> exception=InvalidStateError('invalid state')>
+Traceback (most recent call last):
+  File "c:\Users\RomanD\Desktop\Apps\Rental System\BNRS\NfcScan.py", line 422, in scan_task
+    choice = await ScannerErrorDialogs.show_timeout_error(timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\RomanD\Desktop\Apps\Rental System\BNRS\scanner_error_dialogs.py", line 149, in show_timeout_error
+    dialog = ui.dialog()
+  File "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\bnrs\Lib\site-packages\nicegui\elements\dialog.py", line 22, in __init__
+    super().__init__(tag='q-dialog', value=value, on_value_change=None)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\bnrs\Lib\site-packages\nicegui\elements\mixins\value_element.py", line 31, in __init__
+    super().__init__(**kwargs)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\bnrs\Lib\site-packages\nicegui\element.py", line 52, in __init__
+    self.client = _client or context.client
+                             ^^^^^^^^^^^^^^
+  File "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\bnrs\Lib\site-packages\nicegui\context.py", line 31, in client
+    return self.slot.parent.client
+           ^^^^^^^^^
+  File "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\bnrs\Lib\site-packages\nicegui\context.py", line 23, in slot
+    raise RuntimeError('The current slot cannot be determined because the slot stack for this task is empty.\n'
+                       'This may happen if you try to create UI from a background task.\n'
+                       'To fix this, enter the target slot explicitly using `with container_element:`.')
+RuntimeError: The current slot cannot be determined because the slot stack for this task is empty.
+This may happen if you try to create UI from a background task.
+To fix this, enter the target slot explicitly using `with container_element:`.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "c:\Users\RomanD\Desktop\Apps\Rental System\BNRS\NfcScan.py", line 452, in scan_task
+    closed.set_result(None)
+    ~~~~~~~~~~~~~~~~~^^^^^^
+asyncio.exceptions.InvalidStateError: invalid state

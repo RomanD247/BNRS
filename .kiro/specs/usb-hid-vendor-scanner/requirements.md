@@ -99,3 +99,18 @@ Migrate the existing keyboard-based scanner integration to USB HID Vendor Mode f
 3. WHEN mode is set to usb_vendor, THE Scanner_Device SHALL use the new USB HID implementation
 4. THE Scanner_Configuration SHALL default to usb_vendor mode
 5. WHEN switching modes, THE Scanner_Device SHALL not require application restart
+
+### Requirement 8
+
+**User Story:** As a system administrator, I want a graphical interface to configure scanner settings, so that I can easily view connected devices and update scanner configuration without using command-line tools
+
+#### Acceptance Criteria
+
+1. WHEN the Admin Panel is opened, THE Scanner_Configuration_UI SHALL provide a button to access scanner settings
+2. WHEN the scanner settings button is clicked, THE Scanner_Configuration_UI SHALL display a dialog showing current scanner configuration
+3. WHEN the configuration dialog is opened, THE Scanner_Configuration_UI SHALL list all connected USB HID devices with their VID, PID, manufacturer, and product name
+4. WHEN an administrator selects a device from the list, THE Scanner_Configuration_UI SHALL allow saving that device's VID and PID to the configuration
+5. WHEN configuration changes are saved, THE Scanner_Configuration_UI SHALL validate the VID and PID values before persisting them
+6. THE Scanner_Configuration_UI SHALL provide a test connection button to verify scanner connectivity with current settings
+7. THE Scanner_Configuration_UI SHALL display the current scanner mode (usb_vendor or keyboard) and allow switching between modes
+8. WHEN the configuration dialog is displayed, THE Scanner_Configuration_UI SHALL show clear status indicators for scanner connection state

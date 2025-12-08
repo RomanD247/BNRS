@@ -279,30 +279,145 @@
   - Implement configuration import from file
   - _Requirements: 2.5_
 
-- [ ] 9. Update documentation
+- [x] 9. Implement GUI scanner configuration interface
+
+
+
+
+
+  - Create scanner configuration dialog for Admin Panel
+  - Display current scanner configuration
+  - List all connected USB HID devices
+  - Allow device selection and VID/PID saving
+  - Implement test connection functionality
+  - Add mode switching UI
+  - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8_
+
+- [x] 9.1 Create scanner configuration GUI module
+
+
+  - Create gui/gui_scanner_config.py file
+  - Import necessary dependencies (nicegui, scanner_config, usb_hid_scanner)
+  - Define show_scanner_config_dialog() function
+  - _Requirements: 8.1_
+
+- [x] 9.2 Implement current configuration display
+
+  - Display current VID/PID values (decimal and hex)
+  - Display current scanner mode
+  - Show connection status with visual indicators
+  - _Requirements: 8.2, 8.8_
+
+- [x] 9.3 Implement device enumeration UI
+
+  - Add "Refresh Devices" button
+  - Call USBHIDScanner.list_devices() to get connected devices
+  - Display devices in a table/list with VID, PID, manufacturer, product
+  - Format VID/PID in both decimal and hex (e.g., "4602 (0x11FA)")
+  - _Requirements: 8.3_
+
+- [x] 9.4 Implement device selection and saving
+
+  - Add select button for each device in the list
+  - When device is selected, populate VID/PID fields
+  - Implement "Save Configuration" button
+  - Validate VID/PID before saving
+  - Call scanner_config.update_usb_config() to persist changes
+  - Display success/error notifications
+  - _Requirements: 8.4, 8.5_
+
+- [x] 9.5 Write property test for device enumeration completeness
+
+
+
+
+
+
+  - **Property 16: Device enumeration completeness**
+  - **Validates: Requirements 8.3**
+
+- [x] 9.6 Write property test for GUI configuration persistence
+
+
+
+
+
+
+  - **Property 17: GUI configuration persistence**
+  - **Validates: Requirements 8.4, 8.5**
+
+- [x] 9.7 Implement test connection functionality
+
+  - Add "Test Connection" button
+  - Create temporary USBHIDScanner instance with current VID/PID
+  - Attempt connection and display result
+  - Show success message if connected
+  - Show error message with details if connection fails
+  - _Requirements: 8.6_
+
+- [x] 9.8 Implement mode switching UI
+
+  - Display current scanner mode (usb_vendor or keyboard)
+  - Add toggle/select for switching modes
+  - Call scanner_config.set_scanner_mode() when mode changes
+  - Display confirmation message
+  - _Requirements: 8.7_
+
+- [x] 9.9 Add reset to defaults functionality
+
+  - Add "Reset to Defaults" button
+  - Reset VID to 4602, PID to 33282
+  - Reset mode to usb_vendor
+  - Save default configuration
+  - Update UI to reflect defaults
+  - _Requirements: 8.5_
+
+- [x] 9.10 Integrate scanner config button into Admin Panel
+
+
+  - Open main.py
+  - Add import for show_scanner_config_dialog
+  - Add button in "Other options" section of Admin Panel
+  - Button should have scanner/settings icon
+  - Button label: "Scanner Settings"
+  - Button click should open scanner configuration dialog
+  - _Requirements: 8.1_
+
+- [x] 10. Update documentation
+
+
+
+
+
   - Update README with USB scanner setup instructions
   - Document VID/PID configuration
   - Document mode switching
   - Add troubleshooting guide
   - _Requirements: All_
 
-- [ ] 9.1 Create USB scanner setup guide
+
+- [x] 10.1 Create USB scanner setup guide
+
   - Document hidapi installation
   - Document VID/PID configuration
   - Document platform-specific requirements
   - _Requirements: 1.1, 2.1, 2.2_
 
-- [ ] 9.2 Create troubleshooting guide
+
+- [x] 10.2 Create troubleshooting guide
+
   - Document common connection issues
   - Document permission issues
   - Document fallback to keyboard mode
   - _Requirements: 4.1, 4.2, 4.5_
 
-- [ ] 9.3 Update user documentation
+
+- [x] 10.3 Update user documentation
+
   - Document scanning workflow
   - Document error messages
   - Document configuration utility usage
   - _Requirements: All_
 
-- [ ] 10. Checkpoint - Ensure all tests pass
+- [ ] 11. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.

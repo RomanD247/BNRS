@@ -172,6 +172,52 @@ async def get_nfc_input(prompt_message: str) -> str:
 - Provide cancel option
 - Display scanned data preview
 
+### 5. Scanner Configuration GUI
+
+**Purpose**: Provide graphical interface for scanner configuration in Admin Panel
+
+**Location**: New file `gui/gui_scanner_config.py`
+
+**Key Functions**:
+```python
+def show_scanner_config_dialog():
+    """
+    Display scanner configuration dialog with:
+    - Current configuration display
+    - List of connected USB HID devices
+    - Device selection and VID/PID saving
+    - Mode switching (usb_vendor/keyboard)
+    - Test connection functionality
+    - Connection status indicators
+    """
+```
+
+**Dialog Components**:
+- **Current Configuration Section**:
+  - Display current VID/PID values
+  - Display current scanner mode
+  - Show connection status (connected/disconnected)
+  
+- **Available Devices Section**:
+  - Refresh button to scan for devices
+  - Table/list showing:
+    - VID (decimal and hex)
+    - PID (decimal and hex)
+    - Manufacturer name
+    - Product name
+  - Select button for each device
+  
+- **Actions Section**:
+  - Test Connection button
+  - Save Configuration button
+  - Mode toggle (USB Vendor / Keyboard)
+  - Reset to Defaults button
+  
+- **Status Indicators**:
+  - Visual feedback for connection state
+  - Success/error messages for operations
+  - Loading indicators during device enumeration
+
 ## Data Models
 
 ### Scanner Configuration Model
@@ -286,6 +332,14 @@ Property 14: Mode routing correctness
 Property 15: Runtime mode switching
 *For any* mode change operation, the new mode should take effect immediately for the next scan operation without requiring application restart
 **Validates: Requirements 7.5**
+
+Property 16: Device enumeration completeness
+*For any* USB HID device connected to the system, calling the device enumeration function should include that device in the returned list with accurate VID, PID, manufacturer, and product information
+**Validates: Requirements 8.3**
+
+Property 17: GUI configuration persistence
+*For any* valid device selection made through the GUI configuration dialog, saving the configuration should result in those VID and PID values being persisted to the configuration file and used for subsequent scanner connections
+**Validates: Requirements 8.4, 8.5**
 
 ## Error Handling
 

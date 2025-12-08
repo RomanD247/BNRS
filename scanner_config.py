@@ -9,6 +9,7 @@ Requirements: 2.1, 2.2, 2.3, 2.4, 2.5
 
 import json
 import logging
+import copy
 from typing import Dict, Optional
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -131,7 +132,7 @@ def load_config() -> Dict:
     # If configuration file doesn't exist, return defaults
     if not config_path.exists():
         logger.info(f"Configuration file {CONFIG_FILE} not found, using defaults")
-        return DEFAULT_CONFIG.copy()
+        return copy.deepcopy(DEFAULT_CONFIG)
     
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
@@ -139,8 +140,8 @@ def load_config() -> Dict:
         
         logger.info(f"Configuration loaded from {CONFIG_FILE}")
         
-        # Merge with defaults to ensure all keys exist
-        merged_config = DEFAULT_CONFIG.copy()
+        # Merge with defaults to ensure all keys exist (use deep copy to avoid mutating DEFAULT_CONFIG)
+        merged_config = copy.deepcopy(DEFAULT_CONFIG)
         merged_config.update(config)
         
         # Ensure nested dictionaries are also merged
@@ -162,11 +163,11 @@ def load_config() -> Dict:
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse configuration file: {e}")
         logger.info("Using default configuration")
-        return DEFAULT_CONFIG.copy()
+        return copy.deepcopy(DEFAULT_CONFIG)
     except Exception as e:
         logger.error(f"Error loading configuration: {e}")
         logger.info("Using default configuration")
-        return DEFAULT_CONFIG.copy()
+        return copy.deepcopy(DEFAULT_CONFIG)
 
 
 def save_config(config: Dict) -> bool:
