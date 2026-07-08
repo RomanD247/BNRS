@@ -5,7 +5,10 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from crud import create_equipment, create_etype, get_all_etypes, get_etype_by_name, find_equipment_by_nfc
+from crud import (
+    create_equipment, create_etype, get_all_etypes, get_etype_by_name,
+    get_etype_by_name_including_inactive, find_equipment_by_nfc_including_inactive
+)
 from database import SessionLocal
 from NfcScan import get_nfc_input
 
@@ -25,8 +28,12 @@ def show_add_etype_dialog(main_dropdown, main_data, main_selected_label, filter_
             ui.notify('Please enter an equipment type name!', type='warning')
             return
         
-        if new_et in main_data:
-            ui.notify('This equipment type already exists!', type='warning')
+        existing_etype = get_etype_by_name_including_inactive(db, new_et)
+        if existing_etype:
+            if existing_etype.status:
+                ui.notify('This equipment type already exists!', type='warning')
+            else:
+                ui.notify('This name belongs to a deactivated equipment type. Reactivate it instead of creating a new one.', type='warning')
             return
             
         try:
@@ -69,10 +76,11 @@ def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
         nfc_value, scan_status = await get_nfc_input("Scan Data Matrix Code")
         nfc_value = nfc_value.lower() if nfc_value else None
         if nfc_value:
-            # Check if this NFC code is already taken
-            existing_equipment = find_equipment_by_nfc(db, nfc_value)
+            # Check if this NFC code is already taken (M3: includes soft-deleted equipment)
+            existing_equipment = find_equipment_by_nfc_including_inactive(db, nfc_value)
             if existing_equipment:
-                ui.notify(f'Data Matrix Code already registered to equipment {existing_equipment.name}', type='warning')
+                suffix = '' if existing_equipment.status else ' (deactivated)'
+                ui.notify(f'Data Matrix Code already registered to equipment {existing_equipment.name}{suffix}', type='warning')
                 nfc_value = None
                 nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
             else:

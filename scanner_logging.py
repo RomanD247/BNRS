@@ -12,9 +12,12 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
+from paths import APP_DIR
 
-# Log file path
-LOG_DIR = Path("logs")
+
+# Log file path, anchored to the app directory (M2) so launching from a
+# different CWD still writes logs next to the app instead of the CWD.
+LOG_DIR = APP_DIR / "logs"
 LOG_FILE = LOG_DIR / "scanner.log"
 
 

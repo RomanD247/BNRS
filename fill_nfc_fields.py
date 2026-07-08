@@ -12,9 +12,7 @@ Fill logic:
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from models import User, Equipment, Base
-
-# Database connection settings
-DATABASE_URL = "sqlite:///rental.db"
+from database import DATABASE_URL
 
 def fill_nfc_fields():
     """Fills NFC fields for users and equipment."""

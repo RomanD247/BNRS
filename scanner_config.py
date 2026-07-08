@@ -14,13 +14,18 @@ from typing import Dict, Optional
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
+from paths import APP_DIR
+
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-# Configuration file path
-CONFIG_FILE = "scanner_config.json"
+# Configuration file path, anchored to the app directory (M2) so launching
+# from a different CWD doesn't read/write the wrong config. Kept as a plain
+# string module attribute (not a Path computed elsewhere) so it can still be
+# reassigned wholesale, e.g. by the test suite's isolated_scanner_config fixture.
+CONFIG_FILE = str(APP_DIR / "scanner_config.json")
 
 
 # Default configuration values

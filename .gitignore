@@ -24,6 +24,8 @@ wheels/
 *.db
 *.sqlite3
 rental.db
+rental.db-wal
+rental.db-shm
 
 # IDE
 .idea/

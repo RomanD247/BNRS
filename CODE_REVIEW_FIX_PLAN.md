@@ -314,11 +314,11 @@ C1, C2, M17, the `.done()` guards, the cancel race, and the two error-dialog Min
 
 ---
 
-## Step 3 — Harden the data layer
+## Step 3 — Harden the data layer ✅ COMPLETED (2026-07-08)
 
 Do the **shared roots first**: M2 (path anchoring), M4 (rollback helper), M3 (inactive-aware duplicate helpers). M3 + M4 + M7 interact — implement the combined approach below.
 
-- [ ] **M2 — Relative sqlite path + `create_all` on import silently creates an empty DB in the wrong CWD; frozen `__file__` wrong; constant duplicated** *(shared root cause — data-layer + main-app)*
+- [x] **M2 — Relative sqlite path + `create_all` on import silently creates an empty DB in the wrong CWD; frozen `__file__` wrong; constant duplicated** *(shared root cause — data-layer + main-app)*
   Files: `database.py:6,9,15`; `main.py:30,33,881,901`; `fill_nfc_fields.py:17,23`; also anchor `scanner_config.py:23` (CONFIG_FILE) and `scanner_logging.py:17` (LOG_DIR).
   Now: `DATABASE_URL = "sqlite:///rental.db"` is CWD-relative; `create_all` runs at import; launching from another dir manufactures an empty DB. No `sys.frozen` handling anywhere. `fill_nfc_fields.py` duplicates the constant.
   Fix (do once in `database.py`, export `APP_DIR`):
@@ -331,7 +331,7 @@ Do the **shared roots first**: M2 (path anchoring), M4 (rollback helper), M3 (in
   Verify: run `python C:\…\BNRS\main.py` from a *different* CWD and confirm existing equipment/users appear and no new `rental.db` is created in the launch dir. Build the exe, move it to a fresh folder, confirm data persists and no `rental.db` appears in CWD. Run `fill_nfc_fields.py` from another CWD and confirm it edits the real DB.
   Depends on: M4, M5 (batch with them), M15 (main-app viewer paths).
 
-- [ ] **M4 — 19 crud writes commit with no try/rollback → poisoned long-lived sessions** *(linchpin: M2/M3/M5/M6/M7 + update-user-mutates depend on it)*
+- [x] **M4 — 19 crud writes commit with no try/rollback → poisoned long-lived sessions** *(linchpin: M2/M3/M5/M6/M7 + update-user-mutates depend on it)*
   Files: `crud.py:12,33,42,51,73,83,91,117,126,139,173,183,196,205,218,242,266,793,830`.
   Now: every write except `update_rental` does a bare `db.commit()`. After any IntegrityError/"database is locked", the long-lived module session sits in a failed transaction → `PendingRollbackError` until restart.
   Fix:
@@ -348,7 +348,7 @@ Do the **shared roots first**: M2 (path anchoring), M4 (rollback helper), M3 (in
   3. Callers should catch the re-raised exception and `ui.notify` — audit main/gui callers (coordinate with Step 4), but session-poisoning is fixed once `_commit` is in place.
   Verify: force an IntegrityError (e.g. create_etype twice with the same name after M3), then do an unrelated read/write on the same session — it must succeed (no `PendingRollbackError`).
 
-- [ ] **M3 — Duplicate/unique pre-checks are blind to soft-deleted rows; create_* have no dup check** *(shared root cause — data-layer + gui-dialogs)*
+- [x] **M3 — Duplicate/unique pre-checks are blind to soft-deleted rows; create_* have no dup check** *(shared root cause — data-layer + gui-dialogs)*
   Files: `models.py:18,25,33,46`; `crud.py:47,61,87,105,168,746,759,824`; GUI call sites `gui/gui_addequip.py:73,28`, `gui/gui_adduser.py:81,42`, `gui/gui_changeUser.py:95`, `gui/gui_changeEquip.py:91,224`.
   Now: pre-checks use status-filtered getters, so a code/name held by a soft-deleted row reads as free → raw `UNIQUE constraint failed` at commit. `create_etype`/`create_department`/`create_user`/`create_equipment` have no dup check at all.
   Fix (helpers once, then call sites):
@@ -360,7 +360,7 @@ Do the **shared roots first**: M2 (path anchoring), M4 (rollback helper), M3 (in
   Verify: soft-delete an Etype "Foo", then `create_etype("Foo")` → friendly `ValueError`/reactivation, not IntegrityError. Same for assigning a soft-deleted user's nfc to a live user.
   Depends on: M4 (the still-slipping IntegrityError must roll back cleanly).
 
-- [ ] **M5 — Two processes share one SQLite file with no WAL/busy_timeout/FK enforcement**
+- [x] **M5 — Two processes share one SQLite file with no WAL/busy_timeout/FK enforcement**
   Files: `database.py:9`; `models.py:53,54`.
   Now: `create_engine(DATABASE_URL, echo=True)` with default rollback-journal mode; main app + web viewer contend → "database is locked"; FKs off; nullable rental FKs allow orphans (feeds the NOT-IN NULL bug).
   Fix:
@@ -380,7 +380,7 @@ Do the **shared roots first**: M2 (path anchoring), M4 (rollback helper), M3 (in
   Verify: run the app; `rental.db-wal`/`-shm` appear. Open the viewer concurrently and rent/return — no "database is locked". Insert a rental with a bogus `equipment_id` via script → IntegrityError.
   Depends on: M4. (Batch the edit with `echo-true`, same line.)
 
-- [ ] **M6 — Soft-deleting rented equipment hides its open rental and makes it unreturnable**
+- [x] **M6 — Soft-deleting rented equipment hides its open rental and makes it unreturnable**
   Files: `crud.py:37,199,246,759,761`; `gui/gui_changeEquip.py:218`.
   Now: `delete_equipment` and the Etype bulk toggle flip `status=False` with no rental check; then the open rental disappears from all active-rental queries and `find_equipment_by_nfc`, so it can never be returned.
   Fix:
@@ -391,7 +391,7 @@ Do the **shared roots first**: M2 (path anchoring), M4 (rollback helper), M3 (in
   Verify: rent an item, try to deactivate via both paths → blocked; return it → deactivation succeeds.
   Depends on: M4.
 
-- [ ] **M7 — No double-rental protection: `create_rental` inserts unconditionally; no DB constraint** *(shared root cause — data-layer + main-app; see also M8/M11)*
+- [x] **M7 — No double-rental protection: `create_rental` inserts unconditionally; no DB constraint** *(shared root cause — data-layer + main-app; see also M8/M11)*
   Files: `crud.py:209,218,761`; `models.py:48`; `main.py:151,153`.
   Now: `create_rental` never checks `is_equipment_rented`; the manual rent dialog also doesn't; a double-click / stale list / editor re-open yields two open rentals.
   Fix:
@@ -403,6 +403,30 @@ Do the **shared roots first**: M2 (path anchoring), M4 (rollback helper), M3 (in
   Depends on: M4, M5; interacts with M8, M11.
 
 **Commit Step 3** ("Harden data layer: path anchoring, rollback helper, dup checks, pragmas, rental guards"). Document the M7 index migration in the message.
+
+### Review — how Step 3 was done
+
+**Approach:** done as one direct pass across `crud.py`/`models.py`/`database.py` (like Step 2, the shared roots — M4's `_commit()` helper and M3's `*_including_inactive` getters — are called from many sites, so a single coherent edit avoided cross-agent collisions), then independent adversarial review agents verified each finding cluster afterward against the actual current source.
+
+**Shared roots, implemented once:**
+- **M2** — new `paths.py` module exports a frozen-aware `APP_DIR` with zero other imports, so `scanner_config.py`/`scanner_logging.py` can anchor their paths to it *without* pulling in `database.py`'s engine-creation/`create_all` side effects (which would defeat Step 1's test isolation the moment those modules are imported standalone). `database.py` also imports `APP_DIR` from `paths.py` and re-exposes it as `database.APP_DIR` for `main.py`'s two `os.path.dirname(__file__)` viewer-path lookups. `fill_nfc_fields.py` now imports `DATABASE_URL` from `database.py` instead of duplicating it (mirrors `MatrixCode.py`'s existing pattern).
+- **M4** — `_commit(db)` helper added to `crud.py` (commit, rollback-and-re-raise on failure); all 19 bare `db.commit()` calls replaced with it. `update_rental`'s own pre-existing try/except/rollback logic was left untouched, exactly as the plan specified.
+- **M3** — four new `*_including_inactive` getters (`find_user_by_nfc_including_inactive`, `find_equipment_by_nfc_including_inactive`, `get_etype_by_name_including_inactive`, `get_department_by_name_including_inactive`); `create_etype`/`create_department`/`create_user`/`create_equipment` now pre-check via these and raise a friendly `ValueError` (noting when the collision is with a deactivated row) instead of a raw `UNIQUE constraint failed`; `update_user`/`update_user_nfc`'s existing dup checks switched from the active-only getter to the inactive-aware one. Chose **raise a clear error** over **silently reactivate** as the policy for the create-time collision (the plan left this as an open decision) — reactivating a stale row could resurrect unexpected old relationships silently; a friendly error keeps the admin in control and matches how the rest of the app already surfaces validation failures via `ui.notify`.
+
+**Per-finding deltas:**
+- **M5** — WAL + `busy_timeout=5000` + `foreign_keys=ON` added via a `connect` event listener in `database.py`. Before enabling FK enforcement, queried the live `rental.db` directly for orphaned/NULL `user_id`/`equipment_id` rentals — found zero, so enforcement was safe to turn on immediately with no cleanup step. Added `rental.db-wal`/`rental.db-shm` to `.gitignore`. Deliberately did **not** add `nullable=False` to `Rental.user_id`/`equipment_id` or attempt a table-rebuild migration to enforce it on the live DB — the plan only mentions this in passing under M7 (not as its own M5 checklist item), no code path can currently produce a NULL there (both are required positional args of `crud.create_rental`), and a full table rebuild for a practically unreachable edge case felt like unjustified risk for this step. Documented as an out-of-scope residual gap below.
+- **M6** — `crud.delete_equipment` and `crud.update_etype_equipment_status` now raise `ValueError` if the equipment (or any unit of the etype, for the bulk toggle) has an active rental, before flipping `status`. `gui/gui_changeEquip.py`'s `apply_changes` (which bypasses crud entirely via raw ORM writes) got the identical guard inlined, since it's the same defect the plan called out by file:line.
+- **M7** — three layers: (1) `crud.create_rental` raises `ValueError` if `is_equipment_rented` is already truthy; (2) `main.py`'s `show_rent_dialog.on_confirm` re-checks `is_equipment_rented` immediately before renting and disables the Confirm button on click to shrink the TOCTOU window; (3) `models.py` declares a partial unique index (`uq_active_rental_per_equipment` on `Rental.equipment_id` where `rental_end IS NULL`) as a DB-level backstop even a raw bypass insert can't get around.
+- **M7 migration** — `migrations/001_add_active_rental_unique_index.py` (the slot already reserved in `migrations/README.md`'s tracking table): checks for existing duplicate open rentals first (found none), then applies `CREATE UNIQUE INDEX IF NOT EXISTS`. Tested against a scratch copy of `rental.db` first (confirmed a manually-inserted duplicate open rental was correctly rejected with `IntegrityError`), then ran against the live `rental.db` (backed up immediately before). `migrations/README.md`'s log entry records both runs.
+
+**Verification (three layers):**
+1. *Scratch harness* (`verify_step3_data_layer.py`, not committed) drives the real `crud.py`/`models.py` functions against a throwaway in-memory DB — 15 checks covering M2 anchoring, M4's rollback-then-usable-session behavior, M3's four dup-check paths, M6's two rented-equipment guards, and M7's three protection layers (including a raw ORM bypass attempt to prove the DB-level index, not just the Python check, actually fires). All 15 passed.
+2. *Independent adversarial review* — 4 agents (one per finding cluster: M2, M4, M3, M6+M7), each reading the current source directly rather than trusting a summary. All 4 returned a clean pass with zero bugs found.
+3. *Regression suite* — full `pytest` run: 54 passed (same count as after Step 2), only the pre-existing `PytestReturnNotNoneWarning`s noted in Step 1's review.
+
+**A real, expected change to `rental.db` this step (unlike Steps 0-2):** Steps 0-2 confirmed `rental.db`/`scanner_config.json` stayed byte-identical throughout. Step 3 is different — M7's index migration and M5's WAL-mode pragma both intentionally modify `rental.db`'s on-disk schema/format, so "byte-identical" is no longer the right invariant from here on. Verified instead by dumping every row of every table (`users`, `equipment`, `etypes`, `departments`, `rentals`, `feedback`) and confirming 100% identical content against the Step 0 backup — only the schema (new index) and journal mode changed, zero data was altered. One side note worth flagging honestly: the WAL-mode transition ended up happening the moment `pytest` collected a test file that imports `NfcScan.py` (which imports `database.py`, which opens a real connection to the live `rental.db` at import time — a pre-existing pattern, not something introduced this step) rather than the first time `python main.py` runs, since both trigger the exact same `connect` event listener. This is harmless (confirmed via the full-table data dump above) and is the same one-time, permanent transition the plan's own M5 fix anticipates either way — just triggered a little earlier than "run the app" would suggest. `scanner_config.json` remains byte-identical (SHA-256 unchanged) since nothing in Step 3 writes to it.
+
+**Known, out-of-scope residual gap:** `Rental.user_id`/`equipment_id` are not enforced `NOT NULL` at the DB level (see M5 note above) — a defense-in-depth gap against a scenario no current code path can trigger, deliberately deferred rather than risking a live table rebuild for it in this step.
 
 ---
 

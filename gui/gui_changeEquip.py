@@ -88,7 +88,8 @@ def show_edit_form_for_equipment(equipment, parent_dialog=None):
                 nfc_value = nfc_value.lower() if nfc_value else None
                 if nfc_value:
                     # Check if this NFC code is already taken by another equipment
-                    existing_equipment = crud.find_equipment_by_nfc(fresh_db, nfc_value)
+                    # (M3: includes soft-deleted equipment)
+                    existing_equipment = crud.find_equipment_by_nfc_including_inactive(fresh_db, nfc_value)
                     if existing_equipment and existing_equipment.id_eq != fresh_equipment.id_eq:
                         ui.notify(f'NFC Tag already registered to equipment {existing_equipment.name}', type='warning')
                         nfc_value = fresh_equipment.nfc  # Reset to original value
@@ -211,17 +212,25 @@ def apply_changes(equipment_id, new_name, new_serialnum, new_etype, new_status, 
                 ui.notify(f'Equipment type {new_etype} not found', color='negative')
                 return
                 
+            # Block deactivating equipment that's currently rented (M6) -
+            # bypasses crud.delete_equipment's own guard since this dialog
+            # flips `status` directly via the ORM.
+            if new_status is False and equipment.status is True and crud.is_equipment_rented(session, equipment_id):
+                ui.notify(f'Cannot deactivate "{equipment.name}": it is currently rented. Return it first.', color='negative')
+                return
+
             # Update equipment with new values
             equipment.name = new_name
             equipment.serialnum = new_serialnum
             equipment.etype_id = etype.id_et
             equipment.status = new_status
-            
+
             # Update NFC value
             if nfc_value is not None:
                 # Check if this NFC code is already taken by another equipment
+                # (M3: includes soft-deleted equipment)
                 if nfc_value:
-                    existing_equipment = crud.find_equipment_by_nfc(session, nfc_value)
+                    existing_equipment = crud.find_equipment_by_nfc_including_inactive(session, nfc_value)
                     if existing_equipment and existing_equipment.id_eq != equipment_id:
                         ui.notify(f'NFC code already registered to equipment {existing_equipment.name}', color='negative')
                         return

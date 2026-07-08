@@ -5,7 +5,10 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from crud import create_user, create_department, get_all_departments, find_user_by_nfc
+from crud import (
+    create_user, create_department, get_all_departments,
+    get_department_by_name_including_inactive, find_user_by_nfc_including_inactive
+)
 from database import SessionLocal
 from NfcScan import get_nfc_input
 
@@ -39,8 +42,12 @@ def show_add_department_dialog(callback=None):
             ui.notify('Please enter a department name!', type='warning')
             return
         
-        if new_dep in data:
-            ui.notify('This department already exists!', type='warning')
+        existing_dep = get_department_by_name_including_inactive(db, new_dep)
+        if existing_dep:
+            if existing_dep.status:
+                ui.notify('This department already exists!', type='warning')
+            else:
+                ui.notify('This name belongs to a deactivated department. Reactivate it instead of creating a new one.', type='warning')
             return
             
         try:
@@ -77,10 +84,11 @@ def show_add_user_dialog(callback=None):
         nfc_value, scan_status = await get_nfc_input("Scan Data Matrix Code")
         nfc_value = nfc_value.lower() if nfc_value else None
         if nfc_value:
-            # Check if this NFC code is already taken
-            existing_user = find_user_by_nfc(db, nfc_value)
+            # Check if this NFC code is already taken (M3: includes soft-deleted users)
+            existing_user = find_user_by_nfc_including_inactive(db, nfc_value)
             if existing_user:
-                ui.notify(f'Data Matrix Code already registered to user {existing_user.name}', type='warning')
+                suffix = '' if existing_user.status else ' (deactivated)'
+                ui.notify(f'Data Matrix Code already registered to user {existing_user.name}{suffix}', type='warning')
                 nfc_value = None
                 nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
             else:

@@ -16,17 +16,18 @@ import asyncio
 import sys
 import os
 import time
+import subprocess
 import tkinter as tk
 from tkinter import filedialog, messagebox
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from crud import (
-    get_available_equipment, get_all_users, create_rental, 
+    get_available_equipment, get_all_users, create_rental,
     get_active_rentals, return_equipment, get_all_etypes,
     get_available_equipment_by_type, get_active_rentals_by_equipment_type,
-    create_feedback, find_user_by_nfc, update_user_nfc
+    create_feedback, find_user_by_nfc, update_user_nfc, is_equipment_rented
 )
-from database import SessionLocal
+from database import SessionLocal, APP_DIR
 from models import User
 
 db = SessionLocal()
@@ -149,6 +150,14 @@ def show_rent_dialog(equipment):
     
     def on_confirm():
         if state.selected_user:
+            # Disable immediately to close the TOCTOU window between this
+            # check and create_rental()'s own guard (M7).
+            confirm_button.disable()
+            if is_equipment_rented(db, equipment.id_eq):
+                ui.notify('This equipment was just rented by someone else.', type='warning')
+                dialog.close()
+                refresh_with_filters()
+                return
             create_rental(db, state.selected_user, equipment.id_eq, comment=comment_field.value)
             ui.notify('Equipment rented successfully!')
             dialog.close()
@@ -217,8 +226,8 @@ def show_rent_dialog(equipment):
         
         ui.label('Comment (optional):')
         comment_field = ui.input(label='Comment').style('width: 100%')
-        
-        ui.button("Confirm", on_click=on_confirm)
+
+        confirm_button = ui.button("Confirm", on_click=on_confirm)
     dialog.open()
 
 def show_return_dialog(rental):
@@ -818,7 +827,7 @@ def main():
                 ui.html('- To add a new user, press the <b>"+"</b> button next to the user selection field in the Rent dialog.')
                 ui.html('- Use the <b>"Filter by Equipment Type"</b> dropdown to filter equipment by type.')
                 ui.html('- Access the rental history by clicking the <b>"Rental History"</b> button.')
-                ui.html('- To use Barcode Scanner, press the <b>"Scan to Rent"</b> button, then scan the Code on the device. After that scan your personal code it you have it.')
+                ui.html('- To use Barcode Scanner, press the <b>"Scan to Rent"</b> button, then scan the Code on the device. After that scan your personal code if you have it.')
                 # ui.html('- If you have any suggestions for the app or have found any bugs, you can leave your anonymous feedback by clicking the <b>“Submit feedback”</b> button.')
             ui.button('Scan to Rent', icon='qr_code', on_click=lambda: nfc_equipment_rental_workflow(reset_filter)).style('width: 100%; height: 65px')   #!NFC_feature
             #ui.button('Attach a code to User', icon='developer_board', on_click=show_add_nfc_dialog).style('width: 100%; height: 65px')
@@ -874,6 +883,13 @@ def main():
         admin_button.on('click', on_click)
     
     # ui.button('Submit Feedback', icon='feedback', on_click=show_feedback_dialog).style('width: 200px; height: 75px; position: fixed; left: 30px; bottom: 30px')
+    
+    # Web viewer status indicator
+    viewer_status = ui.label('').style('position: fixed; left: 30px; bottom: 30px; font-size: 12px; color: #666')
+    if os.path.exists(os.path.join(APP_DIR, 'web_viewer', 'viewer_app.py')):
+        viewer_status.set_text('🌐 Web Viewer: http://172.20.124.60:8585')
+        #viewer_status.tooltip('Network access available on port 8585')
+    
     with ui.row().style('position: fixed; right: 30px; bottom: 30px'):
         button = ui.button(on_click=lambda: toggle_dark_mode(button))
         # Set the initial icon
@@ -886,7 +902,42 @@ if __name__ in {'__main__', '__mp_main__'}:
     # Initialize logging system
     setup_logging(log_level="INFO", console_output=True, file_output=True)
     
+    # Start the web viewer in background
+    import subprocess
+    viewer_process = None
+    try:
+        viewer_script = os.path.join(APP_DIR, 'web_viewer', 'viewer_app.py')
+        if os.path.exists(viewer_script):
+            # Start viewer as background process
+            viewer_process = subprocess.Popen(
+                [sys.executable, viewer_script],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
+            )
+            print(f"Web viewer started in background (PID: {viewer_process.pid})")
+            print("Access viewer at: http://localhost:8585")
+    except Exception as e:
+        print(f"Could not start web viewer: {e}")
+    
     main()
-    ui.run(reload=False, title='WenglorMEL Rental System 2.1', favicon='assets/icon.ico', window_size=(1800, 1000), port=15716, native=True)
+    
+    try:
+        ui.run(reload=False, title='WenglorMEL Rental System 2.1.5', favicon='assets/icon.ico', window_size=(1800, 1000), port=15716, native=True)
+    finally:
+        # Clean up: stop viewer when main app closes
+        if viewer_process:
+            viewer_process.terminate()
+            print("Web viewer stopped")
+    
     #port=native.find_open_port()
     #nicegui-pack --onefile --windowed --icon=assets/icon.ico --add-data "rental.db:." --name "WenglorMEL Rental System 2.1" main.py
+    
+    # pyinstaller --noconfirm --onefile --windowed --icon "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\assets\icon.ico" --name "WenglorMEL Rental System 2.1.4"
+    # --add-data "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\rental.db;."
+    # --add-data "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\scanner_config.json;."
+    # --add-data "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\bnrs\Lib\site-packages\nicegui;nicegui/"
+    # --add-binary "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\bnrs\Lib\site-packages\pylibdmtx\libdmtx-64.dll;."
+    # "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\main.py"
+
+    # pyinstaller --noconfirm --onefile --windowed --icon "C:\Users\RomanD\Desktop\Apps\My Projects\Rental System\BNRS\assets\icon.ico" --name "WenglorMEL Rental System 2.1.5" --add-data "C:\Users\RomanD\Desktop\Apps\My Projects\Rental System\BNRS\rental.db;." --add-data "C:\Users\RomanD\Desktop\Apps\My Projects\Rental System\BNRS\scanner_config.json;." --add-data "C:\Users\RomanD\Desktop\Apps\My Projects\Rental System\BNRS\bnrs\Lib\site-packages\nicegui;nicegui/" --add-binary "C:\Users\RomanD\Desktop\Apps\My Projects\Rental System\BNRS\bnrs\Lib\site-packages\pylibdmtx\libdmtx-64.dll;."  "C:\Users\RomanD\Desktop\Apps\My Projects\Rental System\BNRS\main.py"

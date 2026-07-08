@@ -1,5 +1,5 @@
 # models.py
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Index
 from sqlalchemy.orm import relationship, declarative_base
 import datetime
 
@@ -57,6 +57,17 @@ class Rental(Base):
     comment = Column(String, nullable=True)
     user = relationship("User")
     equipment = relationship("Equipment")
+
+# DB-level backstop for M7 (app-layer guard is in crud.create_rental): at most
+# one open (rental_end IS NULL) rental per piece of equipment. create_all only
+# adds this to brand-new databases — the already-existing rental.db needs the
+# one-off migrations/001_add_active_rental_unique_index.py script.
+Index(
+    "uq_active_rental_per_equipment",
+    Rental.equipment_id,
+    unique=True,
+    sqlite_where=Rental.rental_end.is_(None),
+)
 
 class Feedback(Base):
     """Represents a feedback message."""

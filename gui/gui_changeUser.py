@@ -92,7 +92,8 @@ def show_edit_form_for_user(user, parent_dialog=None):
                 nfc_value = nfc_value.lower() if nfc_value else None
                 if nfc_value:
                     # Check if this NFC code is already taken by another user
-                    existing_user = crud.find_user_by_nfc(fresh_db, nfc_value)
+                    # (M3: includes soft-deleted users)
+                    existing_user = crud.find_user_by_nfc_including_inactive(fresh_db, nfc_value)
                     if existing_user and existing_user.id_us != fresh_user.id_us:
                         ui.notify(f'Data Matrix Code already registered to user {existing_user.name}', type='warning')
                         nfc_value = fresh_user.nfc  # Reset to original value

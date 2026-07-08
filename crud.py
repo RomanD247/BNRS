@@ -4,12 +4,28 @@ from typing import List, Optional, Dict
 import datetime
 from sqlalchemy import func, case
 
+
+def _commit(db: Session) -> None:
+    """Commit, rolling back on failure so a long-lived session (main.py's
+    module-level `db`) never gets stuck in a failed transaction (M4)."""
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+
 # Equipment CRUD operations
 def create_equipment(db: Session, name: str, serialnum: str = None, etype_id: int = None, nfc: str = None) -> Equipment:
     """Create new equipment"""
+    if nfc:
+        existing = find_equipment_by_nfc_including_inactive(db, nfc)
+        if existing:
+            suffix = "" if existing.status else " (currently deactivated)"
+            raise ValueError(f"NFC code is already used by equipment '{existing.name}'{suffix}")
     equipment = Equipment(name=name, serialnum=serialnum, etype_id=etype_id, nfc=nfc, status=True)
     db.add(equipment)
-    db.commit()
+    _commit(db)
     db.refresh(equipment)
     return equipment
 
@@ -30,7 +46,7 @@ def update_equipment(db: Session, equipment_id: int, name: str = None,
         if serialnum: equipment.serialnum = serialnum
         if etype_id: equipment.etype_id = etype_id
         if status is not None: equipment.status = status
-        db.commit()
+        _commit(db)
         db.refresh(equipment)
     return equipment
 
@@ -38,17 +54,23 @@ def delete_equipment(db: Session, equipment_id: int) -> bool:
     """Soft delete equipment by setting status to False"""
     equipment = get_equipment(db, equipment_id)
     if equipment:
+        if is_equipment_rented(db, equipment_id):
+            raise ValueError(f"Cannot deactivate equipment '{equipment.name}': it is currently rented")
         equipment.status = False
-        db.commit()
+        _commit(db)
         return True
     return False
 
 # Etype CRUD operations
 def create_etype(db: Session, name: str) -> Etype:
     """Create new equipment type"""
+    existing = get_etype_by_name_including_inactive(db, name)
+    if existing:
+        suffix = "" if existing.status else " (currently deactivated)"
+        raise ValueError(f"Equipment type '{name}' already exists{suffix}")
     etype = Etype(name=name, status=True)
     db.add(etype)
-    db.commit()
+    _commit(db)
     db.refresh(etype)
     return etype
 
@@ -60,6 +82,10 @@ def get_etype_by_name(db: Session, name: str) -> Optional[Etype]:
     """Get equipment type by name"""
     return db.query(Etype).filter(Etype.name == name, Etype.status == True).first()
 
+def get_etype_by_name_including_inactive(db: Session, name: str) -> Optional[Etype]:
+    """Get equipment type by name including inactive ones (M3)"""
+    return db.query(Etype).filter(Etype.name == name).first()
+
 def get_all_etypes(db: Session) -> List[Etype]:
     """Get all equipment types"""
     return db.query(Etype).filter(Etype.status == True).order_by(Etype.name).all()
@@ -70,7 +96,7 @@ def update_etype(db: Session, etype_id: int, name: str = None, status: bool = No
     if etype:
         if name: etype.name = name
         if status is not None: etype.status = status
-        db.commit()
+        _commit(db)
         db.refresh(etype)
     return etype
 
@@ -79,16 +105,20 @@ def delete_etype(db: Session, etype_id: int) -> bool:
     etype = get_etype(db, etype_id)
     if etype:
         etype.status = False
-        db.commit()
+        _commit(db)
         return True
     return False
 
 # Department CRUD operations
 def create_department(db: Session, name: str) -> Department:
     """Create new department"""
+    existing = get_department_by_name_including_inactive(db, name)
+    if existing:
+        suffix = "" if existing.status else " (currently deactivated)"
+        raise ValueError(f"Department '{name}' already exists{suffix}")
     department = Department(name=name, status=True)
     db.add(department)
-    db.commit()
+    _commit(db)
     db.refresh(department)
     return department
 
@@ -104,6 +134,10 @@ def get_department_by_name(db: Session, name: str) -> Optional[Department]:
     """Get department by name"""
     return db.query(Department).filter(Department.name == name, Department.status == True).first()
 
+def get_department_by_name_including_inactive(db: Session, name: str) -> Optional[Department]:
+    """Get department by name including inactive ones (M3)"""
+    return db.query(Department).filter(Department.name == name).first()
+
 def get_all_departments(db: Session) -> List[Department]:
     """Get all departments"""
     return db.query(Department).filter(Department.status == True).order_by(Department.name).all()
@@ -114,7 +148,7 @@ def update_department(db: Session, department_id: int, name: str = None, status:
     if department:
         if name: department.name = name
         if status is not None: department.status = status
-        db.commit()
+        _commit(db)
         db.refresh(department)
     return department
 
@@ -123,7 +157,7 @@ def delete_department(db: Session, department_id: int) -> bool:
     department = get_department(db, department_id)
     if department:
         department.status = False
-        db.commit()
+        _commit(db)
         return True
     return False
 
@@ -133,10 +167,15 @@ def create_user(db: Session, name: str, dep: str, nfc: str = None) -> User:
     department = get_department_by_name(db, dep)
     if not department:
         raise ValueError(f"Department {dep} not found")
-    
+    if nfc:
+        existing = find_user_by_nfc_including_inactive(db, nfc)
+        if existing:
+            suffix = "" if existing.status else " (currently deactivated)"
+            raise ValueError(f"NFC code is already used by user '{existing.name}'{suffix}")
+
     user = User(name=name, id_dep=department.id_dep, nfc=nfc, status=True)
     db.add(user)
-    db.commit()
+    _commit(db)
     db.refresh(user)
     return user
 
@@ -165,12 +204,14 @@ def update_user(db: Session, user_id: int, name: str = None, dep: str = None, st
         if status is not None: user.status = status
         if nfc is not None:
             # Check if this NFC code is not already used by another user
+            # (M3: includes soft-deleted users, so a code can't be silently
+            # "free" just because its old owner was deactivated)
             if nfc:
-                existing_user = find_user_by_nfc(db, nfc)
+                existing_user = find_user_by_nfc_including_inactive(db, nfc)
                 if existing_user and existing_user.id_us != user_id:
                     raise ValueError(f"NFC code is already used by user {existing_user.name}")
             user.nfc = nfc
-        db.commit()
+        _commit(db)
         db.refresh(user)
     return user
 
@@ -179,7 +220,7 @@ def delete_user(db: Session, user_id: int) -> bool:
     user = get_user(db, user_id)
     if user:
         user.status = False
-        db.commit()
+        _commit(db)
         return True
     return False
 
@@ -193,7 +234,7 @@ def update_department_users_status(db: Session, department_id: int, new_status: 
     Returns number of users updated
     """
     result = db.query(User).filter(User.id_dep == department_id).update({User.status: new_status})
-    db.commit()
+    _commit(db)
     return result
 
 def update_etype_equipment_status(db: Session, etype_id: int, new_status: bool) -> int:
@@ -201,21 +242,31 @@ def update_etype_equipment_status(db: Session, etype_id: int, new_status: bool) 
     Update status for all equipment of a specific type
     Returns number of equipment updated
     """
+    if not new_status:
+        rented = db.query(Rental).join(Equipment).filter(
+            Equipment.etype_id == etype_id,
+            Rental.rental_end == None
+        ).first()
+        if rented:
+            raise ValueError("Cannot deactivate equipment type: some equipment of this type is currently rented")
     result = db.query(Equipment).filter(Equipment.etype_id == etype_id).update({Equipment.status: new_status})
-    db.commit()
+    _commit(db)
     return result
 
 # Rental CRUD operations
 def create_rental(db: Session, user_id: int, equipment_id: int, comment: str = None) -> Rental:
     """Create new rental"""
+    existing = is_equipment_rented(db, equipment_id)
+    if existing:
+        raise ValueError(f"Equipment is already rented (rental id {existing.id_re})")
     rental = Rental(
-        user_id=user_id, 
+        user_id=user_id,
         equipment_id=equipment_id,
         rental_start=datetime.datetime.now(),
         comment=comment
     )
     db.add(rental)
-    db.commit()
+    _commit(db)
     db.refresh(rental)
     return rental
 
@@ -239,7 +290,7 @@ def return_equipment(db: Session, rental_id: int) -> Optional[Rental]:
     rental = get_rental(db, rental_id)
     if rental and not rental.rental_end:
         rental.rental_end = datetime.datetime.now()
-        db.commit()
+        _commit(db)
         db.refresh(rental)
     return rental
 
@@ -263,7 +314,7 @@ def delete_rental(db: Session, rental_id: int) -> bool:
     rental = get_rental(db, rental_id)
     if rental:
         db.delete(rental)
-        db.commit()
+        _commit(db)
         return True
     return False
 
@@ -745,18 +796,26 @@ def find_user_by_nfc(db: Session, nfc_value: str) -> Optional[User]:
     """
     return db.query(User).filter(User.nfc == nfc_value, User.status == True).first()
 
+def find_user_by_nfc_including_inactive(db: Session, nfc_value: str) -> Optional[User]:
+    """Find user by NFC code including inactive ones (M3)"""
+    return db.query(User).filter(User.nfc == nfc_value).first()
+
 def find_equipment_by_nfc(db: Session, nfc_value: str) -> Optional[Equipment]:
     """
     Find equipment by NFC code
-    
+
     Args:
         db: Database session
         nfc_value: NFC code value
-        
+
     Returns:
         Equipment object or None if equipment not found
     """
     return db.query(Equipment).filter(Equipment.nfc == nfc_value, Equipment.status == True).first()
+
+def find_equipment_by_nfc_including_inactive(db: Session, nfc_value: str) -> Optional[Equipment]:
+    """Find equipment by NFC code including inactive ones (M3)"""
+    return db.query(Equipment).filter(Equipment.nfc == nfc_value).first()
 
 def is_equipment_rented(db: Session, equipment_id: int) -> Optional[Rental]:
     """
@@ -790,7 +849,7 @@ def create_feedback(db: Session, feedback_text: str, name: str = None) -> Feedba
         date=datetime.datetime.now()
     )
     db.add(feedback)
-    db.commit()
+    _commit(db)
     db.refresh(feedback)
     return feedback
 
@@ -821,13 +880,14 @@ def update_user_nfc(db: Session, user_id: int, nfc: str = None) -> Optional[User
     user = get_user_including_inactive(db, user_id)
     if user:
         # Check if this NFC code is not already used by another user
+        # (M3: includes soft-deleted users)
         if nfc:
-            existing_user = find_user_by_nfc(db, nfc)
+            existing_user = find_user_by_nfc_including_inactive(db, nfc)
             if existing_user and existing_user.id_us != user_id:
                 raise ValueError(f"NFC code is already used by user {existing_user.name}")
-        
+
         user.nfc = nfc
-        db.commit()
+        _commit(db)
         db.refresh(user)
     return user
 
