@@ -1,3 +1,20 @@
+import sys
+
+if __name__ == "__main__" and "--web-viewer" in sys.argv:
+    # The frozen onefile exe has no bundled python.exe to Popen a raw .py
+    # file with, so the viewer subprocess (spawned further below) re-invokes
+    # this same exe/script with this flag instead of the viewer script path.
+    # A frozen build's bundled web_viewer/ unpacks into sys._MEIPASS (a temp
+    # extraction dir), not next to the exe - unlike APP_DIR-anchored live
+    # state (rental.db, scanner_config.json), it's pure code, never seeded
+    # into APP_DIR, so it must be read from _MEIPASS here.
+    import os
+    import runpy
+    _viewer_dir = getattr(sys, "_MEIPASS", "") if getattr(sys, "frozen", False) \
+        else os.path.dirname(os.path.abspath(__file__))
+    runpy.run_path(os.path.join(_viewer_dir, "web_viewer", "viewer_app.py"), run_name="__main__")
+    sys.exit(0)
+
 from nicegui import native, ui, run
 from gui.gui_adduser import show_add_user_dialog, show_add_department_dialog, refresh_departments
 from gui.gui_addequip import show_add_equipment_dialog
@@ -13,7 +30,6 @@ from MatrixCode import update_user_codes, update_equipment_codes
 from scanner_logging import setup_logging
 
 import asyncio
-import sys
 import os
 import time
 import subprocess
@@ -32,9 +48,40 @@ from models import User
 
 db = SessionLocal()
 
+VERSION = "2.1.5"
+
 # Global containers for lists
 available_container = None
 rented_container = None
+
+# NiceGUI's native mode re-invokes this module in further descendant
+# processes an unbounded/uncertain number of times (confirmed empirically -
+# each generation re-runs ui.run(native=True), which spawns another native
+# window process). An in-memory flag can't survive that since each generation
+# is a separate OS process; an env var does, since child processes inherit
+# the parent's environment - so this is checked/set by the viewer-launch
+# block below to guarantee the viewer subprocess is only started once no
+# matter how deep the reimport chain goes, and read by main() (which may run
+# in any generation) to render a status label consistent across all of them.
+VIEWER_STARTED_ENV_VAR = "BNRS_VIEWER_STARTED"
+VIEWER_LAN_IP_ENV_VAR = "BNRS_VIEWER_LAN_IP"
+
+
+def _get_lan_ip() -> str:
+    """Best-effort discovery of this machine's LAN IP, for the viewer status label."""
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(('8.8.8.8', 80))
+            return s.getsockname()[0]
+        finally:
+            s.close()
+    except OSError:
+        try:
+            return socket.gethostbyname(socket.gethostname())
+        except OSError:
+            return 'localhost'
 
 # Create reactive state
 class State:
@@ -875,8 +922,9 @@ def main():
     
     # Web viewer status indicator
     viewer_status = ui.label('').style('position: fixed; left: 30px; bottom: 30px; font-size: 12px; color: #666')
-    if os.path.exists(os.path.join(APP_DIR, 'web_viewer', 'viewer_app.py')):
-        viewer_status.set_text('🌐 Web Viewer: http://172.20.124.60:8585')
+    viewer_lan_ip = os.environ.get(VIEWER_LAN_IP_ENV_VAR)
+    if viewer_lan_ip:
+        viewer_status.set_text(f'🌐 Web Viewer: http://{viewer_lan_ip}:8585')
         #viewer_status.tooltip('Network access available on port 8585')
     
     with ui.row().style('position: fixed; right: 30px; bottom: 30px'):
@@ -890,43 +938,53 @@ def main():
 if __name__ in {'__main__', '__mp_main__'}:
     # Initialize logging system
     setup_logging(log_level="INFO", console_output=True, file_output=True)
-    
-    # Start the web viewer in background
-    import subprocess
+
+    # Start the web viewer in background - guarded by an env var, not just
+    # __name__, because NiceGUI's native mode re-invokes this whole module in
+    # further descendant processes (confirmed empirically: each generation
+    # re-runs ui.run(native=True), which spawns another native-window
+    # process, cascading multiple levels deep) - an in-memory flag can't
+    # survive that since each generation is a separate OS process, but an
+    # env var does, since child processes inherit the parent's environment.
     viewer_process = None
-    try:
-        viewer_script = os.path.join(APP_DIR, 'web_viewer', 'viewer_app.py')
-        if os.path.exists(viewer_script):
-            # Start viewer as background process
-            viewer_process = subprocess.Popen(
-                [sys.executable, viewer_script],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
-            )
-            print(f"Web viewer started in background (PID: {viewer_process.pid})")
-            print("Access viewer at: http://localhost:8585")
-    except Exception as e:
-        print(f"Could not start web viewer: {e}")
-    
+    if not os.environ.get(VIEWER_STARTED_ENV_VAR):
+        os.environ[VIEWER_STARTED_ENV_VAR] = "1"
+        try:
+            if getattr(sys, "frozen", False):
+                # Bundled web_viewer/ unpacks into the temp _MEIPASS extraction
+                # dir, not next to the exe (APP_DIR) - it's pure code, never
+                # seeded into APP_DIR the way rental.db/scanner_config.json are.
+                viewer_script = os.path.join(getattr(sys, "_MEIPASS", ""), 'web_viewer', 'viewer_app.py')
+            else:
+                viewer_script = os.path.join(APP_DIR, 'web_viewer', 'viewer_app.py')
+            if os.path.exists(viewer_script):
+                if getattr(sys, "frozen", False):
+                    # No bundled python.exe in a onefile build - re-invoke the
+                    # exe itself; the dispatch at the top of this file catches
+                    # the flag and runs only the viewer, then exits.
+                    viewer_cmd = [sys.executable, "--web-viewer"]
+                else:
+                    viewer_cmd = [sys.executable, os.path.abspath(__file__), "--web-viewer"]
+                viewer_process = subprocess.Popen(
+                    viewer_cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
+                )
+                os.environ[VIEWER_LAN_IP_ENV_VAR] = _get_lan_ip()
+                print(f"Web viewer started in background (PID: {viewer_process.pid})")
+                print(f"Access viewer at: http://{os.environ[VIEWER_LAN_IP_ENV_VAR]}:8585")
+        except Exception as e:
+            print(f"Could not start web viewer: {e}")
+
     main()
-    
+
     try:
-        ui.run(reload=False, title='WenglorMEL Rental System 2.1.5', favicon='assets/icon.ico', window_size=(1800, 1000), port=15716, native=True)
+        ui.run(reload=False, title=f'WenglorMEL Rental System {VERSION}', favicon='assets/icon.ico', window_size=(1800, 1000), port=15716, native=True)
     finally:
         # Clean up: stop viewer when main app closes
         if viewer_process:
             viewer_process.terminate()
             print("Web viewer stopped")
-    
-    #port=native.find_open_port()
-    #nicegui-pack --onefile --windowed --icon=assets/icon.ico --add-data "rental.db:." --name "WenglorMEL Rental System 2.1" main.py
-    
-    # pyinstaller --noconfirm --onefile --windowed --icon "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\assets\icon.ico" --name "WenglorMEL Rental System 2.1.4"
-    # --add-data "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\rental.db;."
-    # --add-data "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\scanner_config.json;."
-    # --add-data "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\bnrs\Lib\site-packages\nicegui;nicegui/"
-    # --add-binary "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\bnrs\Lib\site-packages\pylibdmtx\libdmtx-64.dll;."
-    # "C:\Users\RomanD\Desktop\Apps\Rental System\BNRS\main.py"
 
-    # pyinstaller --noconfirm --onefile --windowed --icon "C:\Users\RomanD\Desktop\Apps\My Projects\Rental System\BNRS\assets\icon.ico" --name "WenglorMEL Rental System 2.1.5" --add-data "C:\Users\RomanD\Desktop\Apps\My Projects\Rental System\BNRS\rental.db;." --add-data "C:\Users\RomanD\Desktop\Apps\My Projects\Rental System\BNRS\scanner_config.json;." --add-data "C:\Users\RomanD\Desktop\Apps\My Projects\Rental System\BNRS\bnrs\Lib\site-packages\nicegui;nicegui/" --add-binary "C:\Users\RomanD\Desktop\Apps\My Projects\Rental System\BNRS\bnrs\Lib\site-packages\pylibdmtx\libdmtx-64.dll;."  "C:\Users\RomanD\Desktop\Apps\My Projects\Rental System\BNRS\main.py"
+    # Build: pyinstaller "WenglorMEL Rental System 2.1.5.spec"
