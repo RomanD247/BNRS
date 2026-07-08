@@ -10,6 +10,8 @@ Requirements: 2.1, 2.2, 2.3, 2.4, 2.5
 import json
 import logging
 import copy
+import shutil
+import sys
 from typing import Dict, Optional
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -26,6 +28,17 @@ logger = logging.getLogger(__name__)
 # string module attribute (not a Path computed elsewhere) so it can still be
 # reassigned wholesale, e.g. by the test suite's isolated_scanner_config fixture.
 CONFIG_FILE = str(APP_DIR / "scanner_config.json")
+
+# The live scanner_config.json is gitignored (M22) - it's local/site-specific
+# runtime state, not source. scanner_config.default.json is the committed
+# template; load_config() below already falls back to DEFAULT_CONFIG in code
+# when no file exists, so this only matters for one-file frozen builds, which
+# unpack bundled data into a temp _MEIPASS dir and need it copied into place
+# on first run (mirrors database.py's identical rental.db seeding).
+if getattr(sys, "frozen", False) and not Path(CONFIG_FILE).exists():
+    bundled_default = Path(getattr(sys, "_MEIPASS", "")) / "scanner_config.default.json"
+    if bundled_default.exists():
+        shutil.copy(bundled_default, CONFIG_FILE)
 
 
 # Default configuration values

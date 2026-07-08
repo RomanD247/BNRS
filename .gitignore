@@ -27,6 +27,17 @@ rental.db
 rental.db-wal
 rental.db-shm
 
+# Runtime config (see scanner_config.default.json for the committed template)
+scanner_config.json
+
+# Runtime artifacts
+logs/
+*.exe
+.hypothesis/
+.nicegui/
+output*/
+data/
+
 # IDE
 .idea/
 .vscode/
@@ -40,4 +51,6 @@ env/
 venv/
 ENV/
 env.bak/
-venv.bak/ 
+venv.bak/
+bnrs/
+bnrs_old/ 
