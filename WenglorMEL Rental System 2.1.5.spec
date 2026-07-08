@@ -12,6 +12,7 @@ a = Analysis(
         (os.path.join(SPECPATH, 'scanner_config.default.json'), '.'),
         (os.path.join(SPECPATH, 'bnrs', 'Lib', 'site-packages', 'nicegui'), 'nicegui/'),
         (os.path.join(SPECPATH, 'web_viewer'), 'web_viewer/'),
+        (os.path.join(SPECPATH, 'assets'), 'assets/'),
     ],
     hiddenimports=[],
     hookspath=[],

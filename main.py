@@ -50,6 +50,18 @@ db = SessionLocal()
 
 VERSION = "2.1.5"
 
+# NiceGUI only registers a working /favicon.ico route when the path resolves
+# to a real file (nicegui.py's own is_file() check resolves relative paths
+# against the CWD, not this script's location) - otherwise it falls through
+# to a helper that only understands SVG/data-URL/single-char favicons and
+# unconditionally raises ValueError, which crashed the whole frozen build on
+# the embedded webview's automatic favicon request. A frozen onefile build's
+# bundled assets/ unpacks into the temp _MEIPASS dir, not next to the exe.
+if getattr(sys, "frozen", False):
+    FAVICON_PATH = os.path.join(getattr(sys, "_MEIPASS", ""), "assets", "icon.ico")
+else:
+    FAVICON_PATH = os.path.join(APP_DIR, "assets", "icon.ico")
+
 # Global containers for lists
 available_container = None
 rented_container = None
@@ -980,7 +992,7 @@ if __name__ in {'__main__', '__mp_main__'}:
     main()
 
     try:
-        ui.run(reload=False, title=f'WenglorMEL Rental System {VERSION}', favicon='assets/icon.ico', window_size=(1800, 1000), port=15716, native=True)
+        ui.run(reload=False, title=f'WenglorMEL Rental System {VERSION}', favicon=FAVICON_PATH, window_size=(1800, 1000), port=15716, native=True)
     finally:
         # Clean up: stop viewer when main app closes
         if viewer_process:
