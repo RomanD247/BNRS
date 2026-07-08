@@ -36,6 +36,10 @@ async def test_usb_hid_input_returns_status_tuple():
         mock_dialog_instance.__exit__ = Mock(return_value=False)
         mock_dialog_instance.open = Mock()
         mock_dialog_instance.close = Mock()
+        # .props() is fluent in the real API (returns self) - get_usb_hid_input
+        # calls ui.dialog().props('persistent') so this must chain back to the
+        # same mock, not an unconfigured auto-generated child mock.
+        mock_dialog_instance.props = Mock(return_value=mock_dialog_instance)
         mock_dialog.return_value = mock_dialog_instance
         
         # Mock card with context manager support

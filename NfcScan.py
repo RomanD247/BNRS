@@ -244,143 +244,163 @@ async def get_usb_hid_input(prompt_message: str) -> tuple[str, str]:
     """
     result = ""
     status = "error"
-    dialog = ui.dialog()
+    dialog = ui.dialog().props('persistent')
     closed = asyncio.Future()
     scanner = None
     cancelled = False
-    
+
+    def _resolve():
+        """Resolve `closed` exactly once, no matter how many paths try to."""
+        if not closed.done():
+            closed.set_result(None)
+
     def on_cancel():
         """Handle cancel button click"""
         nonlocal cancelled, status
         cancelled = True
         status = "cancelled"
         logger.info("USB HID scan cancelled by user")
+        if scanner is not None:
+            scanner.cancel()
         dialog.close()
-        closed.set_result(None)
-    
+        _resolve()
+
     # Get USB configuration
     usb_config = get_usb_config()
     vid = usb_config.get("vid", 4602)
     pid = usb_config.get("pid", 33282)
     timeout = usb_config.get("timeout", 30)
-    
+
     logger.info(f"Starting USB HID input dialog - VID=0x{vid:04x}, PID=0x{pid:04x}, timeout={timeout}s")
-    
+
     with dialog, ui.card().style('width: 400px;'):
         with ui.row().classes('w-full justify-center items-center'):
             ui.label(prompt_message).style('font-size: 24px; font-weight: bold; text-align: center')
         with ui.separator():
             pass
-        
+
         # Connection status label
         status_label = ui.label("Connecting to scanner...").classes('w-full justify-center items-center').style(
             'font-size: 16px; text-align: center; margin: 20px 0; color: #666;'
         )
-        
+
         # Scanning progress label
         progress_label = ui.label("").classes('w-full justify-center items-center').style(
             'font-size: 14px; text-align: center; margin: 10px 0; color: #999;'
         )
-        
+
         with ui.row().classes('w-full justify-end'):
             ui.button('Cancel', on_click=on_cancel).props('flat')
-    
-    dialog.open()
-    
+
     async def scan_task():
         """Background task to handle USB HID scanning"""
         nonlocal result, scanner, status
-        
+
         max_retries = 3
         retry_count = 0
-        
+
         while retry_count < max_retries and not cancelled:
+            # (Re)show the scanning dialog for this attempt and clear any
+            # leftover status/progress text from a previous failed attempt.
+            dialog.open()
+            status_label.text = "Connecting to scanner..."
+            status_label.style('color: #666;')
+            progress_label.text = ""
+
             try:
                 # Create scanner instance
                 scanner = USBHIDScanner(vid, pid, timeout)
-                
+
                 # Try to connect
-                status_label.text = "Connecting to scanner..."
                 await asyncio.sleep(0.1)  # Allow UI to update
-                
+
                 try:
                     connection_result = scanner.connect()
                 except PermissionError as e:
                     # Permission error - show specific permission dialog
                     logger.error(f"Permission error connecting to scanner: {e}")
-                    
-                    # Close the scanning dialog
+
+                    # Hide the scanning dialog while the error dialog is shown
+                    # (do NOT resolve `closed` yet - the caller must keep waiting
+                    # through any retry the user picks)
                     dialog.close()
-                    closed.set_result(None)
-                    
+
                     # Show permission error dialog
                     choice = await ScannerErrorDialogs.show_permission_error(vid, pid)
-                    
+
                     if choice == "retry":
                         retry_count += 1
                         continue
                     else:
+                        status = "cancelled"
+                        _resolve()
                         return
-                
+
                 if not connection_result:
                     logger.error("Failed to connect to USB HID scanner")
-                    
-                    # Set status to not_connected
-                    status = "not_connected"
-                    
-                    # Close the scanning dialog
+
+                    # Hide the scanning dialog while the error dialog is shown
                     dialog.close()
-                    closed.set_result(None)
-                    
-                    # Show connection error dialog with retry and fallback options
+
+                    # Show connection error dialog with retry and fallback options.
+                    # retry_count is incremented exactly once below, by the caller -
+                    # this callback must stay a no-op or Retry effectively costs 2
+                    # attempts instead of 1.
                     async def retry_connection():
-                        nonlocal retry_count
-                        retry_count += 1
-                    
+                        pass
+
                     async def fallback_to_keyboard():
                         set_scanner_mode("keyboard")
-                        ScannerErrorDialogs.show_notification(
-                            "Switched to keyboard mode. Please restart the scan.",
-                            "info"
-                        )
-                    
+
                     choice = await ScannerErrorDialogs.show_connection_error(
                         vid, pid,
                         retry_callback=retry_connection,
                         fallback_callback=fallback_to_keyboard
                     )
-                    
+
                     if choice == "retry":
                         retry_count += 1
-                        status = "error"  # Reset status for retry
                         continue
                     elif choice == "fallback":
-                        # User chose to switch to keyboard mode
+                        # Scanner mode is already switched to keyboard (above) -
+                        # restart the scan there instead of leaving the caller
+                        # with a dead dialog and a stale "not connected" status.
+                        data = await get_nfc_input_keyboard(prompt_message)
+                        result = data
+                        status = "cancelled" if not data else "success"
+                        _resolve()
                         return
                     else:
                         # User cancelled
                         status = "cancelled"
+                        _resolve()
                         return
-                
+
                 # Connected successfully
                 logger.info("USB HID scanner connected successfully")
                 status_label.text = "✓ Scanner connected"
                 status_label.style('color: #388e3c;')
                 progress_label.text = "Ready to scan..."
                 progress_label.style('color: #666;')
-                
+
                 await asyncio.sleep(0.5)  # Brief pause to show connection success
-                
+
                 # Update UI for scanning
                 status_label.text = "Waiting for scan..."
                 status_label.style('color: #1976d2;')
                 progress_label.text = f"Timeout in {timeout} seconds"
-                
+
                 # Read scan data (this will block for up to timeout seconds)
                 # Run in executor to avoid blocking the event loop
                 loop = asyncio.get_event_loop()
                 scan_data = await loop.run_in_executor(None, scanner.read_scan, timeout)
-                
+
+                if cancelled:
+                    # Cancel was clicked while the blocking read was running.
+                    # on_cancel() already resolved `closed` - don't touch it again,
+                    # and don't act on data that may have arrived after cancel.
+                    return
+
                 if scan_data:
                     logger.info(f"Successfully scanned data: '{scan_data}'")
                     result = scan_data
@@ -389,94 +409,105 @@ async def get_usb_hid_input(prompt_message: str) -> tuple[str, str]:
                     status_label.style('color: #388e3c;')
                     progress_label.text = f"Scanned: {scan_data}"
                     progress_label.style('color: #388e3c;')
-                    
+
                     await asyncio.sleep(0.5)  # Brief pause to show success
                     dialog.close()
-                    closed.set_result(None)
+                    _resolve()
                     return
                 elif not scanner.is_connected():
                     # Device was disconnected during read
                     logger.error("Scanner disconnected during read operation")
-                    
-                    # Close the scanning dialog
+
+                    # Hide the scanning dialog while the error dialog is shown
                     dialog.close()
-                    closed.set_result(None)
-                    
+
                     # Show disconnection error dialog
                     choice = await ScannerErrorDialogs.show_disconnection_error()
-                    
+
                     if choice == "retry":
                         retry_count += 1
                         continue
                     else:
+                        status = "cancelled"
+                        _resolve()
                         return
                 else:
                     # Timeout occurred
                     logger.warning("USB HID scan timeout")
-                    
-                    # Close the scanning dialog
+
+                    # Hide the scanning dialog while the error dialog is shown
                     dialog.close()
-                    closed.set_result(None)
-                    
+
                     # Show timeout error dialog
                     choice = await ScannerErrorDialogs.show_timeout_error(timeout)
-                    
+
                     if choice == "retry":
                         retry_count += 1
                         continue
                     else:
+                        status = "cancelled"
+                        _resolve()
                         return
-                    
+
             except UnicodeDecodeError as e:
                 # Corrupted data error
                 logger.error(f"Corrupted data received: {e}")
-                
-                # Close the scanning dialog
+
+                # Hide the scanning dialog while the error dialog is shown
                 dialog.close()
-                closed.set_result(None)
-                
+
                 # Show corrupted data error dialog
                 choice = await ScannerErrorDialogs.show_corrupted_data_error()
-                
+
                 if choice == "retry":
                     retry_count += 1
                     continue
                 else:
+                    status = "cancelled"
+                    _resolve()
                     return
-                    
+
             except Exception as e:
                 logger.error(f"Error during USB HID scan: {e}")
-                
-                # Close the scanning dialog
+
+                # Hide the scanning dialog while the notification is shown
                 dialog.close()
-                closed.set_result(None)
-                
+
                 # Show generic error notification
                 ScannerErrorDialogs.show_notification(
                     f"Scanner error: {str(e)}",
                     "error"
                 )
+                status = "error"
+                _resolve()
                 return
-                
+
             finally:
                 # Clean up scanner connection
                 if scanner is not None:
                     scanner.disconnect()
-        
-        # Max retries reached
+
+        # Loop exited without an explicit terminal return above: either
+        # cancelled mid-connect/retry, or max retries were exhausted.
+        if cancelled:
+            return
+
         if retry_count >= max_retries:
             logger.error("Max retries reached for USB HID scanner")
+            dialog.close()
             ScannerErrorDialogs.show_notification(
                 "Maximum retry attempts reached. Please check scanner connection.",
                 "error"
             )
-    
+            status = "error"
+        _resolve()
+
     # Start the scanning task
     asyncio.create_task(scan_task())
-    
+
     # Wait for dialog to close
     await closed
-    
+
     return result, status
 
 
@@ -493,17 +524,21 @@ async def get_nfc_input_keyboard(prompt_message: str) -> str:
         Scanned data as string.
     """
     result = ""
-    dialog = ui.dialog()
+    dialog = ui.dialog().props('persistent')
     closed = asyncio.Future()
 
     def on_input_submit():
         nonlocal result
+        if closed.done():
+            return
         if input_field.value.strip():
             result = input_field.value.strip().lower()
             dialog.close()
             closed.set_result(None)
 
     def on_cancel():
+        if closed.done():
+            return
         dialog.close()
         closed.set_result(None)
 
@@ -598,25 +633,29 @@ async def get_user_input_with_selection(equipment=None):
     Returns:
         User object or None if cancelled
     """
-    dialog = ui.dialog()
+    dialog = ui.dialog().props('persistent')
     result = asyncio.Future()
     selected_user = None
     nfc_input_value = ""
     scanner_task = None
     scanner_cancelled = False
-    
+
     # Get scanner mode from configuration
     mode = get_scanner_mode()
     logger.info(f"get_user_input_with_selection called with scanner mode: {mode}")
-    
+
     def on_cancel():
         nonlocal scanner_cancelled
+        if result.done():
+            return
         scanner_cancelled = True
         dialog.close()
         result.set_result(None)
-    
+
     def on_manual_select():
         nonlocal scanner_cancelled
+        if result.done():
+            return
         if selected_user:
             scanner_cancelled = True
             dialog.close()
@@ -633,6 +672,8 @@ async def get_user_input_with_selection(equipment=None):
     
     def on_nfc_input_submit():
         nonlocal nfc_input_value, scanner_cancelled
+        if result.done():
+            return
         if nfc_input_field.value.strip():
             nfc_input_value = nfc_input_field.value.strip().lower()
             # Find user by NFC
@@ -663,7 +704,7 @@ async def get_user_input_with_selection(equipment=None):
         users_dict[display_text] = user
         options.append(display_text)
     
-    with dialog, ui.card().style('width: 450px;'):
+    with dialog, ui.card().style('width: 450px'):
         with ui.row().classes('w-full justify-between items-center'):
             ui.label('Select User').style('font-size: 150%')
             ui.button(icon='close', on_click=on_cancel).props('flat round')
@@ -683,10 +724,12 @@ async def get_user_input_with_selection(equipment=None):
             ui.label('Scan User\'s Data Matrix Code:').style('font-weight: bold; margin: 10px 0 5px 0; text-decoration: underline;')
             nfc_display_label = ui.label("Ready to scan...").style('font-size: 16px; text-align: center; margin: 5px 0; padding: 10px; border: 1px dashed #ccc; border-radius: 4px;')
         
-        # Invisible input field for keyboard mode NFC scanning
-        nfc_input_field = ui.input().style('position: absolute; top: -1000px; left: -1000px;').props('autofocus')
-        nfc_input_field.on('keydown.enter', on_nfc_input_submit)
-        nfc_input_field.on('input', on_nfc_input_change)
+        # Invisible input field for keyboard mode NFC scanning (only create if in keyboard mode)
+        nfc_input_field = None
+        if mode == "keyboard":
+            nfc_input_field = ui.input().style('position: absolute; top: -1000px; left: -1000px;').props('autofocus')
+            nfc_input_field.on('keydown.enter', on_nfc_input_submit)
+            nfc_input_field.on('input', on_nfc_input_change)
         
         ui.separator()
         ui.label('OR').classes('text-center').style('margin: 0px 0;')
@@ -746,6 +789,10 @@ async def get_user_input_with_selection(equipment=None):
                         # Find user by scanned NFC code
                         user = crud.find_user_by_nfc(db, scan_data.lower())
                         if user:
+                            if result.done():
+                                # A manual selection (or cancel) won the race
+                                # while this read was in flight.
+                                return
                             logger.info(f"User found: {user.name}")
                             scanner_cancelled = True
                             dialog.close()
@@ -785,23 +832,27 @@ async def get_user_input_with_selection(equipment=None):
         async def maintain_focus():
             while not result.done():
                 await asyncio.sleep(0.1)
-                if not result.done():
+                if not result.done() and nfc_input_field is not None:
                     nfc_input_field.run_method('focus')
         
         asyncio.create_task(maintain_focus())
     
     # Wait for user choice
     choice = await result
-    
-    # Ensure scanner task is cancelled
+
+    # Let the background scanner task wind down on its own instead of
+    # cancelling it - it may be inside a blocking device.read() in an
+    # executor thread, and closing the HID handle concurrently with that
+    # read is unsafe. Flagging scanner_cancelled makes its loop exit (it
+    # re-checks every iteration, bounded by the 2s read timeout), then its
+    # own finally: block disconnects only after read_scan() has returned.
     scanner_cancelled = True
     if scanner_task is not None:
-        scanner_task.cancel()
         try:
-            await scanner_task
-        except asyncio.CancelledError:
-            pass
-    
+            await asyncio.wait_for(scanner_task, timeout=5.0)
+        except asyncio.TimeoutError:
+            logger.error("Background scanner task did not stop within 5s of cancellation")
+
     return choice
 
 
@@ -1048,10 +1099,12 @@ async def nfc_equipment_rental_workflow(update_callback=None):
     
     if rental:
         # Equipment is already rented, show return dialog
-        dialog = ui.dialog()
+        dialog = ui.dialog().props('persistent')
         confirmed = asyncio.Future()
-        
+
         def on_confirm():
+            if confirmed.done():
+                return
             crud.return_equipment(db, rental.id_re)
             ui.notify('Equipment successfully returned', color="positive")
             dialog.close()
@@ -1059,8 +1112,10 @@ async def nfc_equipment_rental_workflow(update_callback=None):
             # Update equipment lists after return
             if update_callback:
                 update_callback()
-        
+
         def on_cancel():
+            if confirmed.done():
+                return
             dialog.close()
             confirmed.set_result(False)
         
@@ -1098,16 +1153,20 @@ async def nfc_equipment_rental_workflow(update_callback=None):
             return
         
         # Show confirmation dialog
-        dialog = ui.dialog()
+        dialog = ui.dialog().props('persistent')
         confirmed = asyncio.Future()
-        
+
         comment_text = ""
-        
+
         def on_confirm():
+            if confirmed.done():
+                return
             dialog.close()
             confirmed.set_result(True)
-        
+
         def on_cancel():
+            if confirmed.done():
+                return
             dialog.close()
             confirmed.set_result(False)
         

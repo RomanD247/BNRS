@@ -204,7 +204,7 @@ def isolated_scanner_config():
 
 ---
 
-## Step 2 — Scan-dialog lifecycle & scanner control flow
+## Step 2 — Scan-dialog lifecycle & scanner control flow ✅ COMPLETED (2026-07-08)
 
 C1, C2, M17, the `.done()` guards, the cancel race, and the two error-dialog Minors all converge on **one root defect** in `get_usb_hid_input`: an `asyncio.Future` (`closed`) resolved in multiple unguarded places, plus background tasks (`scan_task`, `usb_scanner_background_task`, `maintain_focus`) that outlive dialog dismissal. Implement the shared contract first, then apply per-finding deltas. All line numbers are in `NfcScan.py` unless noted.
 
@@ -220,7 +220,7 @@ C1, C2, M17, the `.done()` guards, the cancel race, and the two error-dialog Min
 4. Make dialogs **persistent** so ESC/outside-click cannot orphan the future.
 5. Guard **all** other `set_result` calls in the file with `if not <future>.done():`.
 
-- [ ] **C1 — USB retry flow resolves `closed` too early and can double-resolve it**
+- [x] **C1 — USB retry flow resolves `closed` too early and can double-resolve it**
   Files: `NfcScan.py:248, 252-259, 290-297, 306-363, 384-396, 397-459, 461-472, 475-480`.
   Now: six error paths resolve `closed` *before* awaiting their retry dialog, so `await closed` (478) returns while `scan_task` still runs; a later success then hits `set_result` on a resolved future → `InvalidStateError`, caught and re-raised again → unhandled task exception. Retried scans have no visible dialog.
   Fix:
@@ -234,14 +234,14 @@ C1, C2, M17, the `.done()` guards, the cancel race, and the two error-dialog Min
   Verify: set wrong VID/PID → connection-error dialog appears *before* any "Scanner not connected" toast; Retry with a reachable device → exactly one rental workflow, no `InvalidStateError`; Retry to max → caller unblocks with the max-retries notification.
   Depends on: C2, M17, missing-done-guards-nfcscan.
 
-- [ ] **C2 — Scan/confirm dialogs are not persistent; ESC leaves futures unresolved and leaks loops/HID handle**
+- [x] **C2 — Scan/confirm dialogs are not persistent; ESC leaves futures unresolved and leaks loops/HID handle**
   Files: `NfcScan.py:247, 496, 536-542, 601, 612-616, 738, 1053, 1103`.
   Now: no dialog uses `.props('persistent')`; ESC runs no handler → keyboard `maintain_focus` loops forever (focus stolen), USB background loop holds the HID device until restart, confirm/return workflows await forever.
   Fix (Option A, recommended — mirror the admin dialog at `main.py:573`): change each `ui.dialog()` to `ui.dialog().props('persistent')` at lines 247, 496, 601, 1053, 1103. Users must exit via the explicit buttons that already resolve the futures. (Option B if dismissal must stay: add `dialog.on('hide', …)` handlers that resolve the future as cancelled, guarded with `.done()`, and for `get_usb_hid_input` also set `cancelled=True` to stop `scan_task`.)
   Verify: for each dialog press ESC / click outside — it must not close. In keyboard mode, confirm focus is not stolen. In usb_vendor mode, ESC the Select-User dialog then immediately start another scan — the scanner reconnects (handle released).
   Depends on: C1, M17, missing-done-guards-nfcscan.
 
-- [ ] **M17 — Cancel race: blocking HID read keeps running after Cancel; `cancelled` not re-checked**
+- [x] **M17 — Cancel race: blocking HID read keeps running after Cancel; `cancelled` not re-checked**
   Files: `NfcScan.py:252-259, 381-382, 384-396, 461-464`.
   Now: `on_cancel` resolves `closed`, but `scan_task` may still be blocked in `run_in_executor(scanner.read_scan)`; when it returns, the success branch runs with no `cancelled` re-check → same `InvalidStateError` cascade; device held for up to `timeout`.
   Fix:
@@ -250,34 +250,34 @@ C1, C2, M17, the `.done()` guards, the cancel race, and the two error-dialog Min
   Verify: usb_vendor mode — start scan, Cancel, then scan a valid code within the timeout: nothing happens, no `InvalidStateError`. Dialog reopens immediately if the optional flag is added.
   Depends on: C1.
 
-- [ ] **missing-done-guards-nfcscan — future resolutions lack `.done()` guards**
+- [x] **missing-done-guards-nfcscan — future resolutions lack `.done()` guards**
   Files: `NfcScan.py:1056-1067, 1108-1114, 259, 504, 508, 616, 623, 643, 754`.
   Now: rapid double-click (or an ESC hide handler racing a button) double-resolves → `InvalidStateError`.
   Fix: guard every `<future>.set_result(...)` with `if not <future>.done():`. For the return dialog `on_confirm` (1056-1063), guard the **whole body** with `if confirmed.done(): return` at the top so `crud.return_equipment`/`update_callback`/toast don't fire twice. For `get_usb_hid_input` use the shared `_resolve()`.
   Verify: double-click "Confirm Return" and "Confirm Rental" — no `InvalidStateError`, exactly one toast, one `update_callback`.
   (Prerequisite for C2 Option B.)
 
-- [ ] **disconnect-during-executor-read — `disconnect()` can run while the executor thread is inside `read_scan`**
+- [x] **disconnect-during-executor-read — `disconnect()` can run while the executor thread is inside `read_scan`**
   Files: `NfcScan.py:796-807, 738-742, 775-778`; `usb_hid_scanner.py:129-138`.
   Now: cleanup does `scanner_task.cancel()` then the task's `finally` calls `scanner.disconnect()` (`device.close()`) while the executor thread may still be in `device.read()` — hidapi concurrent close+read is unsafe.
   Fix: don't `cancel()`. Set `scanner_cancelled = True`, then `if scanner_task is not None: await scanner_task` (no cancel). The loop condition (`while not scanner_cancelled and not result.done():`, 738) + the 2 s read timeout let the read finish, the loop exit, and `finally: disconnect()` run only after `read_scan` returns. Optionally bound with `asyncio.wait_for(..., timeout=slightly_over_read)`.
   Verify: rapidly confirm/cancel the Select-User dialog while the background scanner polls; no hidapi errors; log shows "Background scanner disconnected" *after* the last read.
 
-- [ ] **retry-counter-double-increment — connection-retry counter increments twice**
+- [x] **retry-counter-double-increment — connection-retry counter increments twice**
   Files: `NfcScan.py:336-338, 347-356`; `scanner_error_dialogs.py:119, 127-128`.
   Now: `retry_connection` increments `retry_count` (338) *and* the caller increments again (354) — each Retry advances by 2, so ~2 real attempts of 3.
   Fix: empty `retry_connection`'s body — change lines 337-338 to `pass` (keep the `async def` stub so the "Retry Connection" button still renders; it is gated on truthy `retry_callback` at `scanner_error_dialogs.py:119`). Keep the single authoritative `retry_count += 1` at line 354. Do **not** set `retry_callback=None`.
   Verify: wrong VID/PID, click Retry 3× → three connection attempts before "Maximum retry attempts reached".
   Depends on: C1.
 
-- [ ] **contradictory-keyboard-fallback-ux — fallback shows both a "not connected" and a "switched" toast and doesn't restart the scan**
+- [x] **contradictory-keyboard-fallback-ux — fallback shows both a "not connected" and a "switched" toast and doesn't restart the scan**
   Files: `NfcScan.py:329, 332-333, 340-345, 357-359, 1035-1036`.
   Now: connect-failure pre-resolves `closed` (caller shows "Scanner not connected"), and the fallback also toasts "Switched to keyboard mode. Please restart the scan." — two contradictory messages, no auto-restart.
   Fix (fold into C1's restructure): on `choice == 'fallback'`, after `set_scanner_mode('keyboard')`, **restart the scan in keyboard mode**: `data, st = await get_nfc_input_keyboard(prompt_message); result = data; status = 'cancelled' if not data else 'success'; _resolve(); return`. If auto-restart is undesired, at minimum set `status='cancelled'` before resolving so the caller (1033-1038) doesn't print "Scanner not connected", and reduce the notification to one clear message. Stop relying on the pre-set `status='not_connected'` (329) for the fallback path.
   Verify: usb_vendor mode, disconnected scanner, click "Use Keyboard Mode" → exactly one coherent outcome; `scanner_config.json` shows `keyboard`.
   Depends on: C1.
 
-- [ ] **error-dialogs-retry-double-increment-and-done-guards (scanner_error_dialogs.py)**
+- [x] **error-dialogs-retry-double-increment-and-done-guards (scanner_error_dialogs.py)**
   Files: `scanner_error_dialogs.py:56-69, 152-160, 206-214, 260-268, 326-334, 124-130`; `NfcScan.py:336-338, 353-354`.
   Now: (1) same double-increment as above (fixed in `NfcScan.py`); (2) every dialog's `on_retry/on_cancel/on_fallback` calls `result.set_result(...)` unguarded.
   Fix: add `if not result.done():` before every `result.set_result(X)` in `scanner_error_dialogs.py` (on_retry 59, on_fallback 64, on_cancel 69; timeout 155/160; disconnection 209/214; corrupted 263/268; permission 329/334). The increment half is handled by `retry-counter-double-increment`.
@@ -285,6 +285,32 @@ C1, C2, M17, the `.done()` guards, the cancel race, and the two error-dialog Min
   Depends on: C1, C2, M17.
 
 **Commit Step 2** ("Fix scan-dialog future lifecycle, persistence, cancel race, retry counter").
+
+### Review — how Step 2 was done
+
+**Approach:** unlike Step 1, nearly every finding here converges on the same function (`get_usb_hid_input` in `NfcScan.py`), so this was done as one coherent rewrite by me directly rather than parallel per-file agents (which would have collided on the same lines). Independent adversarial review agents were used afterward to verify the result.
+
+**The shared contract, implemented once:** a `_resolve()` closure (`if not closed.done(): closed.set_result(None)`) defined right after `closed = asyncio.Future()`; every raw `closed.set_result(None)` in `scan_task` replaced with `_resolve()`; all five retry-capable error branches (permission, connection-failure, disconnect-during-read, timeout, corrupted-data) now hide the scanning dialog and await their error dialog *without* resolving `closed` first — only terminal outcomes (cancel, fallback, max-retries, generic exception) resolve it; `dialog.open()` moved inside the retry loop so retries show a freshly-reset dialog instead of no dialog at all.
+
+**Per-finding deltas:**
+- **C1** — fixed via the shared contract above.
+- **C2** — `.props('persistent')` added to all 5 dialogs in `NfcScan.py` (scan dialog, keyboard dialog, user-selection dialog, return-confirmation dialog, rental-confirmation dialog) **and**, as a judgment call beyond the plan's literal file list, all 5 dialogs in `scanner_error_dialogs.py` — they share the exact same ESC-orphans-the-future defect and leaving them non-persistent would have left an equivalent hole in the very flow this step hardens. Verified against the installed NiceGUI source (`dialog.py`) that `persistent` only blocks ESC/backdrop dismissal, never the code's own `dialog.close()` calls.
+- **M17** — added `if cancelled: return` immediately after the executor read, before any result/status mutation; added an optional `USBHIDScanner.cancel()` method (`_cancel_requested` flag, checked once per poll iteration in `read_scan`'s loop, reset at the start of each call) so Cancel releases the device within ~10ms instead of waiting out the full timeout.
+- **missing-done-guards-nfcscan** — all 11 `set_result(` call sites in `NfcScan.py` are now guarded (either via the shared `_resolve()` or an `if <future>.done(): return` at the top of their handler).
+- **disconnect-during-executor-read** — `get_user_input_with_selection` no longer calls `scanner_task.cancel()`; it sets `scanner_cancelled = True` and awaits the task (bounded by `asyncio.wait_for(..., timeout=5.0)`), letting the background task's own 2-second read timeout notice the flag and exit before its `finally: disconnect()` runs.
+- **retry-counter-double-increment** — `retry_connection`'s body emptied to `pass`; `retry_count += 1` now happens exactly once, at the call site.
+- **contradictory-keyboard-fallback-ux** — the fallback path now actually awaits `get_nfc_input_keyboard(...)` and returns its result, instead of showing a "please restart the scan" notification and returning a dead `not_connected` result.
+- **error-dialogs-retry-double-increment-and-done-guards** — all 12 handlers (on_retry/on_cancel/on_fallback) across the 5 `scanner_error_dialogs.py` methods guarded with `if result.done(): return`.
+
+**Verification (three layers, since this code can't be driven by a human clicking through the app in this environment):**
+1. *Functional smoke test* — a scratchpad harness (not committed) that imports the real `get_usb_hid_input` and drives it against a mocked `USBHIDScanner`/`ScannerErrorDialogs`, confirming no unhandled task exceptions and correct behavior across: immediate success, permission-error→retry→success (the exact C1 crash scenario), connection-failure retry-counter accuracy (3 dialogs shown, not ~2), max-retries exhaustion, fallback-to-keyboard auto-restart, the cancel-guard short-circuit, and a double-click on the return dialog. All 7 scenarios passed. This surfaced one real regression along the way: an existing test's hand-built `ui.dialog` mock didn't emulate NiceGUI's fluent `.props()` chaining (it only chained `.style()`/`.classes()`), so `dialog.props('persistent')` returned an unconfigured child mock and broke the `with dialog:` context manager. Fixed by adding `mock_dialog_instance.props = Mock(return_value=mock_dialog_instance)` to `test_scanner_status_messages.py`, matching the pattern already used for `.style()`.
+2. *Independent adversarial review* — 5 agents (one per finding cluster), each re-reading the actual current code and tracing every path by hand, not trusting my summary. All 5 returned `FULLY_FIXED`. Two agents' first attempt hit a tool-level structured-output error unrelated to the code (retry-cap exceeded); re-run as 4 smaller, more atomic tasks and all passed clean.
+3. *Regression suite* — full `pytest` run (54 passed), and SHA-256 confirmation that `rental.db`/`scanner_config.json` are still byte-identical to the Step 0 backup.
+
+**Known, out-of-scope residual gaps** (all confirmed non-crashing by the reviewers; none reproduce the `InvalidStateError` this step exists to fix):
+- If Cancel is clicked during the ~0.5s pause after a successful scan (or during the initial `scanner.connect()`/`sleep(0.1)`), `on_cancel` can resolve `closed` with `status="cancelled"` before `scan_task` reaches its own resolution — the caller can see `status="cancelled"` paired with a non-empty `result`, or a stray error dialog can flash after the user already left. I attempted a 2-line fix for the first case but reverted it: by the time `on_cancel` resolves `closed`, the outer `await closed` has already returned, so a check added later inside `scan_task` cannot change what was already handed back — a real fix would require restructuring `scan_task` to be the sole authority over `closed`'s resolution (with `on_cancel` only setting a flag it polls), which is a larger redesign than this step's scope. Documented here rather than silently left implicit.
+- `get_user_input_with_selection`'s background scanner doesn't get the new `USBHIDScanner.cancel()` wiring (M17's fix targeted `get_usb_hid_input` specifically); it already has its own bounded-wait mechanism via `disconnect-during-executor-read`'s fix, so this is a minor "could release a couple seconds faster" enhancement, not a bug.
+- `scanner.connect()` is still a direct blocking call, not run through an executor — pre-existing, out of this step's scope (it's the Minor `blocking-calls-on-event-loop` finding, scheduled for Step 7).
 
 ---
 

@@ -65,9 +65,20 @@ class USBHIDScanner:
         self.timeout = timeout
         self.device = None
         self._connected = False
-        
+        self._cancel_requested = False
+
         logger.info(f"USBHIDScanner initialized with VID=0x{vid:04x}, PID=0x{pid:04x}, timeout={timeout}s")
-    
+
+    def cancel(self) -> None:
+        """
+        Request that an in-progress read_scan() return early.
+
+        Checked once per poll iteration inside read_scan()'s loop, so the
+        blocking read releases the device shortly after this is called
+        instead of waiting out the full timeout.
+        """
+        self._cancel_requested = True
+
     def connect(self) -> bool:
         """
         Connect to the USB HID scanner device
@@ -157,21 +168,26 @@ class USBHIDScanner:
         
         if timeout is None:
             timeout = self.timeout
-        
+
         logger.debug(f"Starting read operation with timeout={timeout}s")
-        
+
         import time
         start_time = time.time()
         accumulated_data = bytearray()
-        
+        self._cancel_requested = False
+
         try:
             while True:
+                if self._cancel_requested:
+                    logger.info("Read cancelled")
+                    return None
+
                 # Check timeout
                 elapsed = time.time() - start_time
                 if elapsed > timeout:
                     logger.warning(f"Read timeout after {elapsed:.2f}s")
                     return None
-                
+
                 # Try to read data
                 data = self.device.read(64)  # Read up to 64 bytes
                 

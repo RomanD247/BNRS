@@ -50,20 +50,26 @@ class ScannerErrorDialogs:
         """
         logger.info(f"Showing connection error dialog for VID=0x{vid:04x}, PID=0x{pid:04x}")
         
-        dialog = ui.dialog()
+        dialog = ui.dialog().props('persistent')
         result = asyncio.Future()
-        
+
         def on_retry():
+            if result.done():
+                return
             logger.info("User chose to retry connection")
             dialog.close()
             result.set_result("retry")
-        
+
         def on_fallback():
+            if result.done():
+                return
             logger.info("User chose to switch to keyboard mode")
             dialog.close()
             result.set_result("fallback")
-        
+
         def on_cancel():
+            if result.done():
+                return
             logger.info("User cancelled connection error dialog")
             dialog.close()
             result.set_result("cancel")
@@ -146,15 +152,19 @@ class ScannerErrorDialogs:
         """
         logger.info(f"Showing timeout error dialog (timeout={timeout}s)")
         
-        dialog = ui.dialog()
+        dialog = ui.dialog().props('persistent')
         result = asyncio.Future()
-        
+
         def on_retry():
+            if result.done():
+                return
             logger.info("User chose to retry after timeout")
             dialog.close()
             result.set_result("retry")
-        
+
         def on_cancel():
+            if result.done():
+                return
             logger.info("User cancelled after timeout")
             dialog.close()
             result.set_result("cancel")
@@ -200,15 +210,19 @@ class ScannerErrorDialogs:
         """
         logger.info("Showing disconnection error dialog")
         
-        dialog = ui.dialog()
+        dialog = ui.dialog().props('persistent')
         result = asyncio.Future()
-        
+
         def on_retry():
+            if result.done():
+                return
             logger.info("User chose to retry after disconnection")
             dialog.close()
             result.set_result("retry")
-        
+
         def on_cancel():
+            if result.done():
+                return
             logger.info("User cancelled after disconnection")
             dialog.close()
             result.set_result("cancel")
@@ -254,15 +268,19 @@ class ScannerErrorDialogs:
         """
         logger.info("Showing corrupted data error dialog")
         
-        dialog = ui.dialog()
+        dialog = ui.dialog().props('persistent')
         result = asyncio.Future()
-        
+
         def on_retry():
+            if result.done():
+                return
             logger.info("User chose to retry after corrupted data")
             dialog.close()
             result.set_result("retry")
-        
+
         def on_cancel():
+            if result.done():
+                return
             logger.info("User cancelled after corrupted data")
             dialog.close()
             result.set_result("cancel")
@@ -320,15 +338,19 @@ class ScannerErrorDialogs:
         """
         logger.info(f"Showing permission error dialog for VID=0x{vid:04x}, PID=0x{pid:04x}")
         
-        dialog = ui.dialog()
+        dialog = ui.dialog().props('persistent')
         result = asyncio.Future()
-        
+
         def on_retry():
+            if result.done():
+                return
             logger.info("User chose to retry after permission error")
             dialog.close()
             result.set_result("retry")
-        
+
         def on_cancel():
+            if result.done():
+                return
             logger.info("User cancelled after permission error")
             dialog.close()
             result.set_result("cancel")
