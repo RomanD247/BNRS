@@ -1,11 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
-
+import os
 
 a = Analysis(
-    ['main.py'],
+    [os.path.join(SPECPATH, 'main.py')],
     pathex=[],
-    binaries=[],
-    datas=[('C:\\Users\\RomanD\\Desktop\\Apps\\Rental System\\BNRS\\bnrs\\Lib\\site-packages\\nicegui', 'nicegui'), ('rental.db', '.')],
+    binaries=[
+        (os.path.join(SPECPATH, 'bnrs', 'Lib', 'site-packages', 'pylibdmtx', 'libdmtx-64.dll'), '.'),
+    ],
+    datas=[
+        (os.path.join(SPECPATH, 'rental.db'), '.'),
+        (os.path.join(SPECPATH, 'scanner_config.default.json'), '.'),
+        (os.path.join(SPECPATH, 'bnrs', 'Lib', 'site-packages', 'nicegui'), 'nicegui/'),
+        (os.path.join(SPECPATH, 'web_viewer'), 'web_viewer/'),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -22,7 +29,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='WenglorMEL Rental System 2.1',
+    name='WenglorMEL Rental System 2.1.5',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -35,5 +42,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['assets\\icon.ico'],
+    icon=[os.path.join(SPECPATH, 'assets', 'icon.ico')],
 )
