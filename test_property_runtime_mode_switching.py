@@ -14,6 +14,7 @@ from pathlib import Path
 from unittest.mock import patch, AsyncMock
 from hypothesis import given, strategies as st, settings
 from scanner_config import get_scanner_mode, set_scanner_mode, load_config, save_config
+from NfcScan import get_nfc_input
 
 
 def test_runtime_mode_switching_basic():
@@ -27,84 +28,78 @@ def test_runtime_mode_switching_basic():
     4. Changes take effect immediately
     """
     print("\n=== Testing Basic Runtime Mode Switching ===")
-    
+
+    # Save original mode
+    original_mode = get_scanner_mode()
+    print(f"Original mode: {original_mode}")
+
     try:
-        from NfcScan import get_nfc_input
-        
-        # Save original mode
-        original_mode = get_scanner_mode()
-        print(f"Original mode: {original_mode}")
-        
-        try:
-            # Test switching from usb_vendor to keyboard
-            print("\nTest 1: Switch from usb_vendor to keyboard")
-            set_scanner_mode("usb_vendor")
-            assert get_scanner_mode() == "usb_vendor", "Failed to set usb_vendor mode"
-            print("  ✓ Set to usb_vendor mode")
-            
-            # Switch to keyboard
-            success = set_scanner_mode("keyboard")
-            assert success, "set_scanner_mode returned False"
-            print("  ✓ set_scanner_mode returned True")
-            
-            # Verify mode changed
-            current_mode = get_scanner_mode()
-            assert current_mode == "keyboard", \
-                f"Mode not changed: expected 'keyboard', got '{current_mode}'"
-            print("  ✓ Mode changed to keyboard")
-            
-            # Verify persistence in config file
-            config = load_config()
-            assert config["scanner_mode"] == "keyboard", \
-                "Mode not persisted in configuration file"
-            print("  ✓ Mode persisted in configuration file")
-            
-            # Verify routing works immediately
-            with patch('NfcScan.get_nfc_input_keyboard', new_callable=AsyncMock) as mock_keyboard:
-                mock_keyboard.return_value = "keyboard_result"
-                result = asyncio.run(get_nfc_input("test"))
-                mock_keyboard.assert_called_once()
-                assert result == "keyboard_result"
-            print("  ✓ Routing to keyboard mode works immediately")
-            
-            # Test switching from keyboard to usb_vendor
-            print("\nTest 2: Switch from keyboard to usb_vendor")
-            success = set_scanner_mode("usb_vendor")
-            assert success, "set_scanner_mode returned False"
-            print("  ✓ set_scanner_mode returned True")
-            
-            # Verify mode changed
-            current_mode = get_scanner_mode()
-            assert current_mode == "usb_vendor", \
-                f"Mode not changed: expected 'usb_vendor', got '{current_mode}'"
-            print("  ✓ Mode changed to usb_vendor")
-            
-            # Verify persistence
-            config = load_config()
-            assert config["scanner_mode"] == "usb_vendor", \
-                "Mode not persisted in configuration file"
-            print("  ✓ Mode persisted in configuration file")
-            
-            # Verify routing works immediately
-            with patch('NfcScan.get_usb_hid_input', new_callable=AsyncMock) as mock_usb:
-                mock_usb.return_value = "usb_result"
-                result = asyncio.run(get_nfc_input("test"))
-                mock_usb.assert_called_once()
-                assert result == "usb_result"
-            print("  ✓ Routing to usb_vendor mode works immediately")
-            
-            print("\n✓ Basic runtime mode switching test passed")
-            return True
-            
-        finally:
-            # Restore original mode
-            set_scanner_mode(original_mode)
-            print(f"\nRestored original mode: {original_mode}")
-            
-    except ImportError as e:
-        print(f"⚠ Could not import NfcScan (may require UI environment): {e}")
-        print("  Skipping basic test")
+        # Test switching from usb_vendor to keyboard
+        print("\nTest 1: Switch from usb_vendor to keyboard")
+        set_scanner_mode("usb_vendor")
+        assert get_scanner_mode() == "usb_vendor", "Failed to set usb_vendor mode"
+        print("  ✓ Set to usb_vendor mode")
+
+        # Switch to keyboard
+        success = set_scanner_mode("keyboard")
+        assert success, "set_scanner_mode returned False"
+        print("  ✓ set_scanner_mode returned True")
+
+        # Verify mode changed
+        current_mode = get_scanner_mode()
+        assert current_mode == "keyboard", \
+            f"Mode not changed: expected 'keyboard', got '{current_mode}'"
+        print("  ✓ Mode changed to keyboard")
+
+        # Verify persistence in config file
+        config = load_config()
+        assert config["scanner_mode"] == "keyboard", \
+            "Mode not persisted in configuration file"
+        print("  ✓ Mode persisted in configuration file")
+
+        # Verify routing works immediately
+        with patch('NfcScan.get_nfc_input_keyboard', new_callable=AsyncMock) as mock_keyboard:
+            mock_keyboard.return_value = "keyboard_result"
+            data, status = asyncio.run(get_nfc_input("test"))
+            mock_keyboard.assert_called_once()
+            assert data == "keyboard_result"
+            assert status == "success"
+        print("  ✓ Routing to keyboard mode works immediately")
+
+        # Test switching from keyboard to usb_vendor
+        print("\nTest 2: Switch from keyboard to usb_vendor")
+        success = set_scanner_mode("usb_vendor")
+        assert success, "set_scanner_mode returned False"
+        print("  ✓ set_scanner_mode returned True")
+
+        # Verify mode changed
+        current_mode = get_scanner_mode()
+        assert current_mode == "usb_vendor", \
+            f"Mode not changed: expected 'usb_vendor', got '{current_mode}'"
+        print("  ✓ Mode changed to usb_vendor")
+
+        # Verify persistence
+        config = load_config()
+        assert config["scanner_mode"] == "usb_vendor", \
+            "Mode not persisted in configuration file"
+        print("  ✓ Mode persisted in configuration file")
+
+        # Verify routing works immediately
+        with patch('NfcScan.get_usb_hid_input', new_callable=AsyncMock) as mock_usb:
+            mock_usb.return_value = ("usb_result", "success")
+            data, status = asyncio.run(get_nfc_input("test"))
+            mock_usb.assert_called_once()
+            assert data == "usb_result"
+            assert status == "success"
+        print("  ✓ Routing to usb_vendor mode works immediately")
+
+        print("\n✓ Basic runtime mode switching test passed")
         return True
+
+    finally:
+        # Restore original mode
+        set_scanner_mode(original_mode)
+        print(f"\nRestored original mode: {original_mode}")
 
 
 @given(st.lists(st.sampled_from(["usb_vendor", "keyboard"]), min_size=2, max_size=10))
@@ -124,51 +119,46 @@ def test_runtime_mode_switching_sequence(mode_sequence: list):
     3. Each mode change takes effect immediately
     4. No application restart is required between mode changes
     """
+    # Save original mode
+    original_mode = get_scanner_mode()
+
     try:
-        from NfcScan import get_nfc_input
-        
-        # Save original mode
-        original_mode = get_scanner_mode()
-        
-        try:
-            for i, mode in enumerate(mode_sequence):
-                # Set the mode
-                success = set_scanner_mode(mode)
-                assert success, f"Failed to set mode to {mode} at step {i}"
-                
-                # Verify mode changed immediately
-                current_mode = get_scanner_mode()
-                assert current_mode == mode, \
-                    f"Mode not changed at step {i}: expected '{mode}', got '{current_mode}'"
-                
-                # Verify persistence
-                config = load_config()
-                assert config["scanner_mode"] == mode, \
-                    f"Mode not persisted at step {i}: expected '{mode}', got '{config['scanner_mode']}'"
-                
-                # Verify routing works immediately without restart
-                if mode == "usb_vendor":
-                    with patch('NfcScan.get_usb_hid_input', new_callable=AsyncMock) as mock_usb:
-                        mock_usb.return_value = f"usb_result_{i}"
-                        result = asyncio.run(get_nfc_input(f"test_{i}"))
-                        mock_usb.assert_called_once_with(f"test_{i}")
-                        assert result == f"usb_result_{i}", \
-                            f"Wrong result at step {i}: expected 'usb_result_{i}', got '{result}'"
-                else:  # keyboard
-                    with patch('NfcScan.get_nfc_input_keyboard', new_callable=AsyncMock) as mock_keyboard:
-                        mock_keyboard.return_value = f"keyboard_result_{i}"
-                        result = asyncio.run(get_nfc_input(f"test_{i}"))
-                        mock_keyboard.assert_called_once_with(f"test_{i}")
-                        assert result == f"keyboard_result_{i}", \
-                            f"Wrong result at step {i}: expected 'keyboard_result_{i}', got '{result}'"
-            
-        finally:
-            # Restore original mode
-            set_scanner_mode(original_mode)
-            
-    except ImportError:
-        # If we can't import NfcScan, skip this test
-        pass
+        for i, mode in enumerate(mode_sequence):
+            # Set the mode
+            success = set_scanner_mode(mode)
+            assert success, f"Failed to set mode to {mode} at step {i}"
+
+            # Verify mode changed immediately
+            current_mode = get_scanner_mode()
+            assert current_mode == mode, \
+                f"Mode not changed at step {i}: expected '{mode}', got '{current_mode}'"
+
+            # Verify persistence
+            config = load_config()
+            assert config["scanner_mode"] == mode, \
+                f"Mode not persisted at step {i}: expected '{mode}', got '{config['scanner_mode']}'"
+
+            # Verify routing works immediately without restart
+            if mode == "usb_vendor":
+                with patch('NfcScan.get_usb_hid_input', new_callable=AsyncMock) as mock_usb:
+                    mock_usb.return_value = (f"usb_result_{i}", "success")
+                    data, status = asyncio.run(get_nfc_input(f"test_{i}"))
+                    mock_usb.assert_called_once_with(f"test_{i}")
+                    assert data == f"usb_result_{i}", \
+                        f"Wrong result at step {i}: expected 'usb_result_{i}', got '{data}'"
+                    assert status == "success"
+            else:  # keyboard
+                with patch('NfcScan.get_nfc_input_keyboard', new_callable=AsyncMock) as mock_keyboard:
+                    mock_keyboard.return_value = f"keyboard_result_{i}"
+                    data, status = asyncio.run(get_nfc_input(f"test_{i}"))
+                    mock_keyboard.assert_called_once_with(f"test_{i}")
+                    assert data == f"keyboard_result_{i}", \
+                        f"Wrong result at step {i}: expected 'keyboard_result_{i}', got '{data}'"
+                    assert status == "success"
+
+    finally:
+        # Restore original mode
+        set_scanner_mode(original_mode)
 
 
 @given(st.sampled_from(["usb_vendor", "keyboard"]))
@@ -184,58 +174,53 @@ def test_runtime_mode_switching_no_restart_required(mode: str):
     
     This verifies the "no restart required" aspect of the requirement.
     """
+    # Save original mode
+    original_mode = get_scanner_mode()
+
     try:
-        from NfcScan import get_nfc_input
-        
-        # Save original mode
-        original_mode = get_scanner_mode()
-        
-        try:
-            # Set opposite mode first
-            opposite_mode = "keyboard" if mode == "usb_vendor" else "usb_vendor"
-            set_scanner_mode(opposite_mode)
-            
-            # Now switch to target mode
-            success = set_scanner_mode(mode)
-            assert success, f"Failed to set mode to {mode}"
-            
-            # Immediately verify routing (no restart)
-            if mode == "usb_vendor":
-                with patch('NfcScan.get_usb_hid_input', new_callable=AsyncMock) as mock_usb, \
-                     patch('NfcScan.get_nfc_input_keyboard', new_callable=AsyncMock) as mock_keyboard:
-                    mock_usb.return_value = "usb_result"
-                    mock_keyboard.return_value = "keyboard_result"
-                    
-                    # Call immediately after mode change (no restart)
-                    result = asyncio.run(get_nfc_input("test"))
-                    
-                    # Verify correct implementation was called
-                    mock_usb.assert_called_once()
-                    mock_keyboard.assert_not_called()
-                    assert result == "usb_result", \
-                        f"Expected 'usb_result', got '{result}'"
-            else:  # keyboard
-                with patch('NfcScan.get_usb_hid_input', new_callable=AsyncMock) as mock_usb, \
-                     patch('NfcScan.get_nfc_input_keyboard', new_callable=AsyncMock) as mock_keyboard:
-                    mock_usb.return_value = "usb_result"
-                    mock_keyboard.return_value = "keyboard_result"
-                    
-                    # Call immediately after mode change (no restart)
-                    result = asyncio.run(get_nfc_input("test"))
-                    
-                    # Verify correct implementation was called
-                    mock_keyboard.assert_called_once()
-                    mock_usb.assert_not_called()
-                    assert result == "keyboard_result", \
-                        f"Expected 'keyboard_result', got '{result}'"
-            
-        finally:
-            # Restore original mode
-            set_scanner_mode(original_mode)
-            
-    except ImportError:
-        # If we can't import NfcScan, skip this test
-        pass
+        # Set opposite mode first
+        opposite_mode = "keyboard" if mode == "usb_vendor" else "usb_vendor"
+        set_scanner_mode(opposite_mode)
+
+        # Now switch to target mode
+        success = set_scanner_mode(mode)
+        assert success, f"Failed to set mode to {mode}"
+
+        # Immediately verify routing (no restart)
+        if mode == "usb_vendor":
+            with patch('NfcScan.get_usb_hid_input', new_callable=AsyncMock) as mock_usb, \
+                 patch('NfcScan.get_nfc_input_keyboard', new_callable=AsyncMock) as mock_keyboard:
+                mock_usb.return_value = ("usb_result", "success")
+                mock_keyboard.return_value = "keyboard_result"
+
+                # Call immediately after mode change (no restart)
+                data, status = asyncio.run(get_nfc_input("test"))
+
+                # Verify correct implementation was called
+                mock_usb.assert_called_once()
+                mock_keyboard.assert_not_called()
+                assert data == "usb_result", \
+                    f"Expected 'usb_result', got '{data}'"
+                assert status == "success"
+        else:  # keyboard
+            with patch('NfcScan.get_usb_hid_input', new_callable=AsyncMock) as mock_usb, \
+                 patch('NfcScan.get_nfc_input_keyboard', new_callable=AsyncMock) as mock_keyboard:
+                mock_usb.return_value = ("usb_result", "success")
+                mock_keyboard.return_value = "keyboard_result"
+
+                # Call immediately after mode change (no restart)
+                data, status = asyncio.run(get_nfc_input("test"))
+
+                # Verify correct implementation was called
+                mock_keyboard.assert_called_once()
+                mock_usb.assert_not_called()
+                assert data == "keyboard_result", \
+                    f"Expected 'keyboard_result', got '{data}'"
+                assert status == "success"
+
+    finally:
+        # Restore original mode
+        set_scanner_mode(original_mode)
 
 
 def test_runtime_mode_switching_persistence():
@@ -301,50 +286,42 @@ def test_runtime_mode_switching_rapid_changes():
     without issues.
     """
     print("\n=== Testing Rapid Runtime Mode Switching ===")
-    
+
+    # Save original mode
+    original_mode = get_scanner_mode()
+
     try:
-        from NfcScan import get_nfc_input
-        
-        # Save original mode
-        original_mode = get_scanner_mode()
-        
-        try:
-            # Perform rapid mode changes
-            modes = ["usb_vendor", "keyboard", "usb_vendor", "keyboard", "usb_vendor"]
-            
-            for i, mode in enumerate(modes):
-                print(f"  Change {i+1}: Setting mode to {mode}")
-                success = set_scanner_mode(mode)
-                assert success, f"Failed to set mode to {mode}"
-                
-                # Verify immediately
-                current_mode = get_scanner_mode()
-                assert current_mode == mode, \
-                    f"Mode not changed: expected '{mode}', got '{current_mode}'"
-                
-                # Verify routing works
-                if mode == "usb_vendor":
-                    with patch('NfcScan.get_usb_hid_input', new_callable=AsyncMock) as mock_usb:
-                        mock_usb.return_value = f"result_{i}"
-                        result = asyncio.run(get_nfc_input("test"))
-                        mock_usb.assert_called_once()
-                else:
-                    with patch('NfcScan.get_nfc_input_keyboard', new_callable=AsyncMock) as mock_keyboard:
-                        mock_keyboard.return_value = f"result_{i}"
-                        result = asyncio.run(get_nfc_input("test"))
-                        mock_keyboard.assert_called_once()
-            
-            print("✓ All rapid mode changes worked correctly")
-            return True
-            
-        finally:
-            # Restore original mode
-            set_scanner_mode(original_mode)
-            
-    except ImportError as e:
-        print(f"⚠ Could not import NfcScan: {e}")
-        print("  Skipping rapid changes test")
+        # Perform rapid mode changes
+        modes = ["usb_vendor", "keyboard", "usb_vendor", "keyboard", "usb_vendor"]
+
+        for i, mode in enumerate(modes):
+            print(f"  Change {i+1}: Setting mode to {mode}")
+            success = set_scanner_mode(mode)
+            assert success, f"Failed to set mode to {mode}"
+
+            # Verify immediately
+            current_mode = get_scanner_mode()
+            assert current_mode == mode, \
+                f"Mode not changed: expected '{mode}', got '{current_mode}'"
+
+            # Verify routing works
+            if mode == "usb_vendor":
+                with patch('NfcScan.get_usb_hid_input', new_callable=AsyncMock) as mock_usb:
+                    mock_usb.return_value = (f"result_{i}", "success")
+                    data, status = asyncio.run(get_nfc_input("test"))
+                    mock_usb.assert_called_once()
+            else:
+                with patch('NfcScan.get_nfc_input_keyboard', new_callable=AsyncMock) as mock_keyboard:
+                    mock_keyboard.return_value = f"result_{i}"
+                    data, status = asyncio.run(get_nfc_input("test"))
+                    mock_keyboard.assert_called_once()
+
+        print("✓ All rapid mode changes worked correctly")
         return True
+
+    finally:
+        # Restore original mode
+        set_scanner_mode(original_mode)
 
 
 def main():

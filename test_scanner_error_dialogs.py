@@ -111,18 +111,30 @@ def test_nfc_scan_integration():
 
 
 def test_usb_scanner_permission_error():
-    """Test that USBHIDScanner can raise PermissionError"""
+    """Test that USBHIDScanner.connect() actually raises PermissionError (and resets
+    its internal state) when the underlying hid device reports access-denied, rather
+    than just documenting that it should."""
+    from unittest.mock import patch, MagicMock
     from usb_hid_scanner import USBHIDScanner
-    import inspect
-    
-    # Check that connect method exists
-    assert hasattr(USBHIDScanner, 'connect')
-    print("✓ USBHIDScanner.connect method exists")
-    
-    # Check the docstring mentions PermissionError
-    docstring = USBHIDScanner.connect.__doc__
-    assert 'PermissionError' in docstring
-    print("✓ USBHIDScanner.connect documents PermissionError")
+
+    mock_device = MagicMock()
+    mock_device.open.side_effect = IOError("open failed: permission denied")
+
+    with patch('usb_hid_scanner.hid.device', return_value=mock_device):
+        scanner = USBHIDScanner(vid=0x11FA, pid=0x8202)
+
+        raised = False
+        try:
+            scanner.connect()
+        except PermissionError:
+            raised = True
+
+        assert raised, "connect() should raise PermissionError when hid reports access denied"
+        # State must be reset, not left half-connected
+        assert scanner.is_connected() is False
+        assert scanner.device is None
+
+    print("✓ USBHIDScanner.connect raises PermissionError and resets state on access-denied IOError")
 
 
 def test_scanner_config_integration():

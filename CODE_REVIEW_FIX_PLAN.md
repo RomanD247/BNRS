@@ -43,7 +43,7 @@ There are **79 verified finding entries across 7 review areas**, resolving to **
 
 ---
 
-## Step 1 — Make the test suite safe (do this before running any test)
+## Step 1 — Make the test suite safe (do this before running any test) ✅ COMPLETED (2026-07-08)
 
 Two systemic root causes: tests import the production `database.SessionLocal` (bound to `sqlite:///rental.db`) and write to it (C3), and tests call `scanner_config.set_scanner_mode`/`update_usb_config` which rewrite the real `scanner_config.json` (C4). The correct isolation pattern already exists in `test_property_gui_config_persistence.py`. Fix these two first; the test Minors depend on them.
 
@@ -95,7 +95,7 @@ def isolated_scanner_config():
 
 ---
 
-- [ ] **C4 — Multiple tests rewrite the live `scanner_config.json`**
+- [x] **C4 — Multiple tests rewrite the live `scanner_config.json`**
   Files: `scanner_config.py:23,130,185`; `test_integration_nfc_workflow.py:83,95`; `test_rental_workflow_integration.py:355,367`; `test_nfc_scan_routing.py:38,71`; `test_property_mode_routing.py:235`; `test_property_runtime_mode_switching.py:137`; `test_property_async_interface.py:86`; reference pattern in `test_property_gui_config_persistence.py:22,26,38`.
   Now: tests call `set_scanner_mode`/`update_usb_config` (and one writes `Path("scanner_config.json")` directly) against the real file; a keyboard-mode install gets silently flipped and hypothesis tests hammer the live file up to 100×.
   Fix:
@@ -106,7 +106,7 @@ def isolated_scanner_config():
   5. For each file's `if __name__ == "__main__"` runner (fixtures don't apply there): either delete the runner (standardize on pytest) or wrap its body in `setup_test_config`/`teardown_test_config` copied from the reference file.
   Verify: rename the real `scanner_config.json`, run the listed test files under pytest, confirm the real file is untouched and `git status` shows no `M scanner_config.json`. Assert inside a test that `scanner_config.CONFIG_FILE` points into a temp dir during the run.
 
-- [ ] **C3 — Test suite mutates the live committed `rental.db`**
+- [x] **C3 — Test suite mutates the live committed `rental.db`**
   Files: `test_rental_workflow_integration.py:30,49,243,273,304,310`; `database.py:6,12`; `crud.py:209,237`.
   Now: tests open `SessionLocal()` bound to `rental.db`; two methods create a real rental (left in history forever) and return a *real* open rental with no restoration.
   Fix:
@@ -118,67 +118,89 @@ def isolated_scanner_config():
   Verify: `pytest test_rental_workflow_integration.py -v`, then `git status` must NOT list `rental.db`. Temporarily rename `rental.db` and confirm the suite still passes (proves it uses `tmp_path`).
   Depends on: C4 (share the same `conftest.py`).
 
-- [ ] **test-defeated-pytest-guard — `pytest = None` fallback dies at a module-level decorator**
+- [x] **test-defeated-pytest-guard — `pytest = None` fallback dies at a module-level decorator**
   Files: `test_rental_workflow_integration.py:14,349,60`.
   Now: `@pytest.mark.asyncio` at line 349 raises `AttributeError` at import if `pytest` is None, so the fallback is dead code.
   Fix: replace the `try/except ImportError: pytest = None` (14-17) with a plain `import pytest` (pytest is a real project dep). If a pytest-less import must survive, don't use a module-level marker — apply it conditionally after the class.
   Verify: in a venv without pytest, `python -c "import test_rental_workflow_integration"` fails with a clear `ImportError`, not `AttributeError`.
   Depends on: C3.
 
-- [ ] **test-background-scanner-zero-coverage**
+- [x] **test-background-scanner-zero-coverage**
   Files: `test_background_scanner.py:23,24,28,59`.
   Now: single test is `@pytest.mark.skip`, has no asserts, swallows all exceptions, opens live `SessionLocal()`.
   Fix: it exercises UI-only `get_user_input_with_selection` — rename the file to a non-`test_` name (e.g. `manual_check_background_scanner.py`) and move the `__main__` instructions to docs, OR convert to a real unit test that mocks `get_nfc_input`/the dialog, removes the `except Exception` swallow, uses the `db_session` fixture, and adds asserts.
   Verify: `pytest test_background_scanner.py -v` shows either not-collected or a genuinely asserting test — not `1 skipped`.
   Depends on: C3.
 
-- [ ] **test-integration-main-always-passes**
+- [x] **test-integration-main-always-passes**
   Files: `test_integration_nfc_workflow.py:129,135,140,49`.
   Now: `main()` discards the four functions' bool returns and unconditionally prints "passed".
   Fix: `results = [test_imports(), test_function_compatibility(), test_rental_workflow_integration(), test_mode_routing_logic()]`; gate the success message on `all(results)`, else print which failed and `return False`. Better: convert to real pytest functions and make ImportError branches `pytest.fail(...)`.
   Verify: rename `NfcScan.py`, run the script — it must fail/exit non-zero.
   Depends on: C4.
 
-- [ ] **test-silent-pass-on-importerror**
+- [x] **test-silent-pass-on-importerror**
   Files: `test_property_mode_routing.py:152,211`; `test_property_runtime_mode_switching.py:172,242`; `test_property_async_interface.py:114,146`.
   Now: `try/except ImportError: pass` around the body makes an import failure of `NfcScan` report green.
   Fix: remove the guards; move `from NfcScan import get_nfc_input` to module top. If an optional-dep skip is truly wanted, use `pytest.importorskip("NfcScan")` — never silent `pass`.
   Verify: rename `NfcScan.py`, run — results show errors/skips, never "passed".
   Depends on: C4.
 
-- [ ] **test-wrong-shape-mocks — USB mocks return a bare string instead of `(data, status)`**
+- [x] **test-wrong-shape-mocks — USB mocks return a bare string instead of `(data, status)`**
   Files: `test_property_mode_routing.py:41,292`; `test_property_runtime_mode_switching.py:90,334,209`.
   Now: usb-path mocks set `return_value = "..."` and assert equality; passes only because `get_nfc_input` passes the USB return through untouched.
   Fix: make usb mocks return the tuple `("...", "success")` and unpack in the assertion (`data, status = ...; assert data == ...`). Delete the dead line at `:209`. Leave keyboard-mode mocks as bare strings (they test the string→tuple wrapping).
   Verify: temporarily double-wrap the tuple in `get_nfc_input`'s usb branch and confirm these tests now fail.
   Depends on: C4.
 
-- [ ] **test-tautology-status-values**
+- [x] **test-tautology-status-values**
   Files: `test_scanner_status_messages.py:135,137,140`.
   Now: builds `valid_statuses` then asserts those same literals are in it — cannot fail.
   Fix: delete it, or define a canonical status set in production (`NfcScan`/`scanner_config`), import it, and assert returned statuses are members of it.
   Verify: change a source-of-truth status and confirm the test fails.
 
-- [ ] **test-interface-shape-only — introspection-only tests, duplicated**
+- [x] **test-interface-shape-only — introspection-only tests, duplicated**
   Files: `test_scanner_error_dialogs.py:17,69,123`; `test_property_async_interface.py:31`; `test_nfc_scan_routing.py:106`; `test_integration_nfc_workflow.py:24`.
   Now: many tests only check `hasattr`/`iscoroutinefunction`/signature/docstring substrings.
   Fix: keep ONE async-signature smoke test (in `test_property_async_interface.py`); delete the duplicates in `test_nfc_scan_routing.py` (96-121) and `test_integration_nfc_workflow.py` (16-49). Replace the docstring-substring assertion at `test_scanner_error_dialogs.py:123` with a behavioral test (patch `hid` to raise permission error; assert `connect` behavior) or delete it. Add at least one dialog-behavior assertion.
   Verify: grep shows `iscoroutinefunction`/`inspect.signature` in exactly one place; error-dialog file has ≥1 behavioral assertion.
 
-- [ ] **test-device-enumeration-flakiness**
+- [x] **test-device-enumeration-flakiness**
   Files: `test_property_device_enumeration.py:65,67,123,129`.
   Now: `iteration` param unused (100 identical no-ops); two independent live `hid.enumerate()` snapshots compared → racy/hardware-dependent.
   Fix: drop the property or use `iteration` meaningfully; **mock `usb_hid_scanner.hid.enumerate`** with a fixed device list and assert `list_devices()` reflects it; derive both sides from ONE enumeration; add `pytest.importorskip("hid")`/`skipif` and convert empty-list early-returns to `pytest.skip`.
   Verify: with `hid` mocked, run repeatedly — zero flakiness; the consistency test no longer runs 100 no-op iterations.
 
-- [ ] **test-heavy-duplication**
+- [x] **test-heavy-duplication**
   Files: `test_nfc_scan_routing.py:38`; `test_integration_nfc_workflow.py:78`; `test_property_mode_routing.py:18`; `test_property_runtime_mode_switching.py:19`; `test_property_async_interface.py:151`; `test_property_gui_config_persistence.py:96`.
   Now: mode set/get/persistence and the async-signature check are re-implemented in 6+ files, each writing the live config.
   Fix: with `conftest.py` in place, consolidate mode set/get/persistence into ONE parametrized test (`@pytest.mark.parametrize` over `['usb_vendor','keyboard']`) plus the hypothesis versions kept in `test_property_mode_routing.py`; delete redundant copies; consolidate the async-signature check into one location. All remaining tests run under the autouse isolation fixture.
   Verify: grep for `set_scanner_mode(` / `iscoroutinefunction` collapses to the consolidated spots; full `pytest` passes with `git status` clean.
   Depends on: C4.
+  **Resolution:** the `iscoroutinefunction`/interface-shape half was fully consolidated by the `test-interface-shape-only` fix above (verified by grep — `get_nfc_input`'s signature check now lives only in `test_property_async_interface.py`; the remaining two occurrences check different functions, `nfc_equipment_rental_workflow` and `get_usb_hid_input`). For the "mode set/get/persistence re-implemented in 6+ files" half: read the actual body of every `*persistence*`/`*mode*` test across `test_nfc_scan_routing.py`, `test_property_mode_routing.py`, `test_property_runtime_mode_switching.py`, and `test_property_gui_config_persistence.py` before consolidating, and found they are **not** literal duplicates — each exercises a distinct angle (basic mode detection vs. routing-dispatch-to-the-right-backend vs. disk-reload-after-switch vs. GUI-write-path JSON structure vs. call-to-call routing freshness vs. property-fuzzed round trips). Deleting any of them on "looks similar" grounds risked silently dropping real coverage for a cosmetic win, so no tests were deleted here — this is a considered judgment call, not an oversight. All of them now run under the autouse `isolated_scanner_config` fixture regardless, so the original safety concern (live file writes) is fully closed either way.
 
 **Commit Step 1** (e.g. "Isolate test suite: temp DB + config redirect fixtures").
+
+### Review — how Step 1 was done
+
+**conftest.py (new, repo root)** — the shared fixture file with `db_session` (throwaway per-test SQLite DB in `tmp_path`, seeded with a Department/Etype, a `TestUser`/`TestEquip` pair, and a second `TestEquipRented` unit with an already-open rental so return-flow tests don't have to skip) and the autouse `isolated_scanner_config` (redirects `scanner_config.CONFIG_FILE` to a fresh temp path per test, restores it after).
+
+**C3 (critical, done directly, not delegated)** — `test_rental_workflow_integration.py` rewritten: all 6 test methods now take `db_session` instead of opening the live `SessionLocal()`; the dead `run_all_tests()`/`__main__` script runner (which could never work with a fixture-based session) was deleted, standardizing on pytest. Verified: 7/7 tests pass in isolation; SHA-256 of the live `rental.db` and `scanner_config.json` confirmed byte-identical to the pre-Step-1 backup both immediately after and again after the full 54-test suite run.
+
+**C4 + 8 test-quality Minors (delegated to 9 parallel agents, one per file, then independently verified)** — each agent fixed only its assigned file/findings and self-verified with a scoped `pytest <file> -v` run:
+- `test_property_mode_routing.py` — hardcoded `Path("scanner_config.json")` → `Path(scanner_config.CONFIG_FILE)`; removed silent `except ImportError: pass` guards; fixed two USB-mode mocks to return `(data, status)` tuples.
+- `test_integration_nfc_workflow.py` — deleted the duplicate interface-shape test; removed the wrong-assumption `set_scanner_mode("usb_vendor")` restore; `main()` now gates its success message on `all(results)` instead of always printing "passed".
+- `test_nfc_scan_routing.py` — added `try/finally` mode restoration to two tests; deleted the duplicate interface-shape test (and its now-dangling call in `main()`).
+- `test_property_runtime_mode_switching.py` — confirmed no hardcoded config path existed (already compliant); removed 4 silent-ImportError guards (2 more than the plan's literal line list — the agent found the same anti-pattern twice more in the same file and fixed all 4 for consistency); fixed 3 wrong-shape mocks, including deleting one now-dead overwritten line.
+- `test_property_async_interface.py` — confirmed C4-compliant already; removed all 4 silent-ImportError guards in the file (again, 2 more than the literal cited lines, fixed for the same-file consistency reason); kept this file's `iscoroutinefunction(get_nfc_input)` check as the canonical copy per the plan.
+- `test_scanner_status_messages.py` — deleted the tautological `test_status_values` test after confirming no production-code canonical status constant exists to assert against instead (a hand-copied list would just reproduce the same problem one level removed).
+- `test_scanner_error_dialogs.py` — replaced the docstring-substring assertion with a real behavioral test: mocks `hid.device.open()` to raise `IOError`, calls the real `USBHIDScanner.connect()`, asserts it raises `PermissionError` and resets state correctly.
+- `test_property_device_enumeration.py` — dropped the unused-parameter hypothesis wrapper; mocked `usb_hid_scanner.hid.enumerate` with one fixed device list shared by all comparisons (previously two independent live hardware calls were compared against each other); added `pytest.importorskip("hid")`; converted silent early-returns to `pytest.skip(...)`. Confirmed deterministic across repeated runs.
+- `test_background_scanner.py` → renamed to `manual_check_background_scanner.py` (via `git mv`, confirmed as a tracked rename): the single test drove a live NiceGUI dialog with no headless-testable behavior, so per the finding's own guidance it's now clearly documented as a manual/interactive check rather than a fake automated test; `@pytest.mark.skip`, the `except Exception: pass` swallow, and the live `SessionLocal()`-as-a-"test" framing were all removed.
+
+**Independent verification (by me, not the agents' self-reports):** re-read every agent's diff; ran all touched files together (50 passed) and then the **entire suite** (`pytest` with no path argument — the first time this was safe to do per the plan's ground rules) — **54 passed, 0 failed**. Confirmed via SHA-256 that `rental.db` and `scanner_config.json` are still byte-identical to the Step 0 backup after the full run; `git status` shows no new modification to either beyond the pre-existing drift noted in Step 0.
+
+**Not fixed / explicitly out of scope:** the pre-existing `PytestReturnNotNoneWarning`s (many tests `return True`/`False` instead of using bare `assert`) surfaced across the suite — these predate this session, aren't part of any Step 1 finding, and were left untouched by every agent to avoid scope creep.
 
 ---
 

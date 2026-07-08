@@ -13,40 +13,6 @@ import inspect
 from scanner_config import get_scanner_mode, set_scanner_mode
 
 
-def test_function_compatibility():
-    """Test that get_nfc_input maintains compatibility with existing code"""
-    print("\n=== Testing Function Compatibility ===")
-    
-    try:
-        from NfcScan import get_nfc_input
-        
-        # Check function is async
-        assert inspect.iscoroutinefunction(get_nfc_input), "Function must be async"
-        print("✓ Function is async")
-        
-        # Check function signature
-        sig = inspect.signature(get_nfc_input)
-        params = list(sig.parameters.keys())
-        
-        assert len(params) == 1, f"Expected 1 parameter, got {len(params)}"
-        assert params[0] == "prompt_message", f"Expected 'prompt_message', got '{params[0]}'"
-        print("✓ Function signature is correct")
-        
-        # Check return annotation (should return str)
-        return_annotation = sig.return_annotation
-        if return_annotation != inspect.Signature.empty:
-            assert return_annotation == str, f"Expected return type str, got {return_annotation}"
-            print("✓ Return type annotation is correct")
-        else:
-            print("  (No return type annotation, but that's okay)")
-        
-        return True
-        
-    except ImportError as e:
-        print(f"⚠ Could not import NfcScan: {e}")
-        return False
-
-
 def test_rental_workflow_integration():
     """Test that get_nfc_input can be used in rental workflow context"""
     print("\n=== Testing Rental Workflow Integration ===")
@@ -88,10 +54,7 @@ def test_mode_routing_logic():
     mode = get_scanner_mode()
     assert mode == "keyboard", f"Expected keyboard, got {mode}"
     print("✓ Keyboard mode set correctly")
-    
-    # Restore to USB vendor mode
-    set_scanner_mode("usb_vendor")
-    
+
     return True
 
 
@@ -124,19 +87,27 @@ def main():
     
     try:
         # Run tests
-        test_imports()
-        test_function_compatibility()
-        test_rental_workflow_integration()
-        test_mode_routing_logic()
-        
-        print("\n" + "=" * 60)
-        print("✓ All integration tests passed!")
-        print("=" * 60)
-        print("\nThe implementation is compatible with existing rental workflows.")
-        print("The get_nfc_input() function can be used as a drop-in replacement.")
-        
-        return True
-        
+        tests = {
+            "test_imports": test_imports,
+            "test_rental_workflow_integration": test_rental_workflow_integration,
+            "test_mode_routing_logic": test_mode_routing_logic,
+        }
+        results = [func() for func in tests.values()]
+
+        if all(results):
+            print("\n" + "=" * 60)
+            print("✓ All integration tests passed!")
+            print("=" * 60)
+            print("\nThe implementation is compatible with existing rental workflows.")
+            print("The get_nfc_input() function can be used as a drop-in replacement.")
+            return True
+        else:
+            failed = [name for name, result in zip(tests.keys(), results) if not result]
+            print("\n" + "=" * 60)
+            print(f"✗ Integration tests failed: {', '.join(failed)}")
+            print("=" * 60)
+            return False
+
     except AssertionError as e:
         print(f"\n✗ Test failed: {e}")
         return False

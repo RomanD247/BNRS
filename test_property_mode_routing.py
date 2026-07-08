@@ -12,7 +12,9 @@ import asyncio
 import inspect
 from unittest.mock import patch, MagicMock, AsyncMock
 from hypothesis import given, strategies as st, settings
+import scanner_config
 from scanner_config import get_scanner_mode, set_scanner_mode, load_config
+from NfcScan import get_nfc_input
 
 
 def test_mode_routing_basic():
@@ -38,15 +40,16 @@ def test_mode_routing_basic():
             
             # Mock the USB HID implementation
             with patch('NfcScan.get_usb_hid_input', new_callable=AsyncMock) as mock_usb:
-                mock_usb.return_value = "test_usb_result"
-                
+                mock_usb.return_value = ("test_usb_result", "success")
+
                 # Call get_nfc_input
-                result = asyncio.run(get_nfc_input("test prompt"))
-                
+                data, status = asyncio.run(get_nfc_input("test prompt"))
+
                 # Verify USB HID implementation was called
                 mock_usb.assert_called_once_with("test prompt")
-                assert result == "test_usb_result", \
-                    f"Expected 'test_usb_result', got '{result}'"
+                assert data == "test_usb_result", \
+                    f"Expected 'test_usb_result', got '{data}'"
+                assert status == "success", f"Expected status 'success', got '{status}'"
                 print("✓ USB vendor mode routes to get_usb_hid_input")
             
             # Test keyboard mode routing
@@ -58,12 +61,13 @@ def test_mode_routing_basic():
                 mock_keyboard.return_value = "test_keyboard_result"
                 
                 # Call get_nfc_input
-                result = asyncio.run(get_nfc_input("test prompt"))
+                data, status = asyncio.run(get_nfc_input("test prompt"))
                 
                 # Verify keyboard implementation was called
                 mock_keyboard.assert_called_once_with("test prompt")
-                assert result == "test_keyboard_result", \
-                    f"Expected 'test_keyboard_result', got '{result}'"
+                assert data == "test_keyboard_result", \
+                    f"Expected 'test_keyboard_result', got '{data}'"
+                assert status == "success", f"Expected status 'success', got '{status}'"
                 print("✓ Keyboard mode routes to get_nfc_input_keyboard")
             
             return True
@@ -95,60 +99,55 @@ def test_mode_routing_correctness(mode: str):
     This property verifies that the routing logic correctly interprets the
     configuration and dispatches to the appropriate implementation.
     """
+    # Save original mode
+    original_mode = get_scanner_mode()
+
     try:
-        from NfcScan import get_nfc_input
-        
-        # Save original mode
-        original_mode = get_scanner_mode()
-        
-        try:
-            # Set the test mode
-            set_scanner_mode(mode)
-            
-            # Verify mode was set correctly
-            current_mode = get_scanner_mode()
-            assert current_mode == mode, \
-                f"Mode not set correctly: expected {mode}, got {current_mode}"
-            
-            # Determine which implementation should be called
-            if mode == "usb_vendor":
-                target_function = 'NfcScan.get_usb_hid_input'
-                other_function = 'NfcScan.get_nfc_input_keyboard'
-                expected_result = f"usb_result_{mode}"
-            else:  # keyboard
-                target_function = 'NfcScan.get_nfc_input_keyboard'
-                other_function = 'NfcScan.get_usb_hid_input'
-                expected_result = f"keyboard_result_{mode}"
-            
-            # Mock both implementations
-            with patch(target_function, new_callable=AsyncMock) as mock_target, \
-                 patch(other_function, new_callable=AsyncMock) as mock_other:
-                
-                mock_target.return_value = expected_result
-                mock_other.return_value = "wrong_result"
-                
-                # Call get_nfc_input
-                test_prompt = f"test prompt for {mode}"
-                result = asyncio.run(get_nfc_input(test_prompt))
-                
-                # Verify correct implementation was called
-                mock_target.assert_called_once_with(test_prompt)
-                
-                # Verify other implementation was NOT called
-                mock_other.assert_not_called()
-                
-                # Verify result came from correct implementation
-                assert result == expected_result, \
-                    f"Expected result from {mode} mode: {expected_result}, got {result}"
-            
-        finally:
-            # Restore original mode
-            set_scanner_mode(original_mode)
-            
-    except ImportError:
-        # If we can't import NfcScan, skip this test
-        # This is acceptable since it may require UI environment
-        pass
+        # Set the test mode
+        set_scanner_mode(mode)
+
+        # Verify mode was set correctly
+        current_mode = get_scanner_mode()
+        assert current_mode == mode, \
+            f"Mode not set correctly: expected {mode}, got {current_mode}"
+
+        # Determine which implementation should be called
+        if mode == "usb_vendor":
+            target_function = 'NfcScan.get_usb_hid_input'
+            other_function = 'NfcScan.get_nfc_input_keyboard'
+            expected_result = f"usb_result_{mode}"
+            mock_return_value = (expected_result, "success")  # USB returns tuple
+        else:  # keyboard
+            target_function = 'NfcScan.get_nfc_input_keyboard'
+            other_function = 'NfcScan.get_usb_hid_input'
+            expected_result = f"keyboard_result_{mode}"
+            mock_return_value = expected_result  # Keyboard returns string
+
+        # Mock both implementations
+        with patch(target_function, new_callable=AsyncMock) as mock_target, \
+             patch(other_function, new_callable=AsyncMock) as mock_other:
+
+            mock_target.return_value = mock_return_value
+            mock_other.return_value = "wrong_result"
+
+            # Call get_nfc_input
+            test_prompt = f"test prompt for {mode}"
+            data, status = asyncio.run(get_nfc_input(test_prompt))
+
+            # Verify correct implementation was called
+            mock_target.assert_called_once_with(test_prompt)
+
+            # Verify other implementation was NOT called
+            mock_other.assert_not_called()
+
+            # Verify result came from correct implementation
+            assert data == expected_result, \
+                f"Expected result from {mode} mode: {expected_result}, got {data}"
+            assert status == "success", f"Expected status 'success', got '{status}'"
+
+    finally:
+        # Restore original mode
+        set_scanner_mode(original_mode)
 
 
 @given(
@@ -167,43 +166,39 @@ def test_mode_routing_with_various_prompts(mode: str, prompt: str):
     
     This verifies that routing works correctly regardless of the prompt content.
     """
+    # Save original mode
+    original_mode = get_scanner_mode()
+
     try:
-        from NfcScan import get_nfc_input
-        
-        # Save original mode
-        original_mode = get_scanner_mode()
-        
-        try:
-            # Set the test mode
-            set_scanner_mode(mode)
-            
-            # Determine which implementation should be called
-            if mode == "usb_vendor":
-                target_function = 'NfcScan.get_usb_hid_input'
-            else:  # keyboard
-                target_function = 'NfcScan.get_nfc_input_keyboard'
-            
-            # Mock the target implementation
-            with patch(target_function, new_callable=AsyncMock) as mock_target:
-                mock_target.return_value = "test_result"
-                
-                # Call get_nfc_input with the generated prompt
-                result = asyncio.run(get_nfc_input(prompt))
-                
-                # Verify correct implementation was called with exact prompt
-                mock_target.assert_called_once_with(prompt)
-                
-                # Verify result was returned
-                assert result == "test_result", \
-                    f"Expected 'test_result', got '{result}'"
-            
-        finally:
-            # Restore original mode
-            set_scanner_mode(original_mode)
-            
-    except ImportError:
-        # If we can't import NfcScan, skip this test
-        pass
+        # Set the test mode
+        set_scanner_mode(mode)
+
+        # Determine which implementation should be called
+        if mode == "usb_vendor":
+            target_function = 'NfcScan.get_usb_hid_input'
+            mock_return_value = ("test_result", "success")  # USB returns tuple
+        else:  # keyboard
+            target_function = 'NfcScan.get_nfc_input_keyboard'
+            mock_return_value = "test_result"  # Keyboard returns string
+
+        # Mock the target implementation
+        with patch(target_function, new_callable=AsyncMock) as mock_target:
+            mock_target.return_value = mock_return_value
+
+            # Call get_nfc_input with the generated prompt
+            data, status = asyncio.run(get_nfc_input(prompt))
+
+            # Verify correct implementation was called with exact prompt
+            mock_target.assert_called_once_with(prompt)
+
+            # Verify result was returned
+            assert data == "test_result", \
+                f"Expected 'test_result', got '{data}'"
+            assert status == "success", f"Expected status 'success', got '{status}'"
+
+    finally:
+        # Restore original mode
+        set_scanner_mode(original_mode)
 
 
 def test_mode_routing_fallback():
@@ -225,7 +220,7 @@ def test_mode_routing_fallback():
         
         try:
             # Manually set an invalid mode in the config file
-            config_path = Path("scanner_config.json")
+            config_path = Path(scanner_config.CONFIG_FILE)
             config = load_config()
             config["scanner_mode"] = "invalid_mode"
             
@@ -239,12 +234,13 @@ def test_mode_routing_fallback():
                 mock_keyboard.return_value = "fallback_result"
                 
                 # Call get_nfc_input
-                result = asyncio.run(get_nfc_input("test prompt"))
+                data, status = asyncio.run(get_nfc_input("test prompt"))
                 
                 # Verify keyboard implementation was called (fallback)
                 mock_keyboard.assert_called_once_with("test prompt")
-                assert result == "fallback_result", \
-                    f"Expected 'fallback_result', got '{result}'"
+                assert data == "fallback_result", \
+                    f"Expected 'fallback_result', got '{data}'"
+                assert status == "success", f"Expected status 'success', got '{status}'"
                 print("✓ Invalid mode correctly falls back to keyboard mode")
             
             return True
@@ -281,10 +277,11 @@ def test_mode_routing_persistence():
             # Make multiple calls
             for i in range(3):
                 with patch('NfcScan.get_usb_hid_input', new_callable=AsyncMock) as mock_usb:
-                    mock_usb.return_value = f"result_{i}"
-                    result = asyncio.run(get_nfc_input(f"prompt_{i}"))
+                    mock_usb.return_value = (f"result_{i}", "success")
+                    data, status = asyncio.run(get_nfc_input(f"prompt_{i}"))
                     mock_usb.assert_called_once_with(f"prompt_{i}")
-                    assert result == f"result_{i}"
+                    assert data == f"result_{i}"
+                    assert status == "success"
             
             print("✓ USB vendor mode routing persists across multiple calls")
             
@@ -295,9 +292,10 @@ def test_mode_routing_persistence():
             for i in range(3):
                 with patch('NfcScan.get_nfc_input_keyboard', new_callable=AsyncMock) as mock_keyboard:
                     mock_keyboard.return_value = f"result_{i}"
-                    result = asyncio.run(get_nfc_input(f"prompt_{i}"))
+                    data, status = asyncio.run(get_nfc_input(f"prompt_{i}"))
                     mock_keyboard.assert_called_once_with(f"prompt_{i}")
-                    assert result == f"result_{i}"
+                    assert data == f"result_{i}"
+                    assert status == "success"
             
             print("✓ Keyboard mode routing persists across multiple calls")
             

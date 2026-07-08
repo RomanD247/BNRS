@@ -1,17 +1,27 @@
 """
-Test script to verify background scanner functionality in user selection dialog.
+MANUAL / INTERACTIVE CHECK -- NOT an automated test.
 
-This test verifies that:
+Exercises the background-scanner behavior of the user selection dialog
+(`NfcScan.get_user_input_with_selection`). That dialog opens a real NiceGUI
+UI element and waits on either live scanner hardware or a human picking an
+option from a dropdown, so it cannot be driven or asserted on headlessly by
+pytest. This file is intentionally NOT named `test_*` so pytest does not
+collect it.
+
+Run it by hand from within the running application (see the instructions
+printed below) - it is not meant to be run standalone with `python
+manual_check_background_scanner.py`, which only prints those instructions.
+
+This checks that:
 1. The user selection dialog opens correctly
 2. USB HID scanner works in the background while dialog is open
 3. Keyboard mode still works with focus maintenance
 4. Manual selection still works
 """
 
-import asyncio
 import logging
 from NfcScan import get_user_input_with_selection
-from scanner_config import get_scanner_mode, set_scanner_mode
+from scanner_config import get_scanner_mode
 from database import SessionLocal
 import crud
 
@@ -19,49 +29,55 @@ import crud
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-async def test_user_selection_dialog():
-    """Test the user selection dialog with background scanner"""
-    
+
+async def check_user_selection_dialog():
+    """Manually exercise the user selection dialog with background scanner.
+
+    NOTE: this talks to the live rental.db (via database.SessionLocal) and
+    requires a running NiceGUI UI context to open the dialog - it must be
+    driven by a human inside the real application, not by pytest.
+    """
     db = SessionLocal()
-    
+
     try:
         # Get current scanner mode
         current_mode = get_scanner_mode()
         logger.info(f"Current scanner mode: {current_mode}")
-        
+
         # Get a sample equipment for testing
         equipment_list = crud.get_available_equipment(db)
         if not equipment_list:
             logger.error("No equipment available for testing")
             return
-        
+
         test_equipment = equipment_list[0]
         logger.info(f"Testing with equipment: {test_equipment.name}")
-        
-        # Test the dialog
+
+        # Open the dialog
         logger.info("Opening user selection dialog...")
         logger.info("Dialog should now be waiting for scanner input in the background")
         logger.info("You can either:")
         logger.info("  1. Scan a user code (scanner should work in background)")
         logger.info("  2. Select a user manually from the dropdown")
         logger.info("  3. Click Cancel to close")
-        
+
         selected_user = await get_user_input_with_selection(test_equipment)
-        
+
         if selected_user:
-            logger.info(f"✓ User selected: {selected_user.name} ({selected_user.department.name})")
+            logger.info(f"User selected: {selected_user.name} ({selected_user.department.name})")
         else:
-            logger.info("✗ User selection cancelled")
-            
-    except Exception as e:
-        logger.error(f"Error during test: {e}", exc_info=True)
+            logger.info("User selection cancelled")
     finally:
         db.close()
 
+
 if __name__ == "__main__":
-    # This test needs to be run within the NiceGUI application context
-    print("This test should be run from within the main application")
-    print("To test manually:")
+    # This check needs to run within the NiceGUI application context, so it
+    # cannot be driven from a plain `python` invocation - print instructions
+    # for the human running it manually instead.
+    print("This is a manual check, not an automated test.")
+    print("It must be run from within the main application, not standalone.")
+    print("To check manually:")
     print("1. Start the application")
     print("2. Click 'Scan to Rent'")
     print("3. Scan a device code")

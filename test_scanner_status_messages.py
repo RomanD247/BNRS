@@ -16,33 +16,63 @@ from NfcScan import get_nfc_input, get_usb_hid_input
 async def test_usb_hid_input_returns_status_tuple():
     """Test that get_usb_hid_input returns a tuple with status"""
     with patch('NfcScan.ui.dialog') as mock_dialog, \
-         patch('NfcScan.USBHIDScanner') as mock_scanner_class:
+         patch('NfcScan.USBHIDScanner') as mock_scanner_class, \
+         patch('NfcScan.ui.card') as mock_card, \
+         patch('NfcScan.ui.row') as mock_row, \
+         patch('NfcScan.ui.label') as mock_label, \
+         patch('NfcScan.ui.separator') as mock_separator, \
+         patch('NfcScan.ui.button') as mock_button, \
+         patch('NfcScan.ScannerErrorDialogs') as mock_error_dialogs:
         
         # Mock scanner instance
         mock_scanner = Mock()
         mock_scanner.connect.return_value = False  # Connection fails
+        mock_scanner.disconnect.return_value = None
         mock_scanner_class.return_value = mock_scanner
         
-        # Mock dialog and closed future
+        # Mock dialog instance with context manager support
         mock_dialog_instance = Mock()
+        mock_dialog_instance.__enter__ = Mock(return_value=mock_dialog_instance)
+        mock_dialog_instance.__exit__ = Mock(return_value=False)
+        mock_dialog_instance.open = Mock()
+        mock_dialog_instance.close = Mock()
         mock_dialog.return_value = mock_dialog_instance
         
-        # Mock the closed future to return immediately
-        import asyncio
-        closed_future = asyncio.Future()
-        closed_future.set_result(None)
+        # Mock card with context manager support
+        mock_card_instance = Mock()
+        mock_card_instance.__enter__ = Mock(return_value=mock_card_instance)
+        mock_card_instance.__exit__ = Mock(return_value=False)
+        mock_card_instance.style = Mock(return_value=mock_card_instance)
+        mock_card.return_value = mock_card_instance
         
-        with patch('NfcScan.asyncio.Future', return_value=closed_future):
-            # This should return a tuple
-            result = await get_usb_hid_input("Test prompt")
-            
-            # Verify it's a tuple with 2 elements
-            assert isinstance(result, tuple), "get_usb_hid_input should return a tuple"
-            assert len(result) == 2, "Tuple should have 2 elements (data, status)"
-            
-            data, status = result
-            assert isinstance(data, str), "First element should be string (data)"
-            assert isinstance(status, str), "Second element should be string (status)"
+        # Mock row with context manager support
+        mock_row_instance = Mock()
+        mock_row_instance.__enter__ = Mock(return_value=mock_row_instance)
+        mock_row_instance.__exit__ = Mock(return_value=False)
+        mock_row_instance.classes = Mock(return_value=mock_row_instance)
+        mock_row.return_value = mock_row_instance
+        
+        # Mock separator with context manager support
+        mock_separator_instance = Mock()
+        mock_separator_instance.__enter__ = Mock(return_value=mock_separator_instance)
+        mock_separator_instance.__exit__ = Mock(return_value=False)
+        mock_separator.return_value = mock_separator_instance
+        
+        # Mock error dialog to return cancelled
+        async def mock_connection_error(*args, **kwargs):
+            return "cancel"
+        mock_error_dialogs.show_connection_error = mock_connection_error
+        
+        # This should return a tuple
+        result = await get_usb_hid_input("Test prompt")
+        
+        # Verify it's a tuple with 2 elements
+        assert isinstance(result, tuple), "get_usb_hid_input should return a tuple"
+        assert len(result) == 2, "Tuple should have 2 elements (data, status)"
+        
+        data, status = result
+        assert isinstance(data, str), "First element should be string (data)"
+        assert isinstance(status, str), "Second element should be string (status)"
 
 
 @pytest.mark.asyncio
@@ -100,17 +130,6 @@ async def test_get_nfc_input_keyboard_mode_cancelled():
         data, status = result
         assert data == ""
         assert status == "cancelled"
-
-
-def test_status_values():
-    """Test that status values are well-defined"""
-    valid_statuses = ["success", "cancelled", "not_connected", "error"]
-    
-    # This is a documentation test to ensure we know what statuses exist
-    assert "success" in valid_statuses
-    assert "cancelled" in valid_statuses
-    assert "not_connected" in valid_statuses
-    assert "error" in valid_statuses
 
 
 if __name__ == "__main__":
