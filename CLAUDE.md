@@ -14,7 +14,8 @@ The active virtual environment is `bnrs/` (`bnrs_old/` is a stale copy — ignor
 bnrs\Scripts\activate          # activate venv first
 python main.py                 # run the app (opens native window on port 15716)
 python web_viewer/viewer_app.py  # run the read-only network viewer alone (port 8585)
-pip install -r requirements.txt
+pip install -r requirements.txt        # runtime deps only
+pip install -r requirements-dev.txt    # + pytest/hypothesis/pyinstaller, needed before testing or building
 ```
 
 **Tests** live at the repo root as `test_*.py`. They run two ways — most have `if __name__ == "__main__"` blocks and print their own pass/fail, and several also work under pytest (the `test_property_*.py` files use `hypothesis` for property-based testing):
