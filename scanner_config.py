@@ -10,6 +10,7 @@ Requirements: 2.1, 2.2, 2.3, 2.4, 2.5
 import json
 import logging
 import copy
+import os
 import shutil
 import sys
 from typing import Dict, Optional
@@ -160,14 +161,15 @@ def load_config() -> Dict:
         
         # Merge with defaults to ensure all keys exist (use deep copy to avoid mutating DEFAULT_CONFIG)
         merged_config = copy.deepcopy(DEFAULT_CONFIG)
-        merged_config.update(config)
-        
-        # Ensure nested dictionaries are also merged
-        if "usb_vendor" in config:
-            merged_config["usb_vendor"].update(config["usb_vendor"])
-        if "keyboard" in config:
-            merged_config["keyboard"].update(config["keyboard"])
-        
+        # Shallow-recursive merge so missing nested keys (e.g. an old config
+        # saved before "read_size" existed) get backfilled from defaults
+        # instead of the whole nested dict being replaced wholesale.
+        for key, value in config.items():
+            if key in merged_config and isinstance(merged_config[key], dict) and isinstance(value, dict):
+                merged_config[key].update(value)
+            else:
+                merged_config[key] = value
+
         # Validate VID/PID values
         vid = merged_config["usb_vendor"].get("vid", DEFAULT_CONFIG["usb_vendor"]["vid"])
         pid = merged_config["usb_vendor"].get("pid", DEFAULT_CONFIG["usb_vendor"]["pid"])
@@ -201,16 +203,26 @@ def save_config(config: Dict) -> bool:
     Requirements: 2.2
     """
     config_path = Path(CONFIG_FILE)
-    
+    # Write to a temp file and rename over the real path so a crash mid-write
+    # can never leave scanner_config.json truncated/corrupt.
+    tmp_path = config_path.with_suffix('.json.tmp')
+
     try:
-        with open(config_path, 'w', encoding='utf-8') as f:
+        with open(tmp_path, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2)
-        
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, config_path)
+
         logger.info(f"Configuration saved to {CONFIG_FILE}")
         return True
-        
+
     except Exception as e:
         logger.error(f"Failed to save configuration: {e}")
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
         return False
 
 

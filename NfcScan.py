@@ -270,6 +270,8 @@ async def get_usb_hid_input(prompt_message: str) -> tuple[str, str]:
     vid = usb_config.get("vid", 4602)
     pid = usb_config.get("pid", 33282)
     timeout = usb_config.get("timeout", 30)
+    read_size = usb_config.get("read_size", 64)
+    encoding = usb_config.get("encoding", "utf-8")
 
     logger.info(f"Starting USB HID input dialog - VID=0x{vid:04x}, PID=0x{pid:04x}, timeout={timeout}s")
 
@@ -309,7 +311,7 @@ async def get_usb_hid_input(prompt_message: str) -> tuple[str, str]:
 
             try:
                 # Create scanner instance
-                scanner = USBHIDScanner(vid, pid, timeout)
+                scanner = USBHIDScanner(vid, pid, timeout, read_size, encoding)
 
                 # Try to connect
                 await asyncio.sleep(0.1)  # Allow UI to update
@@ -401,8 +403,27 @@ async def get_usb_hid_input(prompt_message: str) -> tuple[str, str]:
                     # and don't act on data that may have arrived after cancel.
                     return
 
+                if scan_data == '__CORRUPTED__':
+                    # Sentinel is truthy, so this must be checked before the
+                    # `if scan_data:` success branch below.
+                    logger.error("Corrupted scan data received")
+
+                    # Hide the scanning dialog while the error dialog is shown
+                    dialog.close()
+
+                    # Show corrupted data error dialog
+                    choice = await ScannerErrorDialogs.show_corrupted_data_error()
+
+                    if choice == "retry":
+                        retry_count += 1
+                        continue
+                    else:
+                        status = "cancelled"
+                        _resolve()
+                        return
+
                 if scan_data:
-                    logger.info(f"Successfully scanned data: '{scan_data}'")
+                    logger.info("Successfully scanned data")
                     result = scan_data
                     status = "success"
                     status_label.text = "✓ Scan successful!"
@@ -448,24 +469,6 @@ async def get_usb_hid_input(prompt_message: str) -> tuple[str, str]:
                         status = "cancelled"
                         _resolve()
                         return
-
-            except UnicodeDecodeError as e:
-                # Corrupted data error
-                logger.error(f"Corrupted data received: {e}")
-
-                # Hide the scanning dialog while the error dialog is shown
-                dialog.close()
-
-                # Show corrupted data error dialog
-                choice = await ScannerErrorDialogs.show_corrupted_data_error()
-
-                if choice == "retry":
-                    retry_count += 1
-                    continue
-                else:
-                    status = "cancelled"
-                    _resolve()
-                    return
 
             except Exception as e:
                 logger.error(f"Error during USB HID scan: {e}")
@@ -758,12 +761,14 @@ async def get_user_input_with_selection(equipment=None):
         vid = usb_config.get("vid", 4602)
         pid = usb_config.get("pid", 33282)
         timeout = usb_config.get("timeout", 30)
-        
+        read_size = usb_config.get("read_size", 64)
+        encoding = usb_config.get("encoding", "utf-8")
+
         scanner = None
-        
+
         try:
             # Create and connect scanner
-            scanner = USBHIDScanner(vid, pid, timeout)
+            scanner = USBHIDScanner(vid, pid, timeout, read_size, encoding)
             
             if not scanner.connect():
                 logger.error("Failed to connect to USB HID scanner in background")
@@ -781,9 +786,15 @@ async def get_user_input_with_selection(equipment=None):
                     # Read scan data with short timeout for responsiveness
                     loop = asyncio.get_event_loop()
                     scan_data = await loop.run_in_executor(None, scanner.read_scan, 2)
-                    
+
+                    if scan_data == '__CORRUPTED__':
+                        # No error-dialog flow in this background loop - just
+                        # skip the sentinel and keep polling.
+                        logger.warning("Background scanner received corrupted scan data")
+                        continue
+
                     if scan_data and not scanner_cancelled:
-                        logger.info(f"Background scanner received data: '{scan_data}'")
+                        logger.info("Background scanner received data")
                         nfc_display_label.text = f"Scanned: {scan_data}"
                         
                         # Find user by scanned NFC code
@@ -799,7 +810,7 @@ async def get_user_input_with_selection(equipment=None):
                             result.set_result(user)
                             return
                         else:
-                            logger.warning(f"User not found for scanned code: {scan_data}")
+                            logger.warning("User not found for scanned code")
                             ui.notify("User not found", color="negative")
                             nfc_display_label.text = "User not found - scan again..."
                             await asyncio.sleep(1)

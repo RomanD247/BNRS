@@ -39,6 +39,11 @@ class ScanResult:
     timestamp: datetime
 
 
+class CorruptedScanError(Exception):
+    """Raised internally when a HID report can't be decoded as text."""
+    pass
+
+
 class USBHIDScanner:
     """
     USB HID Scanner class for communicating with barcode/Data Matrix scanners
@@ -51,18 +56,22 @@ class USBHIDScanner:
     - Error handling for USB operations
     """
     
-    def __init__(self, vid: int, pid: int, timeout: int = 30):
+    def __init__(self, vid: int, pid: int, timeout: int = 30, read_size: int = 64, encoding: str = 'utf-8'):
         """
         Initialize USB HID Scanner
-        
+
         Args:
             vid: Vendor ID of the scanner device
             pid: Product ID of the scanner device
             timeout: Default timeout in seconds for read operations
+            read_size: Number of bytes to request per HID read
+            encoding: Text encoding used to decode scanned reports
         """
         self.vid = vid
         self.pid = pid
         self.timeout = timeout
+        self.read_size = read_size
+        self.encoding = encoding
         self.device = None
         self._connected = False
         self._cancel_requested = False
@@ -78,6 +87,14 @@ class USBHIDScanner:
         instead of waiting out the full timeout.
         """
         self._cancel_requested = True
+
+    def _safe_close(self) -> None:
+        """Close an already-opened handle before dropping the reference, so a failure partway through connect() doesn't leak it."""
+        if self.device is not None:
+            try:
+                self.device.close()
+            except Exception:
+                pass
 
     def connect(self) -> bool:
         """
@@ -118,16 +135,19 @@ class USBHIDScanner:
             if "permission" in error_msg or "access" in error_msg or "denied" in error_msg:
                 logger.error(f"Permission denied accessing device VID=0x{self.vid:04x}, PID=0x{self.pid:04x}: {e}")
                 self._connected = False
+                self._safe_close()
                 self.device = None
                 raise PermissionError(f"USB access denied: {e}")
-            
+
             logger.error(f"Failed to connect to device VID=0x{self.vid:04x}, PID=0x{self.pid:04x}: {e}")
             self._connected = False
+            self._safe_close()
             self.device = None
             return False
         except Exception as e:
             logger.error(f"Unexpected error connecting to device: {e}")
             self._connected = False
+            self._safe_close()
             self.device = None
             return False
     
@@ -158,14 +178,17 @@ class USBHIDScanner:
             timeout: Timeout in seconds (uses default if not specified)
             
         Returns:
-            Scanned data as lowercase string, or None if timeout/error
-            
+            Scanned data as lowercase string, None if timeout/error, or the
+            sentinel '__CORRUPTED__' if the accumulated bytes couldn't be
+            decoded as text (distinct from a plain timeout - callers should
+            check for it before treating the return value as a real payload).
+
         Requirements: 1.2, 4.2, 4.4
         """
         if not self._connected or self.device is None:
             logger.error("Cannot read: device not connected")
             return None
-        
+
         if timeout is None:
             timeout = self.timeout
 
@@ -174,6 +197,14 @@ class USBHIDScanner:
         import time
         start_time = time.time()
         accumulated_data = bytearray()
+        last_data_time = None
+        # Some scanners never send an explicit \n/\r terminator - once data has
+        # started arriving, a short quiet period is treated as end-of-scan.
+        quiet_period = 0.15
+        # _check_connection() issues a real USB control transfer - checking it
+        # every loop iteration (up to ~100/s) is unnecessary I/O; throttle it.
+        last_conn_check = 0.0
+        conn_check_interval = 1.0
         self._cancel_requested = False
 
         try:
@@ -189,30 +220,42 @@ class USBHIDScanner:
                     return None
 
                 # Try to read data
-                data = self.device.read(64)  # Read up to 64 bytes
-                
+                data = self.device.read(self.read_size)
+
                 if data:
                     logger.debug(f"Read {len(data)} bytes from device")
                     accumulated_data.extend(data)
-                    
-                    # Check if we have a complete scan (typically ends with newline or null)
-                    if b'\n' in accumulated_data or b'\r' in accumulated_data or b'\x00' in accumulated_data:
+                    last_data_time = time.time()
+
+                    # Check if we have a complete scan (typically ends with newline or CR)
+                    if b'\n' in accumulated_data or b'\r' in accumulated_data:
                         logger.debug("Complete scan detected")
                         break
                 else:
                     # No data available, sleep briefly to avoid busy waiting
                     time.sleep(0.01)
-                
-                # Check if device is still connected
-                if not self._check_connection():
-                    logger.error("Device disconnected during read operation")
-                    self._connected = False
-                    return None
-            
+
+                    if (accumulated_data and last_data_time is not None
+                            and time.time() - last_data_time > quiet_period):
+                        logger.debug("Complete scan detected (quiet period)")
+                        break
+
+                # Check if device is still connected (throttled - see above)
+                now = time.time()
+                if now - last_conn_check > conn_check_interval:
+                    last_conn_check = now
+                    if not self._check_connection():
+                        logger.error("Device disconnected during read operation")
+                        self._connected = False
+                        return None
+
             # Parse and return the data
             result = self._parse_hid_report(accumulated_data)
             return result
-            
+
+        except CorruptedScanError as e:
+            logger.error(f"Corrupted scan data: {e}")
+            return '__CORRUPTED__'
         except IOError as e:
             logger.error(f"IO error during read: {e}")
             # Device may have been disconnected
@@ -248,36 +291,43 @@ class USBHIDScanner:
             
         Returns:
             Parsed string data, or None if parsing fails
-            
+
+        Raises:
+            CorruptedScanError: If the cleaned bytes can't be decoded using
+                self.encoding - distinguished from None so callers can tell
+                corrupted data apart from an empty/timeout read.
+
         Requirements: 1.3, 4.3
         """
         try:
             logger.debug(f"Parsing HID report: {len(data)} bytes")
-            
+
             # Remove null bytes, newlines, and carriage returns
             cleaned_data = data.replace(b'\x00', b'').replace(b'\n', b'').replace(b'\r', b'')
-            
-            # Try to decode as UTF-8
+
+            # Try to decode using the configured encoding
             try:
-                decoded = cleaned_data.decode('utf-8')
+                decoded = cleaned_data.decode(self.encoding)
                 logger.debug(f"Successfully decoded data: '{decoded}'")
             except UnicodeDecodeError as e:
-                logger.error(f"Failed to decode data as UTF-8: {e}")
-                return None
-            
+                logger.error(f"Failed to decode data as {self.encoding}: {e}")
+                raise CorruptedScanError(f"Failed to decode data as {self.encoding}: {e}")
+
             # Strip whitespace and control characters
             result = self._strip_control_characters(decoded)
-            
+
             # Convert to lowercase
             result = result.lower()
-            
+
             if result:
-                logger.info(f"Successfully parsed scan: '{result}'")
+                logger.info("Successfully parsed scan")
                 return result
             else:
                 logger.warning("Parsed data is empty after cleaning")
                 return None
-                
+
+        except CorruptedScanError:
+            raise
         except Exception as e:
             logger.error(f"Error parsing HID report: {e}")
             return None

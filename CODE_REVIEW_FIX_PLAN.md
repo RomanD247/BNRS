@@ -590,17 +590,17 @@ Fixed in a follow-up commit (`629a25d`): bundled `assets/` into the spec's `data
 
 ---
 
-## Step 6 — Scanner support-file fixes
+## Step 6 — Scanner support-file fixes ✅ COMPLETED (2026-07-08)
 
 M19 must precede M18 (if `read_scan` truncates, the corrupted-vs-timeout distinction is moot). All line numbers in `usb_hid_scanner.py`/`scanner_config.py`/`scanner_logging.py` as noted.
 
-- [ ] **M16 — `configure_scanner.py` imports six functions (+`update_config`) that no longer exist → ImportError**
+- [x] **M16 — `configure_scanner.py` imports six functions (+`update_config`) that no longer exist → ImportError**
   Files: `configure_scanner.py:15-22,101,120,146,48,186`; `scanner_config.py:43-260`.
   Now: import fails at line 15; the whole config schema it references (`legacy_nfc`, `timeouts.*`, `behavior.*`, `performance.*`, `platform.*`) is obsolete. No other module imports it (dead standalone script).
   Fix (recommended): **delete `configure_scanner.py`** — it's unreferenced, fully broken, and the admin scanner-config GUI already provides runtime configuration. (If it must be kept: rewrite against the current API — `load_config`/`set_scanner_mode`/`update_usb_config`/`save_config(copy.deepcopy(DEFAULT_CONFIG))`; change `--mode` choices to `['usb_vendor','keyboard']`; remove the timeout/toggle-focus/optimize/import subcommands that map to absent keys.)
   Verify: `grep -r configure_scanner *.py` returns nothing after delete.
 
-- [ ] **M19 — `read_scan` terminator check breaks on any NUL/CR/LF; hardcodes `read(64)`/utf-8; ignores config**
+- [x] **M19 — `read_scan` terminator check breaks on any NUL/CR/LF; hardcodes `read(64)`/utf-8; ignores config**
   Files: `usb_hid_scanner.py:176,183,246,54-69`; `NfcScan.py:300,725`; `scanner_config.py:33-34`.
   Now: `read(64)` and `decode('utf-8')` hardcoded (config `read_size`/`encoding` ignored); the terminator check breaks on the first NUL padding, truncating multi-report scans.
   Fix:
@@ -612,20 +612,20 @@ M19 must precede M18 (if `read_scan` truncates, the corrupted-vs-timeout distinc
   Verify: unit-test `read_scan` with a fake device returning a payload split over two 64-byte NUL-padded reports ending in `\r` — assert the full reassembled string. Set non-default `read_size`/`encoding` in config and assert they're used. A long real Data Matrix scans to "found".
   (Hardware note: exact framing is Wenglor-specific; confirm the quiet-period value against a real device.)
 
-- [ ] **M18 — `except UnicodeDecodeError` in `get_usb_hid_input` is unreachable → corrupted scans reported as "Scan Timeout"**
+- [x] **M18 — `except UnicodeDecodeError` in `get_usb_hid_input` is unreachable → corrupted scans reported as "Scan Timeout"**
   Files: `usb_hid_scanner.py:244-250,197-207`; `NfcScan.py:430-445,413-428`; `scanner_error_dialogs.py:245-303`.
   Now: `read_scan` never raises (all exceptions caught internally, returns str/None), so the `except UnicodeDecodeError` handler is dead and corrupted scans fall through to the timeout branch.
   Fix (Option A minimal): define `class CorruptedScanError(Exception): pass` at the top of `usb_hid_scanner.py`; `_parse_hid_report`'s inner `except UnicodeDecodeError` (248-250) raises it; `read_scan` catches it above the generic handler and returns a sentinel `'__CORRUPTED__'`; in `NfcScan.py` handle `if scan_data == '__CORRUPTED__':` (show `ScannerErrorDialogs.show_corrupted_data_error()`) before the truthiness test at 384 — **and guard the background call site at `:742/:744`** so the sentinel isn't treated as a valid payload. Then remove the dead `except UnicodeDecodeError` (430-445), moving its retry logic into the corrupted branch. (Option B cleaner: return a `(data, reason)` tuple and update both call sites.)
   Verify: feed `read_scan` invalid UTF-8 via unit test → corrupted sentinel/reason produced; a scanner emitting non-UTF-8 shows "Invalid Scan Data", not "Scan Timeout".
   Depends on: M19, C1.
 
-- [ ] **connect-leaks-hid-handle — `connect()` leaks the opened HID handle when post-open calls raise**
+- [x] **connect-leaks-hid-handle — `connect()` leaks the opened HID handle when post-open calls raise**
   Files: `usb_hid_scanner.py:97-99,110,115,120`.
   Now: if `set_nonblocking`/`get_manufacturer_string`/`get_product_string` raise after `open()`, all three except branches set `self.device = None` without `close()`, leaking the handle.
   Fix: add `def _safe_close(self): if self.device is not None: try: self.device.close() except Exception: pass`. Call `self._safe_close()` before each `self.device = None` (110, 115, 120), keeping the subsequent `raise PermissionError`/`return False`.
   Verify: unit-test a fake `hid.device` whose `open()` succeeds but `get_manufacturer_string()` raises IOError → `connect()` returns False (or raises PermissionError) and `close()` was called exactly once.
 
-- [ ] **load-config-nested-merge-noop — nested merge is a self-update; missing nested keys never backfilled**
+- [x] **load-config-nested-merge-noop — nested merge is a self-update; missing nested keys never backfilled**
   Files: `scanner_config.py:143-151`.
   Now: `merged_config.update(config)` replaces nested dicts wholesale, then `merged_config['usb_vendor'].update(config['usb_vendor'])` updates the object with itself — a no-op; missing keys aren't restored (currently masked by `.get(key, default)` downstream).
   Fix: after `merged_config = copy.deepcopy(DEFAULT_CONFIG)` (144), delete 145 and 147-151; insert:
@@ -639,19 +639,19 @@ M19 must precede M18 (if `read_scan` truncates, the corrupted-vs-timeout distinc
   Leave the VID/PID validation (153-159) unchanged.
   Verify: write `{"scanner_mode":"keyboard","usb_vendor":{"vid":1234}}`, call `load_config()`, assert `usb_vendor.timeout==30`, `read_size==64`, `encoding=='utf-8'`, `vid==1234`, `scanner_mode=='keyboard'`.
 
-- [ ] **save-config-non-atomic — truncate-in-place write; a crash mid-write leaves corrupt JSON silently replaced by defaults**
+- [x] **save-config-non-atomic — truncate-in-place write; a crash mid-write leaves corrupt JSON silently replaced by defaults**
   Files: `scanner_config.py:185-196`.
   Now: `open(config_path,'w')` + `json.dump` can leave a truncated file; `load_config` then returns defaults, discarding the user's mode/VID/PID.
   Fix: `import os`; write to `tmp_path = config_path.with_suffix('.json.tmp')`, `json.dump`, `f.flush()`, `os.fsync(f.fileno())`, then `os.replace(tmp_path, config_path)`. Keep the try/except returning False; on failure `try: os.remove(tmp_path) except OSError: pass`. (Combine with `scanner-config-blocking-and-half-save` in Step 7.)
   Verify: patch `json.dump` to raise after the temp file is created → original `scanner_config.json` intact, `save_config` returns False; normal save/load round-trips a custom mode/VID.
 
-- [ ] **check-connection-polling — `_check_connection` (a USB control transfer) runs every loop iteration (~100/s)**
+- [x] **check-connection-polling — `_check_connection` (a USB control transfer) runs every loop iteration (~100/s)**
   Files: `usb_hid_scanner.py:168-194,191,209-224`.
   Now: `_check_connection` issues `get_manufacturer_string()` every iteration for the whole read window (~3000 transfers over 30 s).
   Fix: throttle to ~1/s — before the loop add `last_conn_check = 0.0`; wrap 191-194 in `now = time.time(); if now - last_conn_check > 1.0: last_conn_check = now; if not self._check_connection(): …`. (Alternative: remove the periodic check entirely and rely on `read()`'s IOError, already caught at 200 — verify `_check_connection` has no other callers first.)
   Verify: instrument `_check_connection` with a counter; a 5 s no-scan read → ~5 calls, not ~500. Unplug mid-read still returns None and flips `is_connected()` False.
 
-- [ ] **setup-logging-clobber-rotate-payloads — clears ALL root handlers, unbounded FileHandler, PII payloads at INFO**
+- [x] **setup-logging-clobber-rotate-payloads — clears ALL root handlers, unbounded FileHandler, PII payloads at INFO**
   Files: `scanner_logging.py:47-51,61-66`; `usb_hid_scanner.py:259`; `NfcScan.py:385,745`.
   Now: `logging.getLogger().handlers.clear()` drops other libraries' handlers; plain `FileHandler` grows unbounded (git-tracked); scan payloads (`{id}_{name}_…`, i.e. PII) logged at INFO.
   Fix:
@@ -663,6 +663,28 @@ M19 must precede M18 (if `read_scan` truncates, the corrupted-vs-timeout distinc
   Verify: call `setup_logging` twice → no duplicated handlers, other loggers' handlers survive; emit >1 MB → rotates to `scanner.log.1`; a successful scan → raw payload absent at INFO.
 
 **Commit Step 6** ("Scanner support: config threading, atomic save, corrupted-scan signal, logging hygiene, handle-leak fix").
+
+### Review — how Step 6 was done
+
+**Approach:** implemented via a workflow of 3 parallel agent groups, split along disjoint file boundaries so they could run concurrently with zero risk of colliding edits: Group A (`usb_hid_scanner.py` + `NfcScan.py` — M19, M18, connect-leaks-hid-handle, plus the raw-payload-logging half of setup-logging-clobber-rotate-payloads for those two files), Group B (`scanner_config.py` — load-config-nested-merge-noop, save-config-non-atomic), Group C (`scanner_logging.py` — the handler-scoping/idempotency/rotation half of setup-logging-clobber-rotate-payloads). Each group was piped through an implement stage then an independent adversarial-review stage (re-reading the real diff and re-running/independently re-verifying the scratch harness, not trusting the self-report), started as soon as that group's implementation finished rather than waiting on the slowest group. M16 (delete `configure_scanner.py`) was done directly, with explicit user confirmation first since it's an outright deletion of a tracked file.
+
+**Per-finding deltas:**
+- **M16** — `configure_scanner.py` deleted (`git rm`) after confirming via grep that nothing else in the repo imports it. Verified: `grep -r configure_scanner *.py` returns nothing.
+- **M19** — `USBHIDScanner.__init__` extended with `read_size=64`/`encoding='utf-8'`, stored and used by `read_scan`'s `device.read()` and `_parse_hid_report`'s `.decode()`. Both `NfcScan.py` call sites now read `read_size`/`encoding` from `get_usb_config()` and pass them through. The `b'\x00'` clause was dropped from the completion check (kept `\n`/`\r`); a quiet-period completion (0.15s of silence after data has started arriving) was added so scanners with no explicit terminator still complete, and so multi-report NUL-padded scans reassemble correctly instead of stopping at the first padded chunk.
+- **M18** — `CorruptedScanError` exception added; `_parse_hid_report`'s `UnicodeDecodeError` branch now raises it instead of silently returning `None`; `read_scan` catches it above the generic handler and returns a `'__CORRUPTED__'` sentinel (a real scan can never collide with it, since real results are always lowercased before being returned but the sentinel keeps its uppercase form). `NfcScan.py`'s main flow checks the sentinel *before* the truthiness test (it's truthy) and runs the exact retry/cancel flow the old dead `except UnicodeDecodeError` block used to run; that block was deleted. The background scanner loop (no error-dialog flow) just logs and `continue`s past the sentinel.
+- **connect-leaks-hid-handle** — `_safe_close()` helper added, called in all three of `connect()`'s except branches before `self.device = None`.
+- **load-config-nested-merge-noop** — the wholesale `merged_config.update(config)` plus two self-update no-op nested `.update()` calls replaced with a real shallow-recursive merge loop, so a config file missing keys (or entire top-level sections) added after it was last saved correctly backfills from `DEFAULT_CONFIG` instead of silently losing them.
+- **save-config-non-atomic** — `save_config()` now writes to a `.json.tmp` sibling, `flush()`+`fsync()`s it, then `os.replace()`s it over the real path; a mid-write failure leaves the original file untouched and cleans up the temp file.
+- **check-connection-polling** — initially missed when splitting the workflow into groups (caught during my own post-workflow review pass, not by either adversarial reviewer, since it wasn't assigned to any group). Fixed directly afterward: `_check_connection()` (a real USB control transfer) is now throttled to at most once per second inside `read_scan`'s loop instead of running every iteration (~100/s).
+- **setup-logging-clobber-rotate-payloads** — investigated both options the plan offered (a dedicated non-propagating `'scanner'` logger vs. a conservative root-logger fix) and found that every module in this codebase calls `logging.getLogger(__name__)`, which propagates to the root logger by default — switching to a dedicated logger would have silently dropped all of that existing console/file output. Took the conservative option instead: a module-level list tracks exactly the handlers `setup_logging()` itself previously attached, and a repeat call removes+closes only those, leaving any handler another library may have added to root untouched (fixing the actual "wipes out everything" bug while preserving today's working output). Made idempotent (repeat calls don't stack handlers). Replaced the plain `FileHandler` with a `RotatingFileHandler(maxBytes=1_000_000, backupCount=3)`. Stopped logging raw scan payloads (PII) at INFO/WARNING across three lines in `usb_hid_scanner.py`/`NfcScan.py` (a fourth, adjacent line flagged as a low-severity residual by the adversarial reviewer — `NfcScan.py`'s "User not found for scanned code" warning — was fixed in the same follow-up pass as check-connection-polling).
+
+**Verification (three layers):**
+1. *Scratch harnesses* (3, one per group, not committed, all using mocked `hid.device` — never real hardware): `verify_step6_scanner_fixes.py` (9 checks: multi-report NUL-padded reassembly via the quiet period, non-default read_size/encoding actually used, corrupted-data sentinel returned instead of `None`, handle-close-on-failure, both `NfcScan.py` call sites updated), `verify_scanner_config_fixes.py` (16 checks: partial-config backfill, DEFAULT_CONFIG left unmutated, mid-write-crash safety, normal round-trip), `verify_scanner_logging.py` (foreign-handler survival, idempotency across repeat calls, real log rotation). A fourth small script (`verify_check_connection_throttle.py`) added afterward confirmed the throttle fix: a 3-second read against a no-data mock now calls `_check_connection()` 3 times, not ~300. All re-run and re-passed after every subsequent edit to the same files.
+2. *Independent adversarial review* — one review agent per group, each re-reading the actual current source (not the implementer's summary) and independently re-running the scratch harness. Two of three groups (`scanner_config`, `scanner_logging`) came back with zero bugs. The third (`usb_hid_scanner`+`NfcScan`) came back `FULLY_FIXED` for all four assigned findings but flagged one adjacent low-severity issue (a "User not found" warning log still containing the raw scan payload) — confirmed genuine and fixed directly.
+3. *Regression suite* — full `pytest`: 54 passed, unchanged from every prior step, re-run after both the workflow's changes and the two follow-up fixes (check-connection-polling, the flagged log line).
+4. *Data integrity* — `rental.db` confirmed row-identical to the Step 0 backup and `scanner_config.json` confirmed byte-identical (SHA-256 unchanged) at the end of the step.
+
+**Process note:** splitting Step 6 into disjoint-file groups for parallel execution meant the plan's own grouping (some findings share a "Files:" list spanning multiple of my groups) had to be re-partitioned by actual file ownership rather than by finding ID — done deliberately to avoid two agents editing the same file concurrently, at the cost of missing one finding (check-connection-polling) in the initial split since it didn't fall cleanly under any of the three chosen groups. Caught during my own independent post-workflow file review, not by either adversarial reviewer (whose scope was, correctly, limited to what their assigned group actually claimed to fix) — a reminder that splitting by file doesn't automatically guarantee every finding in a "Files:"-overlapping list gets an owner, and the plan's own finding list should still be checked off item-by-item afterward, not just group-by-group.
 
 ---
 
