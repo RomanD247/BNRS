@@ -430,36 +430,36 @@ Do the **shared roots first**: M2 (path anchoring), M4 (rollback helper), M3 (in
 
 ---
 
-## Step 4 — Wrong-data UI bugs
+## Step 4 — Wrong-data UI bugs ✅ COMPLETED (2026-07-08)
 
-- [ ] **M8 — Stale `state.selected_user` can rent to the wrong user**
+- [x] **M8 — Stale `state.selected_user` can rent to the wrong user**
   Files: `main.py:45,145,151,158`.
   Now: `state.selected_user` cleared only on successful confirm; closing via X/ESC leaves it set → next dialog Confirm (without selecting) rents to the previous user.
   Fix (best): make selection **local to the dialog** — replace `state.selected_user` reads/writes in `show_rent_dialog` with a closure `selected_user_id = None` (`nonlocal` in `on_user_select_modified`/`on_confirm`). Minimal: reset `state.selected_user = None` at the top of `show_rent_dialog` (143). If keeping the global, also clear it on dialog hide (`dialog.on('hide', lambda: setattr(state,'selected_user',None))`) covering the X button (192) and ESC.
   Verify: open dialog for A, select Alice, close via X; open for B, click Confirm without selecting → "Please select a user!", no rental for B.
   Depends on: M7.
 
-- [ ] **M9 — Rental editor resolves user/equipment by display NAME only → wrong unit**
+- [x] **M9 — Rental editor resolves user/equipment by display NAME only → wrong unit**
   Files: `gui/gui_changeRental.py:182,190,309,326,328`.
   Now: dropdowns built from non-unique names; save matches by name (equipment even strips the serial back off) → first match wins.
   Fix: build id-lookup dicts. Users: `display = f"{u.name} ({u.department.name}) [#{u.id_us}]"`, `users_by_display[display] = u.id_us`. Equipment: `display = f"{eq.name} (S/N: {eq.serialnum or 'No S/N'}) [#{eq.id_eq}]"`, `equipment_by_display[display] = eq.id_eq`. Set `user_value`/`equipment_value` to the **same** display strings (char-for-char, or NiceGUI shows blank). Pass the dicts into `save_rental_changes`; replace the name-based `next(...)` lookups (309, 326-328) with dict lookups + not-found guards; delete the `split(' (S/N:')` logic.
   Verify: two equipment rows same name/different serial; edit a rental on the second, change only the comment, save, reopen → S/N unchanged and `rentals.equipment_id` unchanged. Repeat with two same-named users.
   Depends on: M10 (same functions — apply together).
 
-- [ ] **M10 — Rental editor cannot save edits when the user/equipment was soft-deleted**
+- [x] **M10 — Rental editor cannot save edits when the user/equipment was soft-deleted**
   Files: `gui/gui_changeRental.py:130,131,309,408`; `crud.py:877,892`.
   Now: dropdowns load only active rows, so a rental for a departed user/retired device is edit-locked; even a date/comment change fails.
   Fix: load **including inactive** for the dropdowns/dicts: `crud.get_all_users_including_inactive` (crud.py:186) and `crud.get_all_equipment_including_inactive` (crud.py:592). Capture `original_user_id`/`original_equipment_id` before building the form; in `save_rental_changes` only pass `user_id`/`equipment_id` to `update_rental` when they **changed** (pass `None` otherwise — `update_rental` skips `None`, avoiding the inactive re-validation at crud.py:882-883/897-898). Optionally label inactive entries " (inactive)".
   Verify: soft-delete a rental's user, open the editor, change only the comment, save → succeeds; reopen shows new comment; `rentals.user_id` unchanged. Reassign to a different active user → also succeeds.
   Depends on: M9, M4.
 
-- [ ] **M11 — Newly added equipment doesn't appear when no filter is active**
+- [x] **M11 — Newly added equipment doesn't appear when no filter is active**
   Files: `main.py:116,120,129`; `gui/gui_addequip.py:103`; `main.py:597`.
   Now: `update_lists` only re-queries when a filter is set; otherwise it re-renders the stale in-memory list, so a newly added device shows a toast but no card.
   Fix: make `apply_combined_filters()` unconditional — change the guard at `main.py:120-121` to always call it (it already handles the no-filter case, 273-290). Optionally drop the now-duplicate `apply_combined_filters()` in `filter_by_etype` (250) and `on_name_filter_change` (292). (Lower-risk alternative: wire `gui_addequip`'s callback at `main.py:597` to `refresh_with_filters` instead of `update_lists`.)
   Verify: with no filter, Admin → Add Device → new card appears immediately without "Refresh all data". With a type filter set, a new device of that type still appears.
 
-- [ ] **M12 — Duration columns sort lexicographically; history mixes in "Active rental"**
+- [x] **M12 — Duration columns sort lexicographically; history mixes in "Active rental"**
   Files: `gui/gui_reports.py:208,327,449,533,543,550,754`; `crud.py:469,566,654,722`.
   Now: duration is an unpadded `D:HH:MM` string, so `'9:…'` sorts above `'85:…'`; history's Duration column also contains the literal "Active rental".
   Fix:
@@ -469,13 +469,13 @@ Do the **shared roots first**: M2 (path anchoring), M4 (rollback helper), M3 (in
   Do **not** zero-pad the day segment (unbounded). Only `sortable:true` columns use the comparator — all four already are.
   Verify: one user ~9 days, another ~85 days → descending lists the 85-day user first; toggle ascending → 9 first. In history, "Active rental" rows group at one end.
 
-- [ ] **M13 — Reports read through a never-expired module session → returned rentals still show "Not returned"** *(main-app + gui-dialogs; real fix lives in gui_reports)*
+- [x] **M13 — Reports read through a never-expired module session → returned rentals still show "Not returned"** *(main-app + gui-dialogs; real fix lives in gui_reports)*
   Files: `gui/gui_reports.py:21,540,543,560`; `main.py:346,338`.
   Now: `gui_reports.py:21` holds a module-level `db = SessionLocal()` never expired; `full_refresh` only expires `main.py`'s session, so History stays stale until restart.
   Fix (in `gui_reports.py`): wrap `show_rental_history`'s data load in `with SessionLocal() as fresh_db:` and call `get_all_rentals(fresh_db)`, materializing all needed values into the plain-dict list (552-563) **before** the block closes. Do the same for the other report builders (`show_user_rental_statistics` 149/197, `show_equipment_type_statistics` 272/316, `show_equipment_name_statistics` 394/439, `show_department_rental_statistics` 699/744, `show_feedback_entries` 822). Minimal alternative: `db.expire_all()` at the top of each report function. Optionally drop the module `db` at line 21. `main.py:346` is only evidence — no functional change needed there beyond documenting that "Refresh all data" cannot reach already-open report dialogs.
   Verify: rent then return an item on the main screen, open Admin → Rental History without restart → returned row shows a real `rental_end` and computed duration.
 
-- [ ] **M14 — Edit dialogs change code-bearing fields without regenerating the nfc payload or warning**
+- [x] **M14 — Edit dialogs change code-bearing fields without regenerating the nfc payload or warning**
   Files: `gui/gui_changeUser.py:211`; `gui/gui_changeEquip.py:215,216,228`; `MatrixCode.py:46,106`.
   Now: renaming a user/device or editing serial/dept leaves the stored `nfc` encoding the OLD values; when "Update codes" is later run it overwrites `nfc`, invalidating every printed label with no warning.
   Fix (policy A recommended — keep DB nfc in sync + warn to reprint):
@@ -486,6 +486,23 @@ Do the **shared roots first**: M2 (path anchoring), M4 (rollback helper), M3 (in
   Depends on: M3 (recompute could hit an inactive-row collision).
 
 **Commit Step 4** ("Fix wrong-data UI bugs: user selection, rental editor, list refresh, duration sort, report freshness, code resync").
+
+### Review — how Step 4 was done
+
+**Approach:** each finding lives in a mostly-separate file (`main.py` for M8/M11, `gui/gui_changeRental.py` for M9/M10, `gui/gui_reports.py`+`crud.py` for M12/M13, `gui/gui_changeUser.py`+`gui/gui_changeEquip.py` for M14), so this was done directly by me across all 6 files, then verified by 4 independent adversarial review agents afterward, one per finding cluster — mirroring Step 3's split.
+
+**Per-finding deltas:**
+- **M8** — took the plan's "best" option: `state.selected_user` deleted from `State` entirely; `show_rent_dialog` now uses a dialog-local `selected_user_id = None` closure variable (`nonlocal` in `on_user_select_modified`, read directly in `on_confirm`), so a leftover selection can never survive past that dialog closing, regardless of how it was closed.
+- **M9 + M10** (done together, per the plan's own dependency note, since they touch the exact same functions) — two new helper functions `_user_display`/`_equipment_display` build a dropdown label that always includes the row's primary key (`[#id]`), guaranteeing uniqueness even for same-named rows; `show_edit_form_for_rental` builds `users_by_display`/`equipment_by_display` dicts from these and now loads `get_all_users_including_inactive`/`get_all_equipment_including_inactive` instead of the active-only getters; `save_rental_changes` resolves the dropdown selection via dict lookup instead of a name-matching `next(...)`, and only forwards a changed `user_id`/`equipment_id` to `crud.update_rental` (passing `None` for an unchanged selection), which lets `update_rental`'s own active-only re-validation skip fields nobody touched.
+- **M11** — took the plan's primary fix: `update_lists()` now unconditionally calls `apply_combined_filters()` (it already correctly returns the full list when no filter is set). As a direct consequence of that fix, five other call sites that used to call `apply_combined_filters()` themselves immediately before calling `update_lists()` (`filter_by_etype`, `on_name_filter_change`, `refresh_with_filters`, `reset_filter`, `full_refresh`) had that now-redundant call removed rather than doubling every DB query on every filter interaction and rent/return — the plan only named the first two explicitly, but the other three have the exact same pattern, so leaving them would have been an inconsistent half-fix.
+- **M12** — verified against the actual installed NiceGUI source (`dynamic_properties.js`) that a column-dict key prefixed with `:` is genuinely `eval`'d into a real JS function client-side before this was implemented, since the plan's `:sort` syntax isn't something I'd take on faith. All four stats functions in `crud.py` now return a `total_rental_seconds` int alongside the display string; all four "Total Rental Time" columns and the Rental History "Duration" column got a matching numeric `:sort` comparator (the latter treating an active rental's `None` duration as `Number.MAX_SAFE_INTEGER` so it groups at one consistent end instead of comparing as a raw string).
+- **M13** — the module-level `db = SessionLocal()` in `gui_reports.py` was deleted outright (confirmed nothing external imports it); all 6 report-dialog functions now open a fresh `with SessionLocal() as fresh_db:` immediately around every database read, including the nested date-filter `update_data()` closures in the 4 stats dialogs (the plan only called out the initial loads by line number, but the closures re-run the exact same stale-session query on every Apply/Clear click, so fixing only the initial load would have left the bug fully alive for the dialog's entire remaining lifetime).
+- **M14** — implemented identically in both `gui_changeUser.py` and `gui_changeEquip.py`: the dialog now captures `original_nfc` separately from the mutable `nfc_value`, so `apply_changes` can tell "the admin re-scanned a new code" apart from "left it untouched." When untouched and a code-bearing field changed, the nfc is recomputed using the exact same formula as `MatrixCode.py`'s `update_user_codes()`/`update_equipment_codes()` (verified character-for-character against that file, including equipment's skip-if-no-serialnum behavior), routed through the same M3 duplicate-check as a real re-scan, and a persistent (`timeout=0`, dismiss-by-button) warning notification tells the admin to reprint the label.
+
+**Verification (three layers):**
+1. *Scratch harness* (`verify_step4_ui_bugs.py`, not committed) redirects `database.SessionLocal` to a throwaway temp DB *before* importing `main.py`/any `gui.*` module (all of them bind a `db`/`state` at import time), then drives the real functions directly: two same-named users and two same-named equipment (one inactive) to prove M9's dropdown labels stay unique and M10's inactive-row comment-only save succeeds without touching the unrelated ID; M14's rename-without-rescan on both a user and equipment, asserting the recomputed nfc matches `MatrixCode.py`'s formula exactly and a warning notification fired; all four M12 stats functions checked for the new `total_rental_seconds` field; a direct demonstration of the stale-identity-map bug M13 fixes (a second session's committed change is invisible through a first, older session, but visible through a fresh one); and M8/M11 checked via source inspection plus a live call to `update_lists()` proving a newly created equipment shows up with no filter active. All 21 checks passed (2 initial failures were harness bugs — an inactive-equipment test fixture starving `get_equipment_name_statistics`'s active-only join of rows, and an over-strict string search that matched an explanatory code comment rather than functional code — both fixed in the harness, not the production code).
+2. *Independent adversarial review* — 4 agents (M8+M11, M9+M10, M12+M13, M14), each reading the current source directly. All 4 returned a clean pass with zero bugs found.
+3. *Regression suite* — full `pytest` run: 54 passed, same as after Steps 2 and 3. `scanner_config.json` SHA-256 and every table's row content in `rental.db` confirmed unchanged against the Step 0 backup (the row-content check, not raw bytes, per the invariant established in Step 3's review once M5/M7 made "byte-identical" the wrong bar).
 
 ---
 

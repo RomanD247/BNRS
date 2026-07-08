@@ -42,7 +42,6 @@ class State:
         self.available_equipment = get_available_equipment(db)
         self.rented_equipment = get_active_rentals(db)
         self.users = get_all_users(db)
-        self.selected_user = None
         self.selected_etype_id = None
         self.etype_map = {}
         self.etypes = get_all_etypes(db)
@@ -115,11 +114,12 @@ def create_equipment_card(equipment, is_rented=False):
 
 def update_lists():
     """Update both equipment list UI containers based on current state data."""
-    # Ensure UI updates reflect current filter state by applying filters if needed
-    # This ensures that when lists are refreshed, the current filter state is maintained
-    if state.selected_etype_id is not None or state.name_filter:
-        apply_combined_filters()
-    
+    # Always re-apply filters (M11) - apply_combined_filters() already handles
+    # the no-filter case by returning the full lists, so skipping it there
+    # left the in-memory lists stale (e.g. a newly added device wouldn't show
+    # up until "Refresh all data" was clicked).
+    apply_combined_filters()
+
     # Clear and repopulate available container
     if available_container:
         available_container.clear()
@@ -142,14 +142,18 @@ def update_lists():
 
 def show_rent_dialog(equipment):
     """Show dialog for renting equipment"""
+    # Selection is local to this dialog invocation (M8) - a shared
+    # state.selected_user survived past dialog close (X button/ESC don't
+    # clear it), so a later dialog's Confirm without picking anyone could
+    # silently rent to whoever was selected last time.
+    selected_user_id = None
+
     def on_user_select_modified(e):
-        if e.value in users_dict:
-            state.selected_user = users_dict[e.value]
-        else:
-            state.selected_user = None
-    
+        nonlocal selected_user_id
+        selected_user_id = users_dict.get(e.value)
+
     def on_confirm():
-        if state.selected_user:
+        if selected_user_id:
             # Disable immediately to close the TOCTOU window between this
             # check and create_rental()'s own guard (M7).
             confirm_button.disable()
@@ -158,13 +162,10 @@ def show_rent_dialog(equipment):
                 dialog.close()
                 refresh_with_filters()
                 return
-            create_rental(db, state.selected_user, equipment.id_eq, comment=comment_field.value)
+            create_rental(db, selected_user_id, equipment.id_eq, comment=comment_field.value)
             ui.notify('Equipment rented successfully!')
             dialog.close()
             refresh_with_filters()
-            # Clear the selected user and user select field
-            state.selected_user = None
-            user_select.set_value(None)
         else:
             ui.notify('Please select a user!', type='warning')
     
@@ -259,11 +260,9 @@ def filter_by_etype(e):
     """Filter equipment lists by equipment type"""
     selected_name = e.value
     state.selected_etype_id = state.etype_map.get(selected_name)
-    
-    # Use combined filtering to preserve name filter when type filter changes
-    apply_combined_filters()
-    
-    # Update UI with new state data
+
+    # update_lists() now always re-applies filters itself (M11), so a
+    # separate call here would just re-run the same queries twice.
     update_lists()
 
 def filter_equipment_by_name(equipment_list, name_filter):
@@ -301,11 +300,9 @@ def on_name_filter_change(filter_text):
     """Handle name filter input changes and trigger combined filtering"""
     # Update state with new filter text
     state.set_name_filter(filter_text)
-    
-    # Apply combined filters (type + name)
-    apply_combined_filters()
-    
-    # Update UI lists
+
+    # update_lists() now always re-applies filters itself (M11), so a
+    # separate call here would just re-run the same queries twice.
     update_lists()
 
 def refresh_with_filters():
@@ -313,11 +310,9 @@ def refresh_with_filters():
     # Refresh users and etypes from DB into state
     state.refresh_users()
     state.refresh_etypes()
-    
-    # Apply current filters to get updated data
-    apply_combined_filters()
-    
-    # Update the UI lists
+
+    # update_lists() now always re-applies filters itself (M11), so a
+    # separate call here would just re-run the same queries twice.
     update_lists()
 
 def reset_filter():
@@ -331,15 +326,12 @@ def reset_filter():
     if state.name_filter_input:
         state.name_filter_input.set_value("")
     
-    # Fetch all data into state
-    state.available_equipment = get_available_equipment(db)
-    state.rented_equipment = get_active_rentals(db)
-
     # Refresh users and etypes from DB into state
     state.refresh_users()
     state.refresh_etypes()
 
-    # Update the UI lists
+    # update_lists() re-applies filters itself (M11) - with both filters just
+    # cleared above, this fetches the full unfiltered lists.
     update_lists()
 
 # Function for full data refresh
@@ -361,10 +353,7 @@ def full_refresh():
     state.selected_etype_id = current_etype_id
     state.name_filter = current_name_filter
 
-    # Apply active filters after full data refresh to preserve filter state
-    apply_combined_filters()
-
-    # Update the UI lists (available_container and rented_container) using data now in state
+    # update_lists() re-applies filters itself (M11) using the restored state.
     update_lists()
 
     # Ensure the filter dropdown options reflect the latest etypes

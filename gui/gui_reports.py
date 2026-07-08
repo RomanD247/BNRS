@@ -17,9 +17,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from crud import get_user_rental_statistics, get_equipment_type_statistics, get_equipment_name_statistics, get_all_rentals, get_department_rental_statistics, get_all_feedback
 from database import SessionLocal
 
-# Create a global database connection
-db = SessionLocal()
-
 # Function for exporting data to CSV
 def export_to_csv(data, filename=None):
     if not data:
@@ -138,19 +135,23 @@ def show_user_rental_statistics():
                 {'name': 'name', 'label': 'User Name', 'field': 'name', 'sortable': True, 'align': 'left'},
                 {'name': 'department', 'label': 'Department', 'field': 'department', 'sortable': True, 'align': 'left'},
                 {'name': 'rental_count', 'label': 'Total Rentals', 'field': 'rental_count', 'sortable': True, 'align': 'right'},
-                {'name': 'total_rental_time', 'label': 'Total Rental Time', 'field': 'total_rental_time', 'sortable': True, 'align': 'left'}
+                {'name': 'total_rental_time', 'label': 'Total Rental Time', 'field': 'total_rental_time', 'sortable': True, 'align': 'left',
+                 ':sort': '(a, b, rowA, rowB) => (rowA.total_rental_seconds ?? 0) - (rowB.total_rental_seconds ?? 0)'}
             ]
             
             # Function to update data with filters
             def update_data():
                 nonlocal start_date, end_date
-                
-                # Get data from database with filtering
-                user_stats = get_user_rental_statistics(db, start_date, end_date)
-                
+
+                # Fresh session (M13) - the module-level db never expires, so
+                # a rental returned elsewhere while this dialog is open would
+                # otherwise keep reading through stale cached ORM state.
+                with SessionLocal() as fresh_db:
+                    user_stats = get_user_rental_statistics(fresh_db, start_date, end_date)
+
                 # Filter out records with zero rental time
                 user_stats = [stat for stat in user_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
-                
+
                 # Update table
                 table.rows = user_stats
                 
@@ -193,9 +194,10 @@ def show_user_rental_statistics():
             
             # Create table with data
             with ui.card().classes('w-full'):
-                # Initial data retrieval without filters
-                user_stats = get_user_rental_statistics(db)
-                
+                # Initial data retrieval without filters (fresh session - M13)
+                with SessionLocal() as fresh_db:
+                    user_stats = get_user_rental_statistics(fresh_db)
+
                 # Filter out records with zero rental time
                 user_stats = [stat for stat in user_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
                 
@@ -261,19 +263,21 @@ def show_equipment_type_statistics():
             columns = [
                 {'name': 'type_name', 'label': 'Device Type', 'field': 'type_name', 'sortable': True, 'align': 'left'},
                 {'name': 'rental_count', 'label': 'Total Rentals', 'field': 'rental_count', 'sortable': True, 'align': 'right'},
-                {'name': 'total_rental_time', 'label': 'Total Rental Time', 'field': 'total_rental_time', 'sortable': True, 'align': 'right'}
+                {'name': 'total_rental_time', 'label': 'Total Rental Time', 'field': 'total_rental_time', 'sortable': True, 'align': 'right',
+                 ':sort': '(a, b, rowA, rowB) => (rowA.total_rental_seconds ?? 0) - (rowB.total_rental_seconds ?? 0)'}
             ]
             
             # Function to update data with filters
             def update_data():
                 nonlocal start_date, end_date
-                
-                # Get data from database with filtering
-                type_stats = get_equipment_type_statistics(db, start_date, end_date)
-                
+
+                # Fresh session (M13) - see show_user_rental_statistics
+                with SessionLocal() as fresh_db:
+                    type_stats = get_equipment_type_statistics(fresh_db, start_date, end_date)
+
                 # Filter out records with zero rental time
                 type_stats = [stat for stat in type_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
-                
+
                 # Update table
                 table.rows = type_stats
             
@@ -312,9 +316,10 @@ def show_equipment_type_statistics():
             
             # Create table with data
             with ui.card().classes('w-full'):
-                # Initial data retrieval without filters
-                type_stats = get_equipment_type_statistics(db)
-                
+                # Initial data retrieval without filters (fresh session - M13)
+                with SessionLocal() as fresh_db:
+                    type_stats = get_equipment_type_statistics(fresh_db)
+
                 # Filter out records with zero rental time
                 type_stats = [stat for stat in type_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
 
@@ -383,19 +388,21 @@ def show_equipment_name_statistics():
                 {'name': 'etype_name', 'label': 'Equipment Type', 'field': 'etype_name', 'sortable': True, 'align': 'left'},
                 {'name': 'equipment_count', 'label': 'Count', 'field': 'equipment_count', 'sortable': True, 'align': 'right'},
                 {'name': 'rental_count', 'label': 'Total Rentals', 'field': 'rental_count', 'sortable': True, 'align': 'right'},
-                {'name': 'total_rental_time', 'label': 'Total Rental Time', 'field': 'total_rental_time', 'sortable': True, 'align': 'right'}
+                {'name': 'total_rental_time', 'label': 'Total Rental Time', 'field': 'total_rental_time', 'sortable': True, 'align': 'right',
+                 ':sort': '(a, b, rowA, rowB) => (rowA.total_rental_seconds ?? 0) - (rowB.total_rental_seconds ?? 0)'}
             ]
             
             # Function to update data with filters
             def update_data():
                 nonlocal start_date, end_date
-                
-                # Get data from database with filtering
-                name_stats = get_equipment_name_statistics(db, start_date, end_date)
-                
+
+                # Fresh session (M13) - see show_user_rental_statistics
+                with SessionLocal() as fresh_db:
+                    name_stats = get_equipment_name_statistics(fresh_db, start_date, end_date)
+
                 # Filter out records with zero rental time
                 name_stats = [stat for stat in name_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
-                
+
                 # Update table
                 table.rows = name_stats
             
@@ -435,9 +442,10 @@ def show_equipment_name_statistics():
             
             # Create table with data
             with ui.card().classes('w-full'):
-                # Initial data retrieval without filters
-                name_stats = get_equipment_name_statistics(db)
-                
+                # Initial data retrieval without filters (fresh session - M13)
+                with SessionLocal() as fresh_db:
+                    name_stats = get_equipment_name_statistics(fresh_db)
+
                 # Filter out records with zero rental time
                 name_stats = [stat for stat in name_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
                 
@@ -530,37 +538,44 @@ def show_rental_history():
                 {'name': 'department', 'label': 'Department', 'field': 'department', 'sortable': True, 'align': 'left'},
                 {'name': 'rental_start', 'label': 'Rental Start', 'field': 'rental_start', 'sortable': True, 'align': 'left'},
                 {'name': 'rental_end', 'label': 'Rental End', 'field': 'rental_end', 'sortable': True, 'align': 'left'},
-                {'name': 'duration', 'label': 'Duration', 'field': 'duration', 'sortable': True, 'align': 'left'},
+                {'name': 'duration', 'label': 'Duration', 'field': 'duration', 'sortable': True, 'align': 'left',
+                 ':sort': '(a, b, rowA, rowB) => (rowA.duration_seconds ?? Number.MAX_SAFE_INTEGER) - (rowB.duration_seconds ?? Number.MAX_SAFE_INTEGER)'},
                 {'name': 'comment', 'label': 'Comment', 'field': 'comment', 'sortable': True, 'align': 'left'},
             ]
             
-            # Get full rental history
+            # Get full rental history (fresh session - M13: the module-level
+            # db never expires, so a just-returned rental could still read as
+            # "Not returned" here until the app restarts)
             rental_history = []
-            
-            rentals = get_all_rentals(db)
-            for rental in rentals:
-                # Prepare data for display
-                duration_str = "Active rental"
-                if rental.rental_end:
-                    # Calculate duration for completed rentals
-                    duration = rental.rental_end - rental.rental_start
-                    days = duration.days
-                    hours = duration.seconds // 3600
-                    minutes = (duration.seconds % 3600) // 60
-                    duration_str = f"{days}:{hours:02}:{minutes:02}"
-                
-                rental_history.append({
-                    'id': rental.id_re,
-                    'equipment': rental.equipment.name,
-                    'serialnum': rental.equipment.serialnum or '',
-                    'equipment_type': rental.equipment.etype.name if rental.equipment.etype else 'Unknown',
-                    'user': rental.user.name,
-                    'department': rental.user.department.name if rental.user.department else 'Unknown',
-                    'rental_start': rental.rental_start.strftime('%Y-%m-%d %H:%M'),
-                    'rental_end': rental.rental_end.strftime('%Y-%m-%d %H:%M') if rental.rental_end else 'Not returned',
-                    'duration': duration_str,
-                    'comment': rental.comment or ''
-                })
+
+            with SessionLocal() as fresh_db:
+                rentals = get_all_rentals(fresh_db)
+                for rental in rentals:
+                    # Prepare data for display
+                    duration_str = "Active rental"
+                    duration_seconds = None
+                    if rental.rental_end:
+                        # Calculate duration for completed rentals
+                        duration = rental.rental_end - rental.rental_start
+                        days = duration.days
+                        hours = duration.seconds // 3600
+                        minutes = (duration.seconds % 3600) // 60
+                        duration_str = f"{days}:{hours:02}:{minutes:02}"
+                        duration_seconds = int(duration.total_seconds())
+
+                    rental_history.append({
+                        'id': rental.id_re,
+                        'equipment': rental.equipment.name,
+                        'serialnum': rental.equipment.serialnum or '',
+                        'equipment_type': rental.equipment.etype.name if rental.equipment.etype else 'Unknown',
+                        'user': rental.user.name,
+                        'department': rental.user.department.name if rental.user.department else 'Unknown',
+                        'rental_start': rental.rental_start.strftime('%Y-%m-%d %H:%M'),
+                        'rental_end': rental.rental_end.strftime('%Y-%m-%d %H:%M') if rental.rental_end else 'Not returned',
+                        'duration': duration_str,
+                        'duration_seconds': duration_seconds,
+                        'comment': rental.comment or ''
+                    })
             
             # Save original data for filtering
             original_rental_history = rental_history.copy()
@@ -688,19 +703,21 @@ def show_department_rental_statistics():
             columns = [
                 {'name': 'name', 'label': 'Department Name', 'field': 'name', 'sortable': True, 'align': 'left'},
                 {'name': 'rental_count', 'label': 'Total Rentals', 'field': 'rental_count', 'sortable': True, 'align': 'right'},
-                {'name': 'total_rental_time', 'label': 'Total Rental Time', 'field': 'total_rental_time', 'sortable': True, 'align': 'right'}
+                {'name': 'total_rental_time', 'label': 'Total Rental Time', 'field': 'total_rental_time', 'sortable': True, 'align': 'right',
+                 ':sort': '(a, b, rowA, rowB) => (rowA.total_rental_seconds ?? 0) - (rowB.total_rental_seconds ?? 0)'}
             ]
             
             # Function to update data with filters
             def update_data():
                 nonlocal start_date, end_date
-                
-                # Get data from database with filtering
-                dept_stats = get_department_rental_statistics(db, start_date, end_date)
-                
+
+                # Fresh session (M13) - see show_user_rental_statistics
+                with SessionLocal() as fresh_db:
+                    dept_stats = get_department_rental_statistics(fresh_db, start_date, end_date)
+
                 # Filter out records with zero rental time
                 dept_stats = [stat for stat in dept_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
-                
+
                 # Update table
                 table.rows = dept_stats
             
@@ -740,9 +757,10 @@ def show_department_rental_statistics():
             
             # Create table with data
             with ui.card().classes('w-full'):
-                # Initial data retrieval without filters
-                dept_stats = get_department_rental_statistics(db)
-                
+                # Initial data retrieval without filters (fresh session - M13)
+                with SessionLocal() as fresh_db:
+                    dept_stats = get_department_rental_statistics(fresh_db)
+
                 # Filter out records with zero rental time
                 dept_stats = [stat for stat in dept_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
                 
@@ -816,17 +834,18 @@ def show_feedback_entries():
                 {'name': 'feedback', 'label': 'Feedback', 'field': 'feedback', 'sortable': True, 'align': 'left'}
             ]
             
-            # Get feedback data
+            # Get feedback data (fresh session - M13, see show_user_rental_statistics)
             feedback_data = []
-            
-            feedbacks = get_all_feedback(db)
-            for feedback in feedbacks:
-                feedback_data.append({
-                    'id': feedback.id_fb,
-                    'name': feedback.name or 'Anonymous',
-                    'date': feedback.date.strftime('%Y-%m-%d %H:%M'),
-                    'feedback': feedback.feedback
-                })
+
+            with SessionLocal() as fresh_db:
+                feedbacks = get_all_feedback(fresh_db)
+                for feedback in feedbacks:
+                    feedback_data.append({
+                        'id': feedback.id_fb,
+                        'name': feedback.name or 'Anonymous',
+                        'date': feedback.date.strftime('%Y-%m-%d %H:%M'),
+                        'feedback': feedback.feedback
+                    })
             
             # Save original data for filtering
             original_feedback_data = feedback_data.copy()

@@ -84,6 +84,9 @@ def show_edit_form_for_user(user, parent_dialog=None):
             department_value = fresh_user.department.name
             status_value = fresh_user.status
             nfc_value = fresh_user.nfc
+            # Captured separately from nfc_value (M14) - lets apply_changes
+            # tell "admin re-scanned a new code" apart from "left it untouched".
+            original_nfc = fresh_user.nfc
             nfc_label = None
 
             async def scan_nfc():
@@ -168,6 +171,7 @@ def show_edit_form_for_user(user, parent_dialog=None):
                         department_select.value,
                         status_switch.value,
                         nfc_value,
+                        original_nfc,
                         edit_dialog,
                         parent_dialog
                     )).classes('bg-primary')
@@ -192,33 +196,55 @@ def open_edit_form(user, parent_dialog):
         ui.notify(f'Error: {str(e)}', color='negative')
 
 
-def apply_changes(user_id, new_name, new_department, new_status, nfc_value, dialog, parent_dialog=None):
+def apply_changes(user_id, new_name, new_department, new_status, nfc_value, original_nfc, dialog, parent_dialog=None):
     """
     Applies changes to the user in the database.
-    
+
     Args:
         user_id: User ID
         new_name: New user name
         new_department: New department name
         new_status: New user status
-        nfc_value: New NFC value
+        nfc_value: NFC value as left by the dialog (unchanged unless the admin re-scanned)
+        original_nfc: The user's nfc value when the dialog was opened (M14 - detects a re-scan)
         dialog: Dialog to close after saving
         parent_dialog: Parent dialog to close if needed
     """
     try:
         # Create a new session for this operation
         with SessionLocal() as session:
+            # Resync the Data Matrix payload (M14) if name/department changed
+            # and the admin didn't re-scan a new code - otherwise the stored
+            # nfc keeps encoding the OLD name/department forever, and printed
+            # labels silently stop matching what "Update codes" would generate.
+            final_nfc = nfc_value
+            code_needs_reprint = False
+            current_user = crud.get_user_including_inactive(session, user_id)
+            if current_user and original_nfc and nfc_value == original_nfc:
+                current_department_name = current_user.department.name if current_user.department else None
+                if new_name != current_user.name or new_department != current_department_name:
+                    department = crud.get_department_by_name_including_inactive(session, new_department)
+                    if department:
+                        # Mirrors MatrixCode.py's update_user_codes() formula exactly.
+                        final_nfc = f"{user_id}_{new_name}_{department.id_dep}".lower()
+                        code_needs_reprint = True
+
             # Update user with new session
-            updated_user = crud.update_user(session, user_id, name=new_name, dep=new_department, status=new_status, nfc=nfc_value, get_user_func=crud.get_user_including_inactive)
-            
+            updated_user = crud.update_user(session, user_id, name=new_name, dep=new_department, status=new_status, nfc=final_nfc, get_user_func=crud.get_user_including_inactive)
+
             if updated_user:
                 ui.notify(f'User {new_name} successfully updated', color='positive')
+                if code_needs_reprint:
+                    ui.notify(
+                        "This user's Data Matrix code label is now out of date - regenerate and reprint it.",
+                        color='warning', close_button='OK', timeout=0
+                    )
                 dialog.close()
-                
+
                 # If parent dialog exists, close it too
                 if parent_dialog:
                     parent_dialog.close()
-                
+
                 # Reopen the user list with refreshed data
                 ui.timer(0.1, edit_users_dialog, once=True)
             else:

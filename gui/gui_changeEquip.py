@@ -80,6 +80,9 @@ def show_edit_form_for_equipment(equipment, parent_dialog=None):
             etype_value = fresh_equipment.etype.name if fresh_equipment.etype else None
             status_value = fresh_equipment.status
             nfc_value = fresh_equipment.nfc
+            # Captured separately from nfc_value (M14) - lets apply_changes
+            # tell "admin re-scanned a new code" apart from "left it untouched".
+            original_nfc = fresh_equipment.nfc
             nfc_label = None
 
             async def scan_nfc():
@@ -169,6 +172,7 @@ def show_edit_form_for_equipment(equipment, parent_dialog=None):
                         etype_select.value,
                         status_switch.value,
                         nfc_value,
+                        original_nfc,
                         edit_dialog,
                         parent_dialog
                     )).classes('bg-primary')
@@ -182,17 +186,18 @@ def show_edit_form_for_equipment(equipment, parent_dialog=None):
         print(f"Error in show_edit_form_for_equipment: {str(e)}")  # for debugging
 
 
-def apply_changes(equipment_id, new_name, new_serialnum, new_etype, new_status, nfc_value, dialog, parent_dialog=None):
+def apply_changes(equipment_id, new_name, new_serialnum, new_etype, new_status, nfc_value, original_nfc, dialog, parent_dialog=None):
     """
     Applies changes to the equipment in the database.
-    
+
     Args:
         equipment_id: Equipment ID
         new_name: New equipment name
         new_serialnum: New serial number
         new_etype: New equipment type name
         new_status: New equipment status
-        nfc_value: New NFC value
+        nfc_value: NFC value as left by the dialog (unchanged unless the admin re-scanned)
+        original_nfc: The equipment's nfc value when the dialog was opened (M14 - detects a re-scan)
         dialog: Dialog to close after saving
         parent_dialog: Parent dialog to close if needed
     """
@@ -201,23 +206,37 @@ def apply_changes(equipment_id, new_name, new_serialnum, new_etype, new_status, 
         with SessionLocal() as session:
             # Get the equipment first to verify it exists
             equipment = session.query(Equipment).filter(Equipment.id_eq == equipment_id).first()
-            
+
             if not equipment:
                 ui.notify('Failed to update equipment - equipment not found', color='negative')
                 return
-            
+
             # Get the equipment type ID
             etype = crud.get_etype_by_name(session, new_etype)
             if not etype:
                 ui.notify(f'Equipment type {new_etype} not found', color='negative')
                 return
-                
+
             # Block deactivating equipment that's currently rented (M6) -
             # bypasses crud.delete_equipment's own guard since this dialog
             # flips `status` directly via the ORM.
             if new_status is False and equipment.status is True and crud.is_equipment_rented(session, equipment_id):
                 ui.notify(f'Cannot deactivate "{equipment.name}": it is currently rented. Return it first.', color='negative')
                 return
+
+            # Resync the Data Matrix payload (M14) if a code-bearing field
+            # changed and the admin didn't re-scan a new code - otherwise the
+            # stored nfc keeps encoding the OLD name/serial forever, and
+            # printed labels silently stop matching what "Update codes" would
+            # generate. Skip if serialnum is blank, mirroring MatrixCode.py's
+            # own skip for equipment with no serial number.
+            final_nfc = nfc_value
+            code_needs_reprint = False
+            if original_nfc and nfc_value == original_nfc and new_serialnum:
+                if new_name != equipment.name or new_serialnum != equipment.serialnum:
+                    # Mirrors MatrixCode.py's update_equipment_codes() formula exactly.
+                    final_nfc = f"{equipment_id}_{new_name}_{new_serialnum}".lower()
+                    code_needs_reprint = True
 
             # Update equipment with new values
             equipment.name = new_name
@@ -226,25 +245,30 @@ def apply_changes(equipment_id, new_name, new_serialnum, new_etype, new_status, 
             equipment.status = new_status
 
             # Update NFC value
-            if nfc_value is not None:
+            if final_nfc is not None:
                 # Check if this NFC code is already taken by another equipment
                 # (M3: includes soft-deleted equipment)
-                if nfc_value:
-                    existing_equipment = crud.find_equipment_by_nfc_including_inactive(session, nfc_value)
+                if final_nfc:
+                    existing_equipment = crud.find_equipment_by_nfc_including_inactive(session, final_nfc)
                     if existing_equipment and existing_equipment.id_eq != equipment_id:
                         ui.notify(f'NFC code already registered to equipment {existing_equipment.name}', color='negative')
                         return
-                equipment.nfc = nfc_value
-            
+                equipment.nfc = final_nfc
+
             session.commit()
-            
+
             ui.notify(f'Equipment {new_name} successfully updated', color='positive')
+            if code_needs_reprint:
+                ui.notify(
+                    "This equipment's Data Matrix code label is now out of date - regenerate and reprint it.",
+                    color='warning', close_button='OK', timeout=0
+                )
             dialog.close()
-            
+
             # If parent dialog exists, close it too
             if parent_dialog:
                 parent_dialog.close()
-            
+
             # Reopen the equipment list with refreshed data
             ui.timer(0.1, edit_equipment_dialog, once=True)
     except Exception as e:

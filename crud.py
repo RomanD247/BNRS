@@ -527,9 +527,10 @@ def get_user_rental_statistics(db: Session, start_date=None, end_date=None) -> L
             "name": user_name,
             "department": department_name,
             "rental_count": rental_count,
-            "total_rental_time": duration_str
+            "total_rental_time": duration_str,
+            "total_rental_seconds": int(total_seconds) if total_seconds else 0
         })
-    
+
     return statistics
 
 def get_equipment_type_statistics(db: Session, start_date=None, end_date=None) -> List[Dict]:
@@ -628,7 +629,8 @@ def get_equipment_type_statistics(db: Session, start_date=None, end_date=None) -
             "rented_equipment": stats["rented_equipment"],
             "availability_percentage": f"{availability_pct:.1f}%",
             "rental_count": stats["rental_count"],
-            "total_rental_time": duration_str
+            "total_rental_time": duration_str,
+            "total_rental_seconds": int(total_seconds)
         })
     
     # Sort by type name
@@ -713,9 +715,10 @@ def get_equipment_name_statistics(db: Session, start_date=None, end_date=None) -
             "etype_name": etype_name,
             "equipment_count": equipment_count,
             "rental_count": rental_count,
-            "total_rental_time": duration_str
+            "total_rental_time": duration_str,
+            "total_rental_seconds": int(total_seconds) if total_seconds else 0
         })
-    
+
     return statistics
 
 def get_department_rental_statistics(db: Session, start_date=None, end_date=None) -> List[Dict]:
@@ -778,9 +781,10 @@ def get_department_rental_statistics(db: Session, start_date=None, end_date=None
         statistics.append({
             "name": dept_name,
             "rental_count": rental_count,
-            "total_rental_time": duration_str
+            "total_rental_time": duration_str,
+            "total_rental_seconds": int(total_seconds) if total_seconds else 0
         })
-    
+
     return statistics
 
 def find_user_by_nfc(db: Session, nfc_value: str) -> Optional[User]:

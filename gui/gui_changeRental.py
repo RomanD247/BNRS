@@ -12,6 +12,23 @@ import datetime
 # Create a single DB instance
 db = SessionLocal()
 
+
+def _user_display(user):
+    """Unique dropdown label for a user (M9) - includes the ID so two users
+    with the same name/department can't be confused with each other, and is
+    used identically for both building the options dict and computing the
+    pre-selected value so they match char-for-char."""
+    dep_name = user.department.name if user.department else 'No Department'
+    suffix = '' if user.status else ' (inactive)'
+    return f"{user.name} ({dep_name}) [#{user.id_us}]{suffix}"
+
+
+def _equipment_display(equipment):
+    """Unique dropdown label for an equipment unit (M9) - see _user_display."""
+    serial = equipment.serialnum if equipment.serialnum else 'No S/N'
+    suffix = '' if equipment.status else ' (inactive)'
+    return f"{equipment.name} (S/N: {serial}) [#{equipment.id_eq}]{suffix}"
+
 def edit_rentals_dialog():
     """
     Opens a dialog for selecting and editing rental records.
@@ -126,33 +143,51 @@ def show_edit_form_for_rental(rental, parent_dialog=None):
                         parent_dialog.close()
                     return
                 
-                # Get all active users and equipment for dropdowns
-                users = crud.get_all_users(fresh_db)
-                equipment_list = crud.get_all_equipment(fresh_db)
-                
+                # Get ALL users and equipment for dropdowns, including inactive
+                # ones (M10) - otherwise a rental for a departed user or
+                # retired device becomes edit-locked, even for a comment-only change.
+                users = crud.get_all_users_including_inactive(fresh_db)
+                equipment_list = crud.get_all_equipment_including_inactive(fresh_db)
+
                 # Validate that we have users and equipment available
                 if not users:
-                    ui.notify('No active users found. Cannot edit rental record.', color='negative')
+                    ui.notify('No users found in the system. Cannot edit rental record.', color='negative')
                     return
-                
+
                 if not equipment_list:
-                    ui.notify('No active equipment found. Cannot edit rental record.', color='negative')
+                    ui.notify('No equipment found in the system. Cannot edit rental record.', color='negative')
                     return
-                
-                # Create variables to store form values with error handling
+
+                # Build display-string -> ID lookup dicts (M9) so saving resolves
+                # the dropdown selection by ID, not by re-matching a (possibly
+                # non-unique) display string against the list.
+                users_by_display = {}
+                for u in users:
+                    users_by_display[_user_display(u)] = u.id_us
+                user_options = list(users_by_display.keys())
+
+                equipment_by_display = {}
+                for eq in equipment_list:
+                    equipment_by_display[_equipment_display(eq)] = eq.id_eq
+                equipment_options = list(equipment_by_display.keys())
+
+                # Capture the rental's actual current IDs (M10) - used later to
+                # detect a no-op selection so save_rental_changes can avoid
+                # re-validating an unchanged-but-inactive user/equipment.
+                original_user_id = fresh_rental.user_id
+                original_equipment_id = fresh_rental.equipment_id
+
+                # Create variables to store form values with error handling.
+                # Built with the exact same helpers as the options dicts above,
+                # so the value matches one of the options char-for-char.
                 try:
-                    user_value = fresh_rental.user.name if fresh_rental.user else None
+                    user_value = _user_display(fresh_rental.user) if fresh_rental.user else None
                 except AttributeError:
                     user_value = None
                     print(f"Warning: Rental {fresh_rental.id_re} has invalid user reference")
-                
+
                 try:
-                    if fresh_rental.equipment:
-                        equipment_name = fresh_rental.equipment.name
-                        equipment_serial = fresh_rental.equipment.serialnum if fresh_rental.equipment.serialnum else 'No S/N'
-                        equipment_value = f"{equipment_name} (S/N: {equipment_serial})"
-                    else:
-                        equipment_value = None
+                    equipment_value = _equipment_display(fresh_rental.equipment) if fresh_rental.equipment else None
                 except AttributeError:
                     equipment_value = None
                     print(f"Warning: Rental {fresh_rental.id_re} has invalid equipment reference")
@@ -178,20 +213,16 @@ def show_edit_form_for_rental(rental, parent_dialog=None):
                     # Read-only rental ID field
                     ui.input('Rental ID', value=str(fresh_rental.id_re)).props('readonly').classes('w-full q-mb-sm')
                     
-                    # User selection dropdown
-                    user_options = [user.name for user in users]
+                    # User selection dropdown (options/value built above via
+                    # the shared _user_display helper - M9/M10)
                     user_select = ui.select(
                         label='User',
                         options=user_options,
                         value=user_value
                     ).classes('w-full q-mb-sm')
-                    
-                    # Equipment selection dropdown with serial numbers
-                    equipment_options = []
-                    for eq in equipment_list:
-                        serial_display = eq.serialnum if eq.serialnum else 'No S/N'
-                        equipment_options.append(f"{eq.name} (S/N: {serial_display})")
-                    
+
+                    # Equipment selection dropdown (options/value built above
+                    # via the shared _equipment_display helper - M9/M10)
                     equipment_select = ui.select(
                         label='Equipment',
                         options=equipment_options,
@@ -247,8 +278,10 @@ def show_edit_form_for_rental(rental, parent_dialog=None):
                                 rental_start_input.value,
                                 rental_end_input.value,
                                 comment_input.value,
-                                users,
-                                equipment_list,
+                                users_by_display,
+                                equipment_by_display,
+                                original_user_id,
+                                original_equipment_id,
                                 edit_dialog,
                                 parent_dialog
                             )).classes('bg-primary')
@@ -267,77 +300,66 @@ def show_edit_form_for_rental(rental, parent_dialog=None):
         print(f"Critical error in show_edit_form_for_rental: {str(e)}")  # for debugging
 
 
-def save_rental_changes(rental_id, user_name, equipment_name, rental_start_str, rental_end_str, comment, users, equipment_list, dialog, parent_dialog=None):
+def save_rental_changes(rental_id, user_display, equipment_display, rental_start_str, rental_end_str, comment,
+                         users_by_display, equipment_by_display, original_user_id, original_equipment_id,
+                         dialog, parent_dialog=None):
     """
     Saves changes to the rental record in the database with comprehensive validation and error handling.
-    
+
     Args:
         rental_id: Rental ID
-        user_name: Selected user name
-        equipment_name: Selected equipment name
+        user_display: Selected user dropdown display string
+        equipment_display: Selected equipment dropdown display string
         rental_start_str: Rental start datetime string
         rental_end_str: Rental end datetime string (can be empty)
         comment: Comment text
-        users: List of all users for ID lookup
-        equipment_list: List of all equipment for ID lookup
+        users_by_display: dict mapping each user dropdown display string to its user ID (M9)
+        equipment_by_display: dict mapping each equipment dropdown display string to its equipment ID (M9)
+        original_user_id: the rental's user_id before editing (M10 - used to detect a no-op selection)
+        original_equipment_id: the rental's equipment_id before editing (M10 - see above)
         dialog: Dialog to close after saving
         parent_dialog: Parent dialog to close if needed
     """
     # Input validation - check for required fields
     validation_errors = []
-    
-    if not user_name or user_name.strip() == '':
+
+    if not user_display or user_display.strip() == '':
         validation_errors.append('User selection is required')
-    
-    if not equipment_name or equipment_name.strip() == '':
+
+    if not equipment_display or equipment_display.strip() == '':
         validation_errors.append('Equipment selection is required')
-    
+
     if not rental_start_str or rental_start_str.strip() == '':
         validation_errors.append('Rental start date is required')
-    
+
     if validation_errors:
         ui.notify(f'Validation failed: {"; ".join(validation_errors)}', color='negative')
         return
-    
+
     try:
         # Create a new session for this operation
         with SessionLocal() as session:
             try:
-                # Validate and get user ID
-                user_id = None
-                if user_name:
-                    user = next((u for u in users if u.name == user_name), None)
-                    if not user:
-                        ui.notify(f'Selected user "{user_name}" not found in system', color='negative')
-                        return
-                    
-                    # Double-check user exists in database
-                    db_user = crud.get_user(session, user.id_us)
-                    if not db_user:
-                        ui.notify(f'Selected user "{user_name}" no longer exists in database', color='negative')
-                        return
-                    
-                    user_id = user.id_us
-                
-                # Validate and get equipment ID
-                equipment_id = None
-                if equipment_name:
-                    # Extract equipment name from the display format "Name (S/N: Serial)"
-                    actual_equipment_name = equipment_name.split(' (S/N:')[0] if ' (S/N:' in equipment_name else equipment_name
-                    
-                    equipment = next((eq for eq in equipment_list if eq.name == actual_equipment_name), None)
-                    if not equipment:
-                        ui.notify(f'Selected equipment "{actual_equipment_name}" not found in system', color='negative')
-                        return
-                    
-                    # Double-check equipment exists in database
-                    db_equipment = crud.get_equipment(session, equipment.id_eq)
-                    if not db_equipment:
-                        ui.notify(f'Selected equipment "{actual_equipment_name}" no longer exists in database', color='negative')
-                        return
-                    
-                    equipment_id = equipment.id_eq
-                
+                # Resolve the dropdown selections back to IDs by exact display
+                # string (M9) instead of re-matching a possibly non-unique name.
+                selected_user_id = users_by_display.get(user_display)
+                if selected_user_id is None:
+                    ui.notify(f'Selected user "{user_display}" not found in system', color='negative')
+                    return
+
+                selected_equipment_id = equipment_by_display.get(equipment_display)
+                if selected_equipment_id is None:
+                    ui.notify(f'Selected equipment "{equipment_display}" not found in system', color='negative')
+                    return
+
+                # Only pass an ID through to update_rental when it actually
+                # changed (M10). update_rental re-validates that the target is
+                # active whenever an ID is given, which would otherwise block
+                # saving an unrelated change (e.g. just the comment) on a
+                # rental whose user/equipment has since been deactivated.
+                user_id = selected_user_id if selected_user_id != original_user_id else None
+                equipment_id = selected_equipment_id if selected_equipment_id != original_equipment_id else None
+
                 # Parse and validate datetime strings
                 rental_start = None
                 if rental_start_str:
