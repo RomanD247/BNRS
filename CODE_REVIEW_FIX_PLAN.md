@@ -506,11 +506,11 @@ Do the **shared roots first**: M2 (path anchoring), M4 (rollback helper), M3 (in
 
 ---
 
-## Step 5 — Packaging & repository hygiene
+## Step 5 — Packaging & repository hygiene ✅ COMPLETED (2026-07-08)
 
 ⚠️ **Before any `git rm --cached`, confirm the `rental.db` backup from Step 0 exists and matches the working copy.** The working `rental.db` shows `M` (differs from the committed copy) — the working copy is the real data. Losing it is unrecoverable. Use `git rm --cached` (index only), **never** plain `git rm`, on `rental.db`.
 
-- [ ] **M15 — Web-viewer subprocess broken in frozen builds, double-spawns in native mode, hardcodes the LAN IP**
+- [x] **M15 — Web-viewer subprocess broken in frozen builds, double-spawns in native mode, hardcodes the LAN IP**
   Files: `main.py:893,901,905,908,882,881,918,935`.
   Now: (1) the PyInstaller commands never bundle `web_viewer/`; (2) frozen `sys.executable` is the rental exe, so `Popen([sys.executable, viewer_script])` launches a second main app; (3) the `{"__main__","__mp_main__"}` guard makes native mode spawn the viewer twice; (4) hardcoded IP `172.20.124.60`; (5) version skew (title 2.1.5 vs spec 2.1.4).
   Fix:
@@ -522,21 +522,21 @@ Do the **shared roots first**: M2 (path anchoring), M4 (rollback helper), M3 (in
   Verify: dev `python main.py` → exactly one PID on `:8585` (`netstat -ano | findstr :8585`). Frozen: build with `web_viewer` bundled, viewer reachable, no second main window. Status label shows the real LAN IP.
   Depends on: M2.
 
-- [ ] **M20 — `web_viewer/` (documented core) and `CLAUDE.md` are untracked**
+- [x] **M20 — `web_viewer/` (documented core) and `CLAUDE.md` are untracked**
   Files: `web_viewer/` (0 tracked files); `web_viewer/viewer_app.py`; `CLAUDE.md`.
   Now: a fresh clone lacks the network viewer and the project instructions.
   Fix: `git add web_viewer/` and `git add CLAUDE.md` **by explicit path**. First `git status --porcelain web_viewer/` and reset any `__pycache__`/`.db` inside it. Decide `CODE_REVIEW_REPORT.md` intentionally (commit or gitignore). Commit on `usb_scan` with the trailer. **Never `git add -A`** — the tree has staged doc deletions and untracked venvs that must not be swept in.
   Verify: `git ls-files web_viewer/` returns the viewer source; `git ls-files CLAUDE.md` returns it. Fresh clone + `python main.py` starts the viewer with no FileNotFoundError.
   Depends on: M22.
 
-- [ ] **M21 — Committed spec (2.1) is stale/broken; the working 2.1.4 spec is untracked; both lag 2.1.5**
+- [x] **M21 — Committed spec (2.1) is stale/broken; the working 2.1.4 spec is untracked; both lag 2.1.5**
   Files: `WenglorMEL Rental System 2.1.spec:7,8,25`; untracked `2.1.4.spec:5,7,8,25`; `main.py:918,928-933,935`.
   Now: tracked 2.1 spec has a dead path (missing "My Projects"), `binaries=[]` (no `libdmtx-64.dll` → Data Matrix fails silently), and no `scanner_config.json`. The correct 2.1.4 spec is untracked and one version behind.
   Fix: create `WenglorMEL Rental System 2.1.5.spec` from the untracked 2.1.4 spec's contents, bump `name=` to `...2.1.5`. Make paths portable (SPECPATH/`os.path`-derived) instead of the machine-specific absolute paths. Ensure `binaries` includes `libdmtx-64.dll` and `datas` includes `rental.db`, `scanner_config.json`, `nicegui/`, **and `web_viewer/`** (coordinate with M15). `git rm "WenglorMEL Rental System 2.1.spec"`, `git add` the new spec. Fix the stale build comment in `main.py:928-933` (keep only the correct recipe). Commit with trailer.
   Verify: `pyinstaller "WenglorMEL Rental System 2.1.5.spec"`; the exe title reads 2.1.5, Data Matrix generation succeeds (DLL bundled), `scanner_config.json` present. `git ls-files *.spec` returns exactly one current spec.
   Depends on: M22.
 
-- [ ] **M22 — Runtime artifacts tracked in git; `.gitignore` incomplete**
+- [x] **M22 — Runtime artifacts tracked in git; `.gitignore` incomplete**
   Files: `.gitignore:1-41`; tracked `rental.db`, `logs/scanner.log`, `scanner_config.json`, 19 `*.pyc`, `WenglorMEL Rental System 2.1.exe`; partially-tracked `.hypothesis/`.
   Now: `.gitignore` entries are inert because the files are already tracked; git shows perpetual `M rental.db`/`M logs/scanner.log`/`M *.pyc`.
   Fix:
@@ -548,7 +548,7 @@ Do the **shared roots first**: M2 (path anchoring), M4 (rollback helper), M3 (in
   Verify: `git ls-files | grep -E '\.pyc$|\.exe$|^logs/|^rental\.db$|scanner_config\.json$'` returns nothing (or only the template). After running the app + a scan, `git status` is clean. Fresh clone has no bytecode, live DB, logs, or venv dirs.
   Depends on: M20, M21 (same commit workflow — sequence: back up → untrack artifacts + extend .gitignore → add missing source + spec → commit).
 
-- [ ] **M23 — `requirements.txt` incomplete (no pytest/pytest-asyncio/pyinstaller) and unbounded; NiceGUI floor 2.0.0 vs 3.8.0 used**
+- [x] **M23 — `requirements.txt` incomplete (no pytest/pytest-asyncio/pyinstaller) and unbounded; NiceGUI floor 2.0.0 vs 3.8.0 used**
   Files: `requirements.txt:1,2,6` and missing entries.
   Now: a fresh env from requirements can't run tests or build; all pins are unbounded `>=`; `hypothesis` (test-only) is a runtime dep.
   Fix:
@@ -559,6 +559,28 @@ Do the **shared roots first**: M2 (path anchoring), M4 (rollback helper), M3 (in
   Verify: clean venv → `pip install -r requirements.txt` + `python main.py` imports cleanly; `pip install -r requirements-dev.txt` + `pytest` collects; `pyinstaller` builds; NiceGUI resolves to 3.x (not 4.x).
 
 **Commit Step 5** (split into "Untrack runtime artifacts; extend .gitignore", "Track web_viewer/CLAUDE.md + current spec", "Fix viewer spawn & bundling", "Split runtime/dev requirements" as appropriate).
+
+### Review — how Step 5 was done
+
+**Approach:** unlike prior steps, this one is entirely git-hygiene and packaging, not application logic, so it was done as 4 sequential commits exactly as the plan's own "Commit Step 5" line suggested, in the dependency order M22 spells out (back up → untrack + extend `.gitignore` → add missing source + spec → fix the code that depends on the new layout → requirements). Each commit's changes were verified before moving to the next.
+
+**Commit 1 — M22 (`756cc11`):** confirmed `rental.db` still row-identical and `scanner_config.json` still byte-identical to the Step 0 backup immediately before running `git rm --cached` (index-only, working files untouched) on `rental.db`, `scanner_config.json`, `logs/scanner.log`, the tracked `.exe`, all 19 tracked `*.pyc`, and the partially-tracked `.hypothesis/`. `.gitignore` extended with `logs/`, `*.exe`, `.hypothesis/`, `.nicegui/`, `output*/`, `data/`, `bnrs/`, `bnrs_old/`, and a `scanner_config.json` line (`rental.db-wal`/`-shm` were already added in Step 3). For the "don't silently drop `scanner_config.json`" requirement: added a committed `scanner_config.default.json` (byte-verified identical to `scanner_config.py`'s in-code `DEFAULT_CONFIG` via a direct comparison script) and a small frozen-only seed step in `scanner_config.py` that copies it from the bundled `_MEIPASS` copy into place on first run — mirroring `database.py`'s existing `rental.db` seeding pattern from Step 3's M2 fix exactly. `load_config()` already fell back to `DEFAULT_CONFIG` in-memory when no file exists at all (used by every test via the `isolated_scanner_config` fixture since Step 1), so dev/test behavior needed no change.
+
+**Commit 2 — M20+M21 (`4256430`):** `git add`ed `web_viewer/` (its own `__pycache__/` was already excluded by the global `.gitignore` pattern — nothing needed resetting) and `CLAUDE.md`, plus `CODE_REVIEW_REPORT.md` for the same reason `CODE_REVIEW_FIX_PLAN.md` is already tracked — it's the source document this whole effort derives from, not a build artifact. Built the new `WenglorMEL Rental System 2.1.5.spec` from the untracked 2.1.4 spec's content, with `SPECPATH`-relative paths (portable across machines, unlike both predecessor specs' hardcoded absolute paths) and `datas` extended to include `scanner_config.default.json` and `web_viewer/` per M15's bundling requirement. **Actually ran `pyinstaller` against the new spec** (not just code-inspected it) — `pyinstaller` turned out to already be installed in `bnrs/` (6.19.0, matching M23's own version target) — and used `PyInstaller.utils.cliutils.archive_viewer` to confirm `libdmtx-64.dll`, `rental.db`, `scanner_config.default.json`, the full `nicegui/` tree (1001 files), and `web_viewer/viewer_app.py` all landed inside the built exe. `git rm`'d the stale tracked `WenglorMEL Rental System 2.1.spec` (git recorded it as a rename to the new file). `CLAUDE.md` updated to reference the new spec/build command and to correct a stale claim — `git ls-files bnrs bnrs_old` proved neither venv was ever actually tracked, contradicting the doc's prior "both are committed to the repo" statement.
+
+**Commit 3 — M15 (`b06db0d`):** this finding took much longer than expected because the plan's literal fix (gate the viewer `Popen` on strict `__name__ == "__main__"` instead of the combined `{'__main__','__mp_main__'}` set) was tested empirically against the real app rather than trusted on inspection, per this plan's own verification standard — and the empirical test disproved the simple fix. Launching `python main.py` and inspecting the live process tree (`wmic process ... get ProcessId,ParentProcessId,CommandLine`) showed NiceGUI's native mode reimports this module in further descendant processes an uncertain number of levels deep (3 independent "Web viewer started" prints observed in one run, cascading through multiple `python main.py` re-executions, not just one parent+one child) — worse than the plan's "double-spawns" description. A `__name__`-only guard reduced but did not eliminate this (still 2 spawns, plus a new WebView2 `OutOfMemoryException` from the runaway native-window cascade). Switched to an environment-variable guard (`BNRS_VIEWER_STARTED`, set before the `Popen` call) instead — env vars are inherited by every descendant process regardless of cascade depth, so this closes the hole completely independent of exactly how many times NiceGUI reimports the module. Re-tested and confirmed exactly one viewer process, no crash. The status label's LAN IP is propagated the same way (`BNRS_VIEWER_LAN_IP` env var) since it's uncertain which generation's `main()` call ends up serving the actually-visible window.
+
+For the frozen-build path: `Popen([sys.executable, viewer_script])` was replaced with a self-relaunch (`Popen([sys.executable, "--web-viewer"])` when frozen, `[sys.executable, __file__, "--web-viewer"]` in dev), dispatched at the very top of `main.py` before any other import (a frozen onefile exe has no bundled `python.exe` to hand a raw `.py` path to). Building and running the real exe surfaced a second real bug beyond what the plan anticipated: a bundled `datas` entry like `web_viewer/` unpacks into PyInstaller's temp `_MEIPASS` extraction directory at runtime, not next to the exe (`APP_DIR`) — so the initial frozen build's viewer silently no-op'd (the `os.path.exists()` guard just returned `False`, no exception, no log). Fixed by resolving `viewer_script`'s frozen-mode path against `sys._MEIPASS` instead of `APP_DIR` (both in the top-of-file dispatch and the `Popen` call site) — `APP_DIR` remains correct for `rental.db`/`scanner_config.json`, which are deliberately *seeded* into it as mutable live state, unlike `web_viewer/`'s static code. Rebuilt and re-ran the real exe end-to-end: both `:15716` (main) and `:8585` (viewer) came up as single listeners, dynamic LAN IP `172.20.124.41` shown (correctly different from the old hardcoded `.60`, proving that value really was stale for this machine). Also introduced a single `VERSION = "2.1.5"` constant (used by both the window title and reconcilable with the spec name) and collapsed the stale multi-recipe build comment block at the bottom of `main.py` down to the current spec-based command.
+
+**Commit 4 — M23 (`46c16e0`):** `requirements.txt` reduced to the 7 runtime deps with `<major` ceilings matching currently-installed, verified-working versions (checked via `pip show` in `bnrs/`: SQLAlchemy 2.0.48, NiceGUI 3.8.0, Pillow 12.1.1, hidapi 0.15.0, pyscard 2.3.1, pywebview 6.1 — all matched the plan's predicted ceilings exactly). New `requirements-dev.txt` holds `pytest`/`pytest-asyncio`/`hypothesis`/`pyinstaller`. Verified both files with `pip install --dry-run` against the real venv (all resolved with no conflicts) and a full `pytest` run afterward (54 passed, unchanged). `CLAUDE.md` updated with the two-file install instructions.
+
+**Verification (across all 4 commits):**
+1. *Real, not simulated, infrastructure checks* — this step's nature (packaging/git, not application code) meant the meaningful verification was actually running the tools involved: a real `pyinstaller` build (twice, after finding and fixing the `_MEIPASS` bug), a real `python main.py` launch with live process-tree/port inspection (three iterations, converging on the env-var fix), and real `pip install --dry-run` runs — rather than a scratch harness importing functions directly (there's no equivalent for "does the packaged exe actually work").
+2. *Regression suite* — full `pytest`: 54 passed after every commit in this step, matching every prior step.
+3. *Data integrity* — `rental.db` confirmed row-identical to the Step 0 backup and `scanner_config.json` confirmed byte-identical (SHA-256 unchanged) both before `git rm --cached` and again at the end of the step, despite this step's testing launching the real app and a real built exe multiple times against the live `rental.db`.
+4. All test processes and build artifacts (`dist/`, `build/`) spawned during verification were cleaned up (targeted `taskkill` by specific PID, never a blanket by-image-name kill) or are gitignored.
+
+**Known, out-of-scope residual gap (newly discovered, not part of any listed finding):** running the real frozen exe surfaced an unrelated pre-existing bug — a `SyntaxError: source code string cannot contain null bytes` logged (not fatal; both servers kept running) from inside NiceGUI's own 404-error-page handler, which tries to introspect `sys.argv[0]` as Python source to build a friendlier error page and breaks when `sys.argv[0]` is a compiled exe instead of a `.py` file. Confirmed by user decision to note this and move on rather than investigate now, since it's unrelated to any of M15/M20/M21/M22/M23's actual scope. Flagged here for future triage rather than silently dropped.
 
 ---
 
