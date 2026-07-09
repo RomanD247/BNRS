@@ -15,7 +15,8 @@ if __name__ == "__main__" and "--web-viewer" in sys.argv:
     runpy.run_path(os.path.join(_viewer_dir, "web_viewer", "viewer_app.py"), run_name="__main__")
     sys.exit(0)
 
-from nicegui import native, ui, run
+from nicegui import native, ui
+from native_dialogs import pick_folder_native
 from gui.gui_adduser import show_add_user_dialog, show_add_department_dialog, refresh_departments
 from gui.gui_addequip import show_add_equipment_dialog
 from gui.gui_changeUser import edit_users_dialog
@@ -33,8 +34,6 @@ import asyncio
 import os
 import time
 import subprocess
-import tkinter as tk
-from tkinter import filedialog, messagebox
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from crud import (
@@ -49,6 +48,13 @@ from models import User
 db = SessionLocal()
 
 VERSION = "2.1.5"
+
+# Hidden admin-panel gesture (main.py CLAUDE.md: "not real auth" - a UX gate,
+# not a security boundary). Password overridable via env var without touching
+# code; falls back to the historical hardcoded value.
+ADMIN_CLICK_COUNT = 3
+ADMIN_CLICK_WINDOW_SEC = 0.8
+ADMIN_PASSWORD = os.environ.get("BNRS_ADMIN_PASSWORD", "supp")
 
 # NiceGUI only registers a working /favicon.ico route when the path resolves
 # to a real file (nicegui.py's own is_file() check resolves relative paths
@@ -293,8 +299,10 @@ def show_rent_dialog(equipment):
 def show_return_dialog(rental):
     """Show dialog for returning equipment"""
     def on_confirm():
-        return_equipment(db, rental.id_re)
-        ui.notify('Equipment returned successfully!')
+        if return_equipment(db, rental.id_re):
+            ui.notify('Equipment returned successfully!')
+        else:
+            ui.notify('This rental was already returned.', type='warning')
         dialog.close()
         refresh_with_filters()
 
@@ -495,25 +503,8 @@ class CodesGenerationDialog:
 
     async def generate_users_codes(self):
         """Handler for generating codes for all users"""
-        # Select folder for saving when button is clicked
-        def pick_folder():
-            root = tk.Tk()
-            root.withdraw()  # Hide main window
-            root.attributes('-topmost', True)  # Make window on top of all
-            root.lift()  # Bring window to front
-            root.focus_force()
-            
-            # Open folder selection dialog
-            directory = filedialog.askdirectory(
-                title="Select folder to save user codes",
-                parent=root
-            )
-            
-            root.destroy()  # Close temporary window
-            return directory
+        directory = await pick_folder_native()
 
-        directory = await run.io_bound(pick_folder)
-        
         if not directory:
             ui.notify('Folder not selected, operation cancelled', type='warning')
             return
@@ -536,25 +527,8 @@ class CodesGenerationDialog:
     
     async def generate_equipment_codes(self):
         """Handler for generating codes for all equipment"""
-        # Select folder for saving when button is clicked
-        def pick_folder():
-            root = tk.Tk()
-            root.withdraw()  # Hide main window
-            root.attributes('-topmost', True)  # Make window on top of all
-            root.lift()  # Bring window to front
-            root.focus_force()
-            
-            # Open folder selection dialog
-            directory = filedialog.askdirectory(
-                title="Select folder to save equipment codes",
-                parent=root
-            )
-            
-            root.destroy()  # Close temporary window
-            return directory
+        directory = await pick_folder_native()
 
-        directory = await run.io_bound(pick_folder)
-        
         if not directory:
             ui.notify('Folder not selected, operation cancelled', type='warning')
             return
@@ -696,7 +670,7 @@ def create_password_dialog():
             ui.button('Enter', on_click=lambda: check_password(password_input))
     
     def check_password(input_field):
-        if input_field.value == "supp":  #Change !password
+        if input_field.value == ADMIN_PASSWORD:
             password_dialog.close()
             success_dialog.open()
         else:
@@ -707,7 +681,8 @@ def create_password_dialog():
 
 def get_long_hold_callbacks():
     """
-    Returns callback to handle 5 clicks within 0.4 seconds:
+    Returns callback to handle ADMIN_CLICK_COUNT clicks within
+    ADMIN_CLICK_WINDOW_SEC seconds:
       - on_click: increments counter if clicks are within time window
     """
     password_dialog = create_password_dialog()
@@ -717,12 +692,12 @@ def get_long_hold_callbacks():
     def handle_click(event):
         nonlocal click_count, last_click_time
         now = time.time()
-        # If more than 0.8 seconds have passed, start over
-        if now - last_click_time > 0.8:
+        # If more than ADMIN_CLICK_WINDOW_SEC seconds have passed, start over
+        if now - last_click_time > ADMIN_CLICK_WINDOW_SEC:
             click_count = 0
         click_count += 1
         last_click_time = now
-        if click_count >= 3:
+        if click_count >= ADMIN_CLICK_COUNT:
             password_dialog.open()
             click_count = 0  # reset counter
 
@@ -767,94 +742,96 @@ def show_add_nfc_dialog():
     with SessionLocal() as fresh_db:
         # Get only users without NFC code
         users_without_nfc = fresh_db.query(User).filter(User.nfc == None, User.status == True).all()
-        
-        if not users_without_nfc:
-            ui.notify('No users without Code', color='warning')
-            return
-            
-        # Sort by name
         users_without_nfc = sorted(users_without_nfc, key=lambda x: x.name.lower())
-        
-        with ui.dialog() as dialog, ui.card().style('''
-        position: absolute;
-        left: 20%;
-        top: 20%;
-        transform: none;
-        width: 500px;
-    '''):
-            with ui.row().classes('w-full justify-between items-center'):
-                ui.label('Adding Code to User').style('font-size: 150%')
-                ui.button(icon='close', on_click=dialog.close).props('flat round')
-            
-            # Create dropdown list of users
-            user_options = [(f"{user.name} ({user.department.name})", user.id_us) for user in users_without_nfc]
-            selected_user_id = None
-            
-            # Find user ID by selected text
-            def on_user_select(e):
-                nonlocal selected_user_id
-                # Search for user ID by selected text
-                for option in user_options:
-                    if option[0] == e.value:
-                        selected_user_id = option[1]
-                        break
-            
-            user_select = ui.select(
-                options=[option[0] for option in user_options],
-                value=None,
-                label='Select user',
-                on_change=on_user_select,
-                with_input=True
-            ).style('width: 100%')
-            
-            # To store NFC value
-            nfc_value = None
-            #nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Code: Not set</b>')
-            
-            async def scan_nfc():
-                nonlocal nfc_value
-                nfc_value, scan_status = await get_nfc_input("Scan a Code")
-                nfc_value = nfc_value.lower() if nfc_value else None
-                
-                if nfc_value:
-                    # Check if this NFC code is already taken
-                    existing_user = find_user_by_nfc(fresh_db, nfc_value)
-                    if existing_user:
-                        ui.notify(f'Code already registered to user {existing_user.name}', type='warning')
-                        nfc_value = None
-                        nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Code: Not set</b>'
-                    else:
-                        nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Code scanned</b>'
-                else:
+        user_options = [(f"{user.name} ({user.department.name})", user.id_us) for user in users_without_nfc]
+
+    if not user_options:
+        ui.notify('No users without Code', color='warning')
+        return
+
+    # Everything below runs in async callbacks invoked after this function
+    # returns - by which point fresh_db above is already closed
+    # (session-reused-after-with-closed). Each callback opens its own
+    # short-lived session instead of reusing the closed one.
+    with ui.dialog() as dialog, ui.card().style('''
+    position: absolute;
+    left: 20%;
+    top: 20%;
+    transform: none;
+    width: 500px;
+'''):
+        with ui.row().classes('w-full justify-between items-center'):
+            ui.label('Adding Code to User').style('font-size: 150%')
+            ui.button(icon='close', on_click=dialog.close).props('flat round')
+
+        selected_user_id = None
+
+        # Find user ID by selected text
+        def on_user_select(e):
+            nonlocal selected_user_id
+            # Search for user ID by selected text
+            for option in user_options:
+                if option[0] == e.value:
+                    selected_user_id = option[1]
+                    break
+
+        user_select = ui.select(
+            options=[option[0] for option in user_options],
+            value=None,
+            label='Select user',
+            on_change=on_user_select,
+            with_input=True
+        ).style('width: 100%')
+
+        # To store NFC value
+        nfc_value = None
+
+        async def scan_nfc():
+            nonlocal nfc_value
+            nfc_value, scan_status = await get_nfc_input("Scan a Code")
+            nfc_value = nfc_value.lower() if nfc_value else None
+
+            if nfc_value:
+                # Check if this NFC code is already taken
+                with SessionLocal() as session:
+                    existing_user = find_user_by_nfc(session, nfc_value)
+                if existing_user:
+                    ui.notify(f'Code already registered to user {existing_user.name}', type='warning')
+                    nfc_value = None
                     nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Code: Not set</b>'
-            
-            def on_save():
-                nonlocal selected_user_id, nfc_value
-                
-                if not selected_user_id:
-                    ui.notify('User not selected', color='negative')
-                    return
-                    
-                if not nfc_value:
-                    ui.notify('Data Matrix Code not scanned', color='negative')
-                    return
-                
-                try:
-                    # Updating the user's NFC code
-                    update_user_nfc(fresh_db, selected_user_id, nfc_value)
-                    ui.notify('Data Matrix Code successfully added to user', color='positive')
-                    dialog.close()
-                except Exception as e:
-                    ui.notify(f'Error during update: {str(e)}', color='negative')
-            
-            with ui.row().classes('w-full justify-between items-center q-mb-md'):
-                ui.button('Scan Data Matrix Code', on_click=scan_nfc)
-                nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Code: Not set</b>')
-            
-            with ui.row().classes('justify-end'):
-                ui.button('Apply', on_click=on_save).classes('bg-primary')
-            
-        dialog.open()
+                else:
+                    nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Code scanned</b>'
+            else:
+                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Code: Not set</b>'
+
+        def on_save():
+            nonlocal selected_user_id, nfc_value
+
+            if not selected_user_id:
+                ui.notify('User not selected', color='negative')
+                return
+
+            if not nfc_value:
+                ui.notify('Data Matrix Code not scanned', color='negative')
+                return
+
+            try:
+                # Updating the user's NFC code
+                with SessionLocal() as session:
+                    update_user_nfc(session, selected_user_id, nfc_value)
+                ui.notify('Data Matrix Code successfully added to user', color='positive')
+                dialog.close()
+            except Exception as e:
+                ui.notify(f'Error during update: {str(e)}', color='negative')
+
+        with ui.row().classes('w-full justify-between items-center q-mb-md'):
+            ui.button('Scan Data Matrix Code', on_click=scan_nfc)
+            nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Code: Not set</b>')
+
+        with ui.row().classes('justify-end'):
+            ui.button('Apply', on_click=on_save).classes('bg-primary')
+
+    dialog.open()
 
 def main():
     global available_container, rented_container

@@ -40,7 +40,9 @@ def edit_etypes_dialog():
                                 return lambda: show_edit_form_for_etype(et_id, dialog)
                             
                             card.on('click', make_handler(etype.id_et))
-            
+
+            # Delete the dialog element once hidden (unbounded-dialog-accumulation)
+            dialog.on('hide', dialog.delete)
             dialog.open()
         
     except Exception as e:
@@ -108,6 +110,8 @@ def show_edit_form_for_etype(etype_id, parent_dialog=None):
                     
                     ui.button('Cancel', on_click=edit_dialog.close).classes('q-mr-sm')
 
+            # Delete the dialog element once hidden (unbounded-dialog-accumulation)
+            edit_dialog.on('hide', edit_dialog.delete)
             # Open the new dialog
             edit_dialog.open()
         
@@ -143,12 +147,16 @@ def apply_changes(etype_id, new_name, new_status, update_equipment, dialog, pare
             etype.status = new_status
             
             # Bulk update equipment if requested
+            count = None
             if update_equipment:
                 count = crud.update_etype_equipment_status(session, etype_id, new_status)
-                ui.notify(f'Updated status for {count} equipment items', color='positive')
-            
+
             session.commit()
-            
+
+            # Notify only after the commit has actually succeeded (bulk-status-commit-order)
+            if count is not None:
+                ui.notify(f'Updated status for {count} equipment items', color='positive')
+
             ui.notify(f'Equipment type {new_name} successfully updated', color='positive')
             dialog.close()
             

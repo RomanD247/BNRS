@@ -11,7 +11,7 @@ class Equipment(Base):
 
     id_eq = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
-    serialnum = Column(String, default=False)
+    serialnum = Column(String)
     etype_id = Column(Integer, ForeignKey("etypes.id_et"))
     status = Column(Boolean, default=True)
     etype = relationship("Etype", back_populates="equipments")

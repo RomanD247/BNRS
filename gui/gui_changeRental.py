@@ -115,7 +115,9 @@ def edit_rentals_dialog():
                         ui.notify(f'Error loading rental data: {str(data_error)}', color='negative')
                         print(f"Error loading rental data: {str(data_error)}")
                         ui.label('Failed to load rental records. Please try again.').classes('text-center q-mt-lg text-negative')
-            
+
+            # Delete the dialog element once hidden (unbounded-dialog-accumulation)
+            dialog.on('hide', dialog.delete)
             dialog.open()
         
     except Exception as e:
@@ -286,6 +288,8 @@ def show_edit_form_for_rental(rental, parent_dialog=None):
                                 parent_dialog
                             )).classes('bg-primary')
                         
+                # Delete the dialog element once hidden (unbounded-dialog-accumulation)
+                edit_dialog.on('hide', edit_dialog.delete)
                 # Open the new dialog
                 edit_dialog.open()
                 
@@ -529,5 +533,7 @@ def delete_rental_record(rental_id, dialog, parent_dialog=None):
         with ui.row().classes('justify-end'):
             ui.button('Cancel', on_click=confirm_dialog.close).classes('q-mr-sm')
             ui.button('Delete', on_click=lambda: [confirm_delete(), confirm_dialog.close()]).classes('bg-negative')
-    
+
+    # Delete the dialog element once hidden (unbounded-dialog-accumulation)
+    confirm_dialog.on('hide', confirm_dialog.delete)
     confirm_dialog.open()

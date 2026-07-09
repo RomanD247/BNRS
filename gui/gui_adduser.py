@@ -76,8 +76,11 @@ def show_add_department_dialog(callback=None):
     dialog.open()
 
 def show_add_user_dialog(callback=None):
+    refresh_departments()
+
     nfc_value = None
     nfc_label = None
+    selected_dep_name = None
 
     async def scan_nfc():
         nonlocal nfc_value, nfc_label
@@ -94,20 +97,23 @@ def show_add_user_dialog(callback=None):
             else:
                 nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Code scanned</b>'
         else:
-            with ui.row().classes('items-center'):
-                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
+            nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
+
+    def select_department(item):
+        nonlocal selected_dep_name
+        selected_dep_name = item
+        selected_label.set_text(f'{item}')
 
     def add_user():
         name = name_input.value.strip()
-        dep = selected_label.text.replace('Selected: ', '').strip()
 
-        if not name or dep == 'None':
+        if not name or not selected_dep_name:
             ui.notify('Please enter a name and select a department!', type='warning')
             return
 
         try:
-            create_user(db, name=name, dep=dep, nfc=nfc_value)
-            ui.notify(f'User {name} added to {dep}')
+            create_user(db, name=name, dep=selected_dep_name, nfc=nfc_value)
+            ui.notify(f'User {name} added to {selected_dep_name}')
             
             # Call the callback function if provided
             if callback:
@@ -134,7 +140,7 @@ def show_add_user_dialog(callback=None):
             dropdown = ui.dropdown_button('Choose department', auto_close=True)
             with dropdown:
                 for item in data:
-                    ui.item(item, on_click=lambda item=item: (selected_label.set_text(f'{item}'))).style('width: 300px')
+                    ui.item(item, on_click=lambda item=item: select_department(item)).style('width: 300px')
         selected_label = ui.label('You must choose department!')
         
             # Add a button and tag for NFC #!NFC_feature

@@ -11,39 +11,61 @@ import datetime
 # Add parent directory to path to import from main project
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from database import SessionLocal
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from paths import APP_DIR
 from crud import get_available_equipment, get_active_rentals, get_all_etypes
 from crud import get_available_equipment_by_type, get_active_rentals_by_equipment_type
 from models import Rental, Equipment, User
 from sqlalchemy.orm import joinedload
 
-# Create database session
-db = SessionLocal()
+# This viewer is read-only by design (it must never write to rental.db), so
+# it gets its own engine bound to a true read-only SQLite connection instead
+# of importing/reusing the main app's read-write `database.SessionLocal`.
+# That also means this module never calls Base.metadata.create_all() - a
+# read-only connection couldn't create tables anyway, and a viewer has no
+# business doing so.
+#
+# Absolute path resolution mirrors database.py (via paths.APP_DIR) so the
+# viewer finds the live rental.db regardless of its own working directory.
+#
+# The main DB runs in WAL mode (see database.py's connect listener); this
+# combination (mode=ro + WAL) was verified directly against the live
+# rental.db before adopting it here: real SELECTs (including joinedload
+# relationship queries via crud.py) succeed, and any write attempt raises
+# "attempt to write a readonly database" at the sqlite3 layer - enforced by
+# the OS/SQLite, not just by convention.
+_DB_PATH = (APP_DIR / "rental.db").as_posix()
+VIEWER_DATABASE_URL = f"sqlite:///file:{_DB_PATH}?mode=ro&uri=true"
+viewer_engine = create_engine(VIEWER_DATABASE_URL)
+SessionLocal = sessionmaker(bind=viewer_engine)
 
 # State management for filters (per-user session)
 class ViewerState:
     def __init__(self):
-        self.available_equipment = get_available_equipment(db)
-        self.rented_equipment = get_active_rentals(db)
-        self.etypes = get_all_etypes(db)
+        with SessionLocal() as db:
+            self.available_equipment = get_available_equipment(db)
+            self.rented_equipment = get_active_rentals(db)
+            self.etypes = get_all_etypes(db)
         self.selected_etype_id = None
         self.name_filter = ""
         self.etype_map = {}
         self.filter_select = None
         self.name_filter_input = None
-        
+
         # Build etype_map
         for etype in self.etypes:
             self.etype_map[etype.name] = etype.id_et
-    
+
     def set_name_filter(self, filter_text):
         """Set the name filter and update the filter state"""
         self.name_filter = filter_text.lower().strip() if filter_text else ""
-        
+
     def refresh_data(self):
         """Refresh all data from database"""
-        db.expire_all()
-        self.etypes = get_all_etypes(db)
+        with SessionLocal() as db:
+            self.etypes = get_all_etypes(db)
         self.etype_map = {etype.name: etype.id_et for etype in self.etypes}
 
 def get_user_state():
@@ -129,8 +151,9 @@ def show_rental_history():
             
             # Get rental history data
             rental_history = []
-            rentals = get_all_rentals(db)
-            
+            with SessionLocal() as db:
+                rentals = get_all_rentals(db)
+
             for rental in rentals:
                 # Calculate duration
                 duration_str = "Active rental"
@@ -189,14 +212,17 @@ def filter_rentals_by_equipment_name(rental_list, name_filter):
 
 def apply_combined_filters(state):
     """Apply both type and name filters simultaneously to equipment lists"""
-    # Get base equipment lists (all or filtered by type)
-    if state.selected_etype_id is not None:
-        available = get_available_equipment_by_type(db, state.selected_etype_id)
-        rented = get_active_rentals_by_equipment_type(db, state.selected_etype_id)
-    else:
-        available = get_available_equipment(db)
-        rented = get_active_rentals(db)
-    
+    # Get base equipment lists (all or filtered by type), each fetch using
+    # its own short-lived session (this app is read-only, so per-fetch
+    # sessions are simplest and avoid stale cached/identity-mapped data).
+    with SessionLocal() as db:
+        if state.selected_etype_id is not None:
+            available = get_available_equipment_by_type(db, state.selected_etype_id)
+            rented = get_active_rentals_by_equipment_type(db, state.selected_etype_id)
+        else:
+            available = get_available_equipment(db)
+            rented = get_active_rentals(db)
+
     # Apply name filter if active
     if state.name_filter:
         available = filter_equipment_by_name(available, state.name_filter)
@@ -275,9 +301,11 @@ def reset_filter(state, available_container, rented_container):
         state.name_filter_input.value = ""
         state.name_filter_input.update()
     
-    # Fetch all data into state (without filters)
-    state.available_equipment = get_available_equipment(db)
-    state.rented_equipment = get_active_rentals(db)
+    # Fetch all data into state (without filters), using a fresh short-lived
+    # session for this one read.
+    with SessionLocal() as db:
+        state.available_equipment = get_available_equipment(db)
+        state.rented_equipment = get_active_rentals(db)
 
     # Update the UI lists
     if available_container:
@@ -302,11 +330,10 @@ def full_refresh(state, available_container, rented_container):
     current_etype_id = state.selected_etype_id
     current_name_filter = state.name_filter
     
-    # Expire session cache before fetching
-    db.expire_all()
-
-    # Refresh etypes from DB into state
-    state.etypes = get_all_etypes(db)
+    # Refresh etypes from DB into state using a fresh short-lived session
+    # (no need to expire a cache - a brand-new session has none).
+    with SessionLocal() as db:
+        state.etypes = get_all_etypes(db)
     state.etype_map = {etype.name: etype.id_et for etype in state.etypes}
 
     # Restore filter state after refresh
@@ -373,10 +400,20 @@ def main_page():
 
 if __name__ == '__main__':
     ui.run(
+        # Intentional, accepted exposure: this is an internal, read-only LAN
+        # viewer, so binding all interfaces (rather than localhost-only) is
+        # by design, not an oversight.
         host='0.0.0.0',  # Listen on all network interfaces
         port=8585,
         title='Equipment Rental Viewer',
         reload=False,
         show=False,  # Don't auto-open browser
-        storage_secret='rental_viewer_secret_key_change_in_production'  # Required for per-user sessions
+        # Mirrors the BNRS_ADMIN_PASSWORD env-var-with-fallback pattern in
+        # main.py: falls back to a fixed value (clearly insecure - only
+        # session cookies for this read-only viewer depend on it) so
+        # existing deployments keep working unchanged out of the box.
+        storage_secret=os.environ.get(
+            "BNRS_VIEWER_STORAGE_SECRET",
+            "rental_viewer_secret_key_change_in_production",  # INSECURE default
+        ),
     )

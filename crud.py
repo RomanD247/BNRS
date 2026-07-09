@@ -15,6 +15,13 @@ def _commit(db: Session) -> None:
         raise
 
 
+# Sentinel passed as update_user's `nfc` to explicitly clear a code to NULL,
+# distinct from the default `None` ("leave untouched") - see
+# cancelled-scan-code-lie. Stored as NULL, never '', so multiple cleared users
+# don't collide on the nfc UNIQUE constraint.
+CLEAR_NFC = "__CLEAR_NFC__"
+
+
 # Equipment CRUD operations
 def create_equipment(db: Session, name: str, serialnum: str = None, etype_id: int = None, nfc: str = None) -> Equipment:
     """Create new equipment"""
@@ -37,13 +44,22 @@ def get_all_equipment(db: Session) -> List[Equipment]:
     """Get all equipment"""
     return db.query(Equipment).options(joinedload(Equipment.etype)).filter(Equipment.status == True).order_by(Equipment.name).all()
 
-def update_equipment(db: Session, equipment_id: int, name: str = None, 
-                    serialnum: str = None, etype_id: int = None, status: bool = None) -> Optional[Equipment]:
-    """Update equipment"""
-    equipment = get_equipment(db, equipment_id)
+def get_equipment_including_inactive(db: Session, equipment_id: int) -> Optional[Equipment]:
+    """Get equipment by ID including inactive ones"""
+    return db.query(Equipment).options(joinedload(Equipment.etype)).filter(Equipment.id_eq == equipment_id).first()
+
+def update_equipment(db: Session, equipment_id: int, name: str = None,
+                    serialnum: str = None, etype_id: int = None, status: bool = None,
+                    get_equipment_func=get_equipment) -> Optional[Equipment]:
+    """Update equipment. Pass get_equipment_func=get_equipment_including_inactive
+    to be able to reactivate a soft-deleted row via status=True."""
+    equipment = get_equipment_func(db, equipment_id)
     if equipment:
-        if name: equipment.name = name
-        if serialnum: equipment.serialnum = serialnum
+        if name is not None:
+            if not name:
+                raise ValueError("Equipment name cannot be empty")
+            equipment.name = name
+        if serialnum is not None: equipment.serialnum = serialnum or None
         if etype_id: equipment.etype_id = etype_id
         if status is not None: equipment.status = status
         _commit(db)
@@ -90,11 +106,20 @@ def get_all_etypes(db: Session) -> List[Etype]:
     """Get all equipment types"""
     return db.query(Etype).filter(Etype.status == True).order_by(Etype.name).all()
 
-def update_etype(db: Session, etype_id: int, name: str = None, status: bool = None) -> Optional[Etype]:
-    """Update equipment type"""
-    etype = get_etype(db, etype_id)
+def get_etype_including_inactive(db: Session, etype_id: int) -> Optional[Etype]:
+    """Get equipment type by ID including inactive ones"""
+    return db.query(Etype).filter(Etype.id_et == etype_id).first()
+
+def update_etype(db: Session, etype_id: int, name: str = None, status: bool = None,
+                  get_etype_func=get_etype) -> Optional[Etype]:
+    """Update equipment type. Pass get_etype_func=get_etype_including_inactive
+    to be able to reactivate a soft-deleted row via status=True."""
+    etype = get_etype_func(db, etype_id)
     if etype:
-        if name: etype.name = name
+        if name is not None:
+            if not name:
+                raise ValueError("Equipment type name cannot be empty")
+            etype.name = name
         if status is not None: etype.status = status
         _commit(db)
         db.refresh(etype)
@@ -142,11 +167,16 @@ def get_all_departments(db: Session) -> List[Department]:
     """Get all departments"""
     return db.query(Department).filter(Department.status == True).order_by(Department.name).all()
 
-def update_department(db: Session, department_id: int, name: str = None, status: bool = None) -> Optional[Department]:
-    """Update department"""
-    department = get_department(db, department_id)
+def update_department(db: Session, department_id: int, name: str = None, status: bool = None,
+                       get_department_func=get_department) -> Optional[Department]:
+    """Update department. Pass get_department_func=get_department_including_inactive
+    to be able to reactivate a soft-deleted row via status=True."""
+    department = get_department_func(db, department_id)
     if department:
-        if name: department.name = name
+        if name is not None:
+            if not name:
+                raise ValueError("Department name cannot be empty")
+            department.name = name
         if status is not None: department.status = status
         _commit(db)
         db.refresh(department)
@@ -192,25 +222,36 @@ def get_all_users(db: Session) -> List[User]:
     return db.query(User).options(joinedload(User.department)).filter(User.status == True).order_by(User.name).all()
 
 def update_user(db: Session, user_id: int, name: str = None, dep: str = None, status: bool = None, nfc: str = None, get_user_func=get_user) -> Optional[User]:
-    """Update user"""
+    """Update user.
+
+    All validation runs before any mutation (update-user-mutates-before-validate)
+    so a raised ValueError never leaves the long-lived session holding a
+    partially-mutated, uncommitted user object.
+    """
     user = get_user_func(db, user_id)
     if user:
-        if name: user.name = name
+        # --- validation (no mutation yet) ---
+        department = None
         if dep:
             department = get_department_by_name(db, dep)
             if not department:
                 raise ValueError(f"Department {dep} not found")
-            user.id_dep = department.id_dep
-        if status is not None: user.status = status
-        if nfc is not None:
+        if nfc is not None and nfc != CLEAR_NFC and nfc:
             # Check if this NFC code is not already used by another user
             # (M3: includes soft-deleted users, so a code can't be silently
             # "free" just because its old owner was deactivated)
-            if nfc:
-                existing_user = find_user_by_nfc_including_inactive(db, nfc)
-                if existing_user and existing_user.id_us != user_id:
-                    raise ValueError(f"NFC code is already used by user {existing_user.name}")
-            user.nfc = nfc
+            existing_user = find_user_by_nfc_including_inactive(db, nfc)
+            if existing_user and existing_user.id_us != user_id:
+                raise ValueError(f"NFC code is already used by user {existing_user.name}")
+
+        # --- mutation (validation passed) ---
+        if name: user.name = name
+        if department is not None: user.id_dep = department.id_dep
+        if status is not None: user.status = status
+        if nfc is not None:
+            # CLEAR_NFC (cancelled-scan-code-lie) forces a real NULL, never ''
+            # - two cleared users with nfc='' would collide on the UNIQUE index.
+            user.nfc = None if nfc == CLEAR_NFC else nfc
         _commit(db)
         db.refresh(user)
     return user
@@ -285,14 +326,20 @@ def get_all_rentals(db: Session) -> List[Rental]:
         .order_by(Rental.rental_start.desc())\
         .all()
 
-def return_equipment(db: Session, rental_id: int) -> Optional[Rental]:
-    """Return equipment (end rental)"""
+def return_equipment(db: Session, rental_id: int) -> bool:
+    """Return equipment (end rental).
+
+    Returns True only if this call actually closed an active rental; False if
+    the rental doesn't exist or was already returned (idempotent) - lets
+    callers tell a real return apart from a no-op (return-dialog-always-reports-success).
+    """
     rental = get_rental(db, rental_id)
     if rental and not rental.rental_end:
         rental.rental_end = datetime.datetime.now()
         _commit(db)
         db.refresh(rental)
-    return rental
+        return True
+    return False
 
 def get_active_rentals(db: Session) -> List[Rental]:
     """Get all active rentals (not returned)"""
@@ -335,7 +382,7 @@ def get_available_equipment(db: Session) -> List[Equipment]:
         .filter(Equipment.status == True)\
         .filter(
             ~Equipment.id_eq.in_(
-                db.query(Rental.equipment_id).filter(Rental.rental_end == None)
+                db.query(Rental.equipment_id).filter(Rental.rental_end == None, Rental.equipment_id != None)
             )
         ).all()
 
@@ -348,7 +395,7 @@ def get_available_equipment_by_type(db: Session, etype_id: int) -> List[Equipmen
         .filter(Equipment.status == True)\
         .filter(
             ~Equipment.id_eq.in_(
-                db.query(Rental.equipment_id).filter(Rental.rental_end == None)
+                db.query(Rental.equipment_id).filter(Rental.rental_end == None, Rental.equipment_id != None)
             )
         ).all()
 
@@ -503,7 +550,6 @@ def get_user_rental_statistics(db: Session, start_date=None, end_date=None) -> L
     .join(Department, User.id_dep == Department.id_dep)\
     .filter(User.status == True)\
     .outerjoin(subquery, User.id_us == subquery.c.user_id)\
-    .filter(subquery.c.total_seconds > 0)\
     .order_by(User.name)\
     .all()
 
@@ -691,7 +737,6 @@ def get_equipment_name_statistics(db: Session, start_date=None, end_date=None) -
     .filter(Equipment.status == True)\
     .outerjoin(subquery, Equipment.id_eq == subquery.c.equipment_id)\
     .group_by(Equipment.name, Etype.name)\
-    .having(func.sum(subquery.c.total_seconds) > 0)\
     .order_by(Equipment.name)\
     .all()
 
@@ -758,9 +803,8 @@ def get_department_rental_statistics(db: Session, start_date=None, end_date=None
         subquery.c.rental_count,
         subquery.c.total_seconds
     ).select_from(Department)\
-    .join(subquery, Department.id_dep == subquery.c.id_dep)\
+    .outerjoin(subquery, Department.id_dep == subquery.c.id_dep)\
     .filter(Department.status == True)\
-    .filter(subquery.c.total_seconds > 0)\
     .order_by(Department.name)\
     .all()
 

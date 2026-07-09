@@ -21,7 +21,15 @@ def load_etypes():
 
 data = load_etypes()
 
-def show_add_etype_dialog(main_dropdown, main_data, main_selected_label, filter_callback=None):
+# Function to refresh equipment types list from database
+def refresh_etypes():
+    """Refreshes the equipment types list from database"""
+    global data
+    db.expire_all()  # Expire session cache
+    data = load_etypes()
+    return data
+
+def show_add_etype_dialog(main_dropdown, main_data, on_select, filter_callback=None):
     def add_etype():
         new_et = new_et_input.value.strip()
         if not new_et:
@@ -46,7 +54,7 @@ def show_add_etype_dialog(main_dropdown, main_data, main_selected_label, filter_
             main_dropdown.clear()
             with main_dropdown:
                 for item in main_data:
-                    ui.item(item, on_click=lambda item=item: (main_selected_label.set_text(f'{item}'))).style('width: 300px')
+                    ui.item(item, on_click=lambda item=item: on_select(item)).style('width: 300px')
             
             # Call the callback to update the filter dropdown in the main interface
             if filter_callback:
@@ -68,8 +76,11 @@ def show_add_etype_dialog(main_dropdown, main_data, main_selected_label, filter_
     dialog.open()
 
 def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
+    refresh_etypes()
+
     nfc_value = None
     nfc_label = None
+    selected_etype_name = None
 
     async def scan_nfc():
         nonlocal nfc_value, nfc_label
@@ -86,22 +97,25 @@ def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
             else:
                 nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Code scanned</b>'
         else:
-            with ui.row().classes('items-center'):
-                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
+            nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
+
+    def select_etype(item):
+        nonlocal selected_etype_name
+        selected_etype_name = item
+        selected_label.set_text(f'{item}')
 
     def add_equipment():
         name = name_input.value.strip()
         serialnum = serialnum_input.value.strip()
-        etype_name = selected_label.text.replace('Selected: ', '').strip()
 
-        if not name or etype_name == 'None':
+        if not name or not selected_etype_name:
             ui.notify('Please enter a name and select an equipment type!', type='warning')
             return
 
         try:
-            etype = get_etype_by_name(db, etype_name)
+            etype = get_etype_by_name(db, selected_etype_name)
             if not etype:
-                ui.notify(f'Equipment type {etype_name} not found!', type='error')
+                ui.notify(f'Equipment type {selected_etype_name} not found!', type='error')
                 return
             create_equipment(db, name=name, serialnum=serialnum, etype_id=etype.id_et, nfc=nfc_value)
             ui.notify(f'Equipment {name} added successfully!')
@@ -129,8 +143,8 @@ def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
             dropdown = ui.dropdown_button('Choose equipment type', auto_close=True)
             with dropdown:
                 for item in data:
-                    ui.item(item, on_click=lambda item=item: (selected_label.set_text(f'{item}'))).style('width: 300px')
-            ui.button(text='+', on_click=lambda: show_add_etype_dialog(dropdown, data, selected_label, filter_callback))
+                    ui.item(item, on_click=lambda item=item: select_etype(item)).style('width: 300px')
+            ui.button(text='+', on_click=lambda: show_add_etype_dialog(dropdown, data, select_etype, filter_callback))
         selected_label = ui.label('You must choose equipment type!')
         
         # Add a button and tag for NFC

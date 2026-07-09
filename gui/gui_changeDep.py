@@ -42,7 +42,9 @@ def edit_departments_dialog():
                                 return lambda: show_edit_form_for_department(dept, dialog)
                             
                             card.on('click', make_handler(department))
-            
+
+            # Delete the dialog element once hidden (unbounded-dialog-accumulation)
+            dialog.on('hide', dialog.delete)
             dialog.open()
         
     except Exception as e:
@@ -113,9 +115,11 @@ def show_edit_form_for_department(department, parent_dialog=None):
                     )).classes('bg-primary q-mr-sm')
                     
                     ui.button('Cancel', on_click=edit_dialog.close).classes('q-mr-sm')
-                    
 
-                    
+
+
+            # Delete the dialog element once hidden (unbounded-dialog-accumulation)
+            edit_dialog.on('hide', edit_dialog.delete)
             # Open the new dialog
             edit_dialog.open()
             #ui.notify(f'Edit form opened for department: {fresh_department.name}', color='positive')
@@ -152,12 +156,16 @@ def apply_changes(department_id, new_name, new_status, update_users, dialog, par
             department.status = new_status
             
             # Bulk update users if requested
+            count = None
             if update_users:
                 count = crud.update_department_users_status(session, department_id, new_status)
-                ui.notify(f'Updated status for {count} users', color='positive')
-            
+
             session.commit()
-            
+
+            # Notify only after the commit has actually succeeded (bulk-status-commit-order)
+            if count is not None:
+                ui.notify(f'Updated status for {count} users', color='positive')
+
             ui.notify(f'Department {new_name} successfully updated', color='positive')
             dialog.close()
             

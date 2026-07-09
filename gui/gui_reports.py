@@ -149,9 +149,6 @@ def show_user_rental_statistics():
                 with SessionLocal() as fresh_db:
                     user_stats = get_user_rental_statistics(fresh_db, start_date, end_date)
 
-                # Filter out records with zero rental time
-                user_stats = [stat for stat in user_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
-
                 # Update table
                 table.rows = user_stats
                 
@@ -198,9 +195,6 @@ def show_user_rental_statistics():
                 with SessionLocal() as fresh_db:
                     user_stats = get_user_rental_statistics(fresh_db)
 
-                # Filter out records with zero rental time
-                user_stats = [stat for stat in user_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
-                
                 # Create table
                 table = ui.table(
                     columns=columns,
@@ -275,9 +269,6 @@ def show_equipment_type_statistics():
                 with SessionLocal() as fresh_db:
                     type_stats = get_equipment_type_statistics(fresh_db, start_date, end_date)
 
-                # Filter out records with zero rental time
-                type_stats = [stat for stat in type_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
-
                 # Update table
                 table.rows = type_stats
             
@@ -320,10 +311,6 @@ def show_equipment_type_statistics():
                 with SessionLocal() as fresh_db:
                     type_stats = get_equipment_type_statistics(fresh_db)
 
-                # Filter out records with zero rental time
-                type_stats = [stat for stat in type_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
-
-                
                 table = ui.table(
                     columns=columns,
                     rows=type_stats,
@@ -400,9 +387,6 @@ def show_equipment_name_statistics():
                 with SessionLocal() as fresh_db:
                     name_stats = get_equipment_name_statistics(fresh_db, start_date, end_date)
 
-                # Filter out records with zero rental time
-                name_stats = [stat for stat in name_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
-
                 # Update table
                 table.rows = name_stats
             
@@ -446,9 +430,6 @@ def show_equipment_name_statistics():
                 with SessionLocal() as fresh_db:
                     name_stats = get_equipment_name_statistics(fresh_db)
 
-                # Filter out records with zero rental time
-                name_stats = [stat for stat in name_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
-                
                 table = ui.table(
                     columns=columns,
                     rows=name_stats,
@@ -715,9 +696,6 @@ def show_department_rental_statistics():
                 with SessionLocal() as fresh_db:
                     dept_stats = get_department_rental_statistics(fresh_db, start_date, end_date)
 
-                # Filter out records with zero rental time
-                dept_stats = [stat for stat in dept_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
-
                 # Update table
                 table.rows = dept_stats
             
@@ -761,9 +739,6 @@ def show_department_rental_statistics():
                 with SessionLocal() as fresh_db:
                     dept_stats = get_department_rental_statistics(fresh_db)
 
-                # Filter out records with zero rental time
-                dept_stats = [stat for stat in dept_stats if str(stat['total_rental_time']).strip() != '0' and str(stat['total_rental_time']).strip() != '']
-                
                 table = ui.table(
                     columns=columns,
                     rows=dept_stats,

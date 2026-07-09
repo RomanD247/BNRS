@@ -8,7 +8,7 @@ connected USB HID devices, select devices, test connections, and switch scanner 
 Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8
 """
 
-from nicegui import ui
+from nicegui import ui, run
 import scanner_config
 from usb_hid_scanner import USBHIDScanner
 import logging
@@ -18,7 +18,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def show_scanner_config_dialog():
+async def show_scanner_config_dialog():
     """
     Display scanner configuration dialog with:
     - Current configuration display
@@ -48,7 +48,12 @@ def show_scanner_config_dialog():
     }
     
     def check_connection_status():
-        """Check if scanner is currently connected"""
+        """Check if scanner is currently connected.
+
+        Blocking (opens/closes a USB HID handle) - always invoke via
+        `run.io_bound(...)` from an async context, never call directly from
+        the UI thread.
+        """
         try:
             scanner = USBHIDScanner(state["vid"], state["pid"], timeout=5)
             if scanner.connect():
@@ -68,9 +73,6 @@ def show_scanner_config_dialog():
             state["connection_status"] = "error"
             logger.error(f"Error checking connection: {e}")
             return False
-    
-    # Check initial connection status
-    check_connection_status()
     
     with ui.dialog() as dialog, ui.card().style('width: 700px; max-height: 80vh'):
         with ui.row().classes('w-full justify-between items-center'):
@@ -97,15 +99,31 @@ def show_scanner_config_dialog():
             
             with ui.row().classes('w-full items-center'):
                 ui.label('Status:').style('font-weight: bold; width: 100px')
-                if state["connection_status"] == "connected":
-                    status_label = ui.label('Connected').style('color: green; font-weight: bold')
-                    status_icon = ui.icon('check_circle', color='green')
-                elif state["connection_status"] == "permission_error":
-                    status_label = ui.label('Permission Error').style('color: orange; font-weight: bold')
-                    status_icon = ui.icon('warning', color='orange')
-                else:
-                    status_label = ui.label('Disconnected').style('color: red; font-weight: bold')
-                    status_icon = ui.icon('cancel', color='red')
+                # Rendered as a loading placeholder first; the dialog opens
+                # immediately and the real status is filled in afterwards by
+                # update_connection_status(), once the blocking USB probe
+                # (run off the UI thread) resolves.
+                status_spinner = ui.spinner(size='sm')
+                status_label = ui.label('Checking connection...').style('color: gray; font-weight: bold')
+                status_icon = ui.icon('help', color='grey')
+
+                async def update_connection_status():
+                    """Probe the scanner connection off the UI thread, then
+                    reflect the result in the status row above."""
+                    await run.io_bound(check_connection_status)
+                    status_spinner.set_visibility(False)
+                    if state["connection_status"] == "connected":
+                        status_label.set_text('Connected')
+                        status_label.style('color: green; font-weight: bold')
+                        status_icon.props('name=check_circle color=green')
+                    elif state["connection_status"] == "permission_error":
+                        status_label.set_text('Permission Error')
+                        status_label.style('color: orange; font-weight: bold')
+                        status_icon.props('name=warning color=orange')
+                    else:
+                        status_label.set_text('Disconnected')
+                        status_label.style('color: red; font-weight: bold')
+                        status_icon.props('name=cancel color=red')
         
         ui.separator()
         
@@ -115,17 +133,20 @@ def show_scanner_config_dialog():
             
             devices_container = ui.column().classes('w-full')
             
-            def refresh_devices():
+            async def refresh_devices():
                 """Refresh the list of connected USB HID devices"""
                 logger.info("Refreshing USB HID device list")
                 devices_container.clear()
-                
+
                 with devices_container:
                     ui.label('Scanning for devices...').style('color: gray')
                     ui.spinner(size='sm')
-                
-                # Get list of devices
-                devices = USBHIDScanner.list_devices()
+
+                # Get list of devices - run off the UI thread since HID
+                # enumeration is a blocking call; the "Scanning..." spinner
+                # above has already been sent to the client by the time this
+                # awaits, so the dialog doesn't appear frozen while it runs.
+                devices = await run.io_bound(USBHIDScanner.list_devices)
                 state["devices"] = devices
                 
                 devices_container.clear()
@@ -170,10 +191,12 @@ def show_scanner_config_dialog():
             
             with ui.row().classes('w-full'):
                 ui.button('Refresh Devices', icon='refresh', on_click=refresh_devices).props('color=primary')
-            
-            # Initial device list
-            refresh_devices()
-        
+
+            # Initial device list is populated after the dialog is shown
+            # (see the `await refresh_devices()` call below), not here -
+            # calling the blocking scan during dialog construction would
+            # freeze the UI before this "Refresh Devices" row even renders.
+
         ui.separator()
         
         # Mode Switching Section
@@ -255,16 +278,23 @@ def show_scanner_config_dialog():
                     logger.warning(f"Invalid PID: {state['pid']}")
                     return
                 
-                # Update USB configuration
-                success_usb = scanner_config.update_usb_config(vid=state["vid"], pid=state["pid"])
-                
-                # Update mode
-                success_mode = scanner_config.set_scanner_mode(state["mode"])
-                
-                if success_usb and success_mode:
+                # Build the complete merged config (VID, PID, AND mode
+                # together) and write it with a single save_config() call,
+                # so a mid-way failure can't leave a half-saved config
+                # (e.g. new VID/PID persisted with the old mode, or vice
+                # versa) - unlike calling update_usb_config()/
+                # set_scanner_mode() separately, which each load+save on
+                # their own.
+                config = scanner_config.load_config()
+                config["usb_vendor"]["vid"] = state["vid"]
+                config["usb_vendor"]["pid"] = state["pid"]
+                config["scanner_mode"] = state["mode"]
+                success = scanner_config.save_config(config)
+
+                if success:
                     ui.notify('Configuration saved successfully!', type='positive')
                     logger.info("Configuration saved successfully")
-                    
+
                     # Update current configuration display
                     vid_label.set_text(f"{state['vid']} (0x{state['vid']:04X})")
                     pid_label.set_text(f"{state['pid']} (0x{state['pid']:04X})")
@@ -285,13 +315,17 @@ def show_scanner_config_dialog():
                 state["vid"] = default_vid
                 state["pid"] = default_pid
                 state["mode"] = default_mode
-                
-                # Update USB configuration
-                scanner_config.update_usb_config(vid=default_vid, pid=default_pid)
-                
-                # Update mode
-                scanner_config.set_scanner_mode(default_mode)
-                
+
+                # Single merged write (same reasoning as save_configuration()
+                # above) - two independent update_usb_config()/
+                # set_scanner_mode() calls could leave a half-reset config on
+                # a mid-way failure.
+                config = scanner_config.load_config()
+                config["usb_vendor"]["vid"] = default_vid
+                config["usb_vendor"]["pid"] = default_pid
+                config["scanner_mode"] = default_mode
+                scanner_config.save_config(config)
+
                 # Update UI
                 vid_label.set_text(f"{default_vid} (0x{default_vid:04X})")
                 pid_label.set_text(f"{default_pid} (0x{default_pid:04X})")
@@ -306,5 +340,15 @@ def show_scanner_config_dialog():
                 ui.button('Save Configuration', icon='save', on_click=save_configuration).props('color=positive')
                 ui.button('Reset to Defaults', icon='restore', on_click=reset_to_defaults).props('color=warning')
     
+    # Reopening this dialog repeatedly (Admin Panel button) would otherwise
+    # accumulate detached DOM nodes forever - delete it once hidden.
+    dialog.on('hide', dialog.delete)
     dialog.open()
     logger.info("Scanner configuration dialog opened")
+
+    # Only now - with the dialog (and its loading placeholders) already
+    # rendered - kick off the blocking USB device enumeration and
+    # connection-check calls, each via run.io_bound so they run off the UI
+    # thread instead of freezing the window during dialog construction.
+    await refresh_devices()
+    await update_connection_status()
