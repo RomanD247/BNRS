@@ -278,7 +278,11 @@ async def get_usb_hid_input(prompt_message: str) -> tuple[str, str]:
                 await asyncio.sleep(0.1)  # Allow UI to update
 
                 try:
-                    connection_result = scanner.connect()
+                    # connect() opens a USB HID device (a blocking OS call)
+                    # - run it off the event loop so it can't freeze the UI
+                    # for every connected client while it runs (blocking-calls-on-event-loop).
+                    loop = asyncio.get_event_loop()
+                    connection_result = await loop.run_in_executor(None, scanner.connect)
                 except PermissionError as e:
                     # Permission error - show specific permission dialog
                     logger.error(f"Permission error connecting to scanner: {e}")
@@ -607,6 +611,14 @@ async def get_user_input_with_selection(equipment=None):
     # Get scanner mode from configuration
     mode = get_scanner_mode()
     logger.info(f"get_user_input_with_selection called with scanner mode: {mode}")
+    if mode not in ("usb_vendor", "keyboard"):
+        # Unlike get_nfc_input, this dialog's mode checks below have no
+        # else/fallback branch - an unrecognized mode used to leave the
+        # dialog with no keyboard input field AND no background scanner
+        # task, silently promising to scan while nothing was listening
+        # (unknown-scanner-mode-disables-scanning-in-selection-dialog).
+        logger.warning(f"Unknown scanner mode '{mode}' in get_user_input_with_selection, falling back to keyboard mode")
+        mode = "keyboard"
 
     def on_cancel():
         nonlocal scanner_cancelled
@@ -728,10 +740,13 @@ async def get_user_input_with_selection(equipment=None):
         scanner = None
 
         try:
-            # Create and connect scanner
+            # Create and connect scanner. connect() is a blocking OS call
+            # (opens a USB HID device) - run it off the event loop
+            # (blocking-calls-on-event-loop).
             scanner = USBHIDScanner(vid, pid, timeout, read_size, encoding)
-            
-            if not scanner.connect():
+            loop = asyncio.get_event_loop()
+
+            if not await loop.run_in_executor(None, scanner.connect):
                 logger.error("Failed to connect to USB HID scanner in background")
                 nfc_display_label.text = "Scanner connection failed"
                 nfc_display_label.style('color: #d32f2f;')

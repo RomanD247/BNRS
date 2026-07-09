@@ -793,6 +793,20 @@ This closes out `CODE_REVIEW_FIX_PLAN.md`: all findings are now `[x]` except the
 
 ---
 
+## Step 9 — Findings the original plan missed entirely ✅ COMPLETED (2026-07-09)
+
+Found by a final audit workflow launched after Step 8, in response to the user asking for confirmation that everything was really done. The audit's coverage-check phase diffed every finding ID in `CODE_REVIEW_REPORT.md` against this plan's Coverage table and found the table only actually listed 71 rows despite the intro claiming 74 — these 3 findings had fallen through with **no remediation decision of any kind**: not fixed, not deferred, not marked "not reproduced," just never discussed anywhere in the plan.
+
+- [x] **M1 — `NameError` in `get_active_rentals_summary`** — `crud.py` (was lines 498-500). Now: `#days, remainder = divmod(total_seconds, 86400)` was commented out, but the very next line, `hours, remainder = divmod(remainder, 3600)`, still read the now-undefined `remainder` — a guaranteed `NameError` on the first active rental in the loop. The function has zero callers anywhere in the repo (confirmed via repo-wide grep), so this never crashed anything live — but it was a real, reproducible crash landmine. Fix: deleted the three broken/vestigial lines; `days`/`hours`/`minutes`/`seconds` were already computed correctly two lines above via `duration.days`/`duration.seconds`, so `duration_str` now uses those directly with no functional change to correct callers, just removal of the dead, crashing redefinition attempt. Verified: called the function directly against a seeded active rental — returns a real summary with a valid `D:HH:MM` string, no exception.
+
+- [x] **blocking-calls-on-event-loop** — `NfcScan.py` (`scan_task`'s and `usb_scanner_background_task`'s `scanner.connect()` calls). Now: `scanner.connect()` (opening a USB HID device, a blocking OS call) was called directly inside `async def` functions with no `run_in_executor`, unlike the adjacent `read_scan()` calls which already correctly run through an executor — meaning device-open latency (driver handshake, permission prompts, etc.) blocked the single-threaded NiceGUI event loop for every connected client. This finding was explicitly named in Step 2's own review as "the Minor `blocking-calls-on-event-loop` finding, scheduled for Step 7" — and then never appeared in Step 7 at all; a tracked promise that was silently dropped somewhere in this session. Fix: both `connect()` call sites now go through `await loop.run_in_executor(None, scanner.connect)`, mirroring the existing `read_scan()` pattern exactly; the get_scanner_mode()/get_usb_config() config-file reads the report also named were assessed and left as direct calls — they're small local JSON reads (sub-millisecond), and wrapping them in an executor would add complexity for negligible benefit, unlike the genuinely slow USB device-open call. Verified via source inspection that both `connect()` sites are executor-wrapped and no bare `scanner.connect()` call remains; full `pytest` still 54 passed.
+
+- [x] **unknown-scanner-mode-disables-scanning-in-selection-dialog** — `NfcScan.py`'s `get_user_input_with_selection`. Now: this dialog's mode-routing (`if mode == "keyboard":` for the input field, `if mode == "usb_vendor": ... elif mode == "keyboard": ...` for starting the background task/focus-maintenance) has no `else` branch, unlike `get_nfc_input`'s explicit "unknown mode → fall back to keyboard, with a warning log" branch a few functions above it in the same file. A hand-edited or corrupted `scanner_mode` value in `scanner_config.json` would silently leave this dialog with neither a working keyboard input field nor a running background scanner — the "Scan User's Data Matrix Code" section would sit forever on "Ready to scan..." with nothing listening, leaving only the manual dropdown selection as a (still-working) escape hatch. Fix: normalized `mode` once, immediately after it's read from config, exactly mirroring `get_nfc_input`'s existing fallback (log a warning, treat anything other than `"usb_vendor"`/`"keyboard"` as `"keyboard"`) — both downstream branches then correctly pick up the corrected value with no other code change needed. Verified via source inspection that the normalization block is present and both downstream mode checks are now unreachable-with-nothing-happening.
+
+**Process note:** this step exists because the plan's own intro claim ("79 verified finding entries... resolving to 74 unique finding IDs... the Coverage Table maps every ID to its Step") was itself never re-verified against the source report until this final audit — every prior step trusted the plan's own scope as complete and correct, and none of the 8 completed steps' review sections ever cross-checked back against `CODE_REVIEW_REPORT.md` to confirm nothing had been dropped. The lesson: "did I finish what I was assigned" and "did everything that needed doing get assigned in the first place" are different questions, and this session only asked the first one until explicitly prompted to check the second.
+
+---
+
 ## Regression checklist (manually drive after all steps)
 
 Use the `run` skill to launch the native app (port 15716) and the `verify` skill where noted.
@@ -818,6 +832,8 @@ Use the `run` skill to launch the native app (port 15716) and the `verify` skill
 ## Coverage table
 
 79 finding entries across 7 areas → **74 unique IDs** (the 5 IDs marked *(2 areas)* were reported from two review areas each and are handled once).
+
+**Correction (2026-07-09):** this table originally listed only 71 rows despite the 74 claimed above — 3 real findings from `CODE_REVIEW_REPORT.md` (M1, and two Minor findings) had no row at all, meaning no remediation decision had been made for them anywhere in this document. Found by a final audit's coverage-check phase (diffing every ID in the report against this table) and fixed directly as Step 9. All three now have rows below, mapped to Step 9.
 
 | ID | Title (short) | Step |
 |----|----------------|------|
@@ -892,5 +908,8 @@ Use the `run` skill to launch the native app (port 15716) and the `verify` skill
 | dead-code-scanning-active | Unused global | 8 |
 | matrixcode-engine-leak | Engine per call, not disposed | 8 |
 | duration-utils-docstring-overflow | Docstring/inf (unused module) | 8 |
+| M1 | `NameError` in `get_active_rentals_summary` (dead code, zero callers) | 9 |
+| blocking-calls-on-event-loop | `scanner.connect()` blocks the UI thread | 9 |
+| unknown-scanner-mode-disables-scanning-in-selection-dialog | No fallback for a corrupted mode value | 9 |
 
-**Count check:** 74 unique IDs listed = 79 finding entries − 5 cross-area duplicates. Every JSON finding is accounted for.
+**Count check:** 74 unique IDs listed = 79 finding entries − 5 cross-area duplicates. Every finding in `CODE_REVIEW_REPORT.md` is now accounted for — corrected 2026-07-09 after a final audit found 3 of the 74 (M1 and the two Step-9 Minor findings above) had been silently missing from this table with no remediation decision at all; see Step 9 and the correction note above the table.
