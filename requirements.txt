@@ -3,5 +3,4 @@ NiceGUI>=3.8,<4
 pylibdmtx>=0.1.10
 Pillow>=12,<13
 hidapi>=0.15,<1
-pyscard>=2.3,<3
 pywebview>=6,<7

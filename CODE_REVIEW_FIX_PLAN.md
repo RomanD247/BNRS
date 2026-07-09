@@ -763,16 +763,31 @@ M19 must precede M18 (if `read_scan` truncates, the corrupted-vs-timeout distinc
 
 ---
 
-## Step 8 — Info / cleanup (optional, low priority)
+## Step 8 — Info / cleanup (optional, low priority) ✅ COMPLETED (2026-07-09)
 
-- [ ] **echo-true** — `database.py:9`. Change `echo=True` → `echo=False` (optionally `echo=os.environ.get('BNRS_SQL_ECHO','')=='1'`). Batch with the M5 edit (same `create_engine` line). Verify: console no longer prints SQL/params during rent/return.
-- [ ] **dead-code-get-card-uid** — `NfcScan.py:192-225,8-11`. Delete unused `get_card_uid()` and the three now-unused `smartcard` imports (verify no other `smartcard`/`readers`/`toHexString`/`CardConnectionException`/`NoCardException` references first). If `pyscard` is unused repo-wide, drop it from `requirements.txt`. Verify: `python -c "import NfcScan"` imports cleanly.
-- [ ] **dead-code-scanning-active** — `NfcScan.py:23`. Delete the unused `scanning_active = False` global. Verify: import clean, grep shows no references.
-- [ ] **matrixcode-engine-leak** — `MatrixCode.py:33,93`. Now: a new engine per call, never disposed. Fix: `from database import SessionLocal` and use it (best — shares the WAL engine), or add `engine.dispose()` in the finally (74, 134). Verify: loop `update_user_codes()` many times → no growth in open connections.
-- [ ] **duration-utils-docstring-overflow** — `duration_utils.py:24,115,119,51`. Now: docstring example inconsistent; `format_duration_from_seconds(float('inf'))` raises OverflowError. *Module currently unused.* Fix: correct the docstring to a self-consistent `{'duration':'1:02:35','duration_seconds':95730.0}`; add `import math`; after the `<=0` check, `if math.isinf(total_seconds) or math.isnan(total_seconds): return 'Active rental'`. Coordinate with M12's owner before adopting vs. deleting the module. Verify: `format_duration_from_seconds(float('inf'))` returns a string; `(95730)` returns `'1:02:35'`.
+- [x] **echo-true** — `database.py:9`. Change `echo=True` → `echo=False` (optionally `echo=os.environ.get('BNRS_SQL_ECHO','')=='1'`). Batch with the M5 edit (same `create_engine` line). Verify: console no longer prints SQL/params during rent/return.
+- [x] **dead-code-get-card-uid** — `NfcScan.py:192-225,8-11`. Delete unused `get_card_uid()` and the three now-unused `smartcard` imports (verify no other `smartcard`/`readers`/`toHexString`/`CardConnectionException`/`NoCardException` references first). If `pyscard` is unused repo-wide, drop it from `requirements.txt`. Verify: `python -c "import NfcScan"` imports cleanly.
+- [x] **dead-code-scanning-active** — `NfcScan.py:23`. Delete the unused `scanning_active = False` global. Verify: import clean, grep shows no references.
+- [x] **matrixcode-engine-leak** — `MatrixCode.py:33,93`. Now: a new engine per call, never disposed. Fix: `from database import SessionLocal` and use it (best — shares the WAL engine), or add `engine.dispose()` in the finally (74, 134). Verify: loop `update_user_codes()` many times → no growth in open connections.
+- [x] **duration-utils-docstring-overflow** — `duration_utils.py:24,115,119,51`. Now: docstring example inconsistent; `format_duration_from_seconds(float('inf'))` raises OverflowError. *Module currently unused.* Fix: correct the docstring to a self-consistent `{'duration':'1:02:35','duration_seconds':95730.0}`; add `import math`; after the `<=0` check, `if math.isinf(total_seconds) or math.isnan(total_seconds): return 'Active rental'`. Coordinate with M12's owner before adopting vs. deleting the module. Verify: `format_duration_from_seconds(float('inf'))` returns a string; `(95730)` returns `'1:02:35'`.
 - [ ] **Env/venv drift note (informational).** The tracked `*.pyc` are cpython-313 while the active venv is Python 3.11.9 — stale build noise (removed in M22). The venv also carries unused bloat (auto-py-to-exe/Eel/bottle/gevent) that must **not** be added to `requirements.txt` (M23).
 
 **Commit Step 8** ("Cleanup: dead code, docstrings, echo=False, engine disposal").
+
+### Review — how Step 8 was done
+
+All 5 findings done directly (small, disjoint, mechanical — no parallel workflow needed).
+
+- **echo-true** — `database.py`'s `create_engine` now defaults `echo=False`, overridable via `BNRS_SQL_ECHO=1` for debugging. Confirmed no other `create_engine(..., echo=True)` call sites exist repo-wide.
+- **dead-code-get-card-uid** — deleted `get_card_uid()` and the 3 `smartcard` imports it was the sole user of (`from smartcard.System import readers`, `from smartcard.util import toHexString`, `from smartcard.Exceptions import CardConnectionException, NoCardException` — confirmed via grep that none of `readers`/`toHexString`/`CardConnectionException`/`NoCardException` are referenced anywhere else in the file or repo). `pyscard` was then confirmed unused repo-wide and dropped from `requirements.txt`. `CLAUDE.md`'s description of `NfcScan.py` also mentioned this now-deleted legacy NFC-card reading path — updated that line too, since leaving it would make the docs actively wrong about what the file does.
+- **dead-code-scanning-active** — deleted the unused `scanning_active = False` module global (confirmed zero references via grep).
+- **matrixcode-engine-leak** — `MatrixCode.py`'s `update_user_codes()`/`update_equipment_codes()` each created a brand-new `create_engine(DATABASE_URL)` per call, never disposed. Took the plan's "best" option: both now use the shared `SessionLocal` from `database.py` (the same WAL-mode engine every other part of the app uses) instead of creating their own. `fill_nfc_fields.py` has the identical pattern but isn't named in this finding and is a rarely-run one-shot CLI script (the leaked engine dies with the process anyway) — left untouched to stay in scope.
+- **duration-utils-docstring-overflow** — `duration_utils.py` (confirmed still unused repo-wide, so the "coordinate with M12's owner" note resolves to "still not adopted, same decision as Step 4"): corrected the module docstring's example (`'2:15:30'` didn't match `95730.0` seconds — the correct value is `'1:02:35'`), and `format_duration_from_seconds()` now checks `math.isinf()`/`math.isnan()` before the `int()` conversion that used to raise `OverflowError`/`ValueError`, returning `"Active rental"` to match the sentinel `calculate_duration_data()` already uses for the same case.
+- **Env/venv drift note** — informational only per the plan; no action taken.
+
+**Verification:** `python -m py_compile` on all 4 touched `.py` files; direct smoke tests confirming `get_card_uid`/`scanning_active` are gone from `NfcScan`'s namespace, `database.engine.echo` defaults `False`, `MatrixCode.py`'s source no longer contains `create_engine`, and `format_duration_from_seconds` returns `"Active rental"` for both `inf` and `nan` instead of raising. Full `pytest`: 54 passed (unchanged). `rental.db`/`scanner_config.json` untouched — this step made no database writes.
+
+This closes out `CODE_REVIEW_FIX_PLAN.md`: all findings are now `[x]` except the two explicitly deferred in Step 7 (`nfc-payload-ambiguity`, `tz-naive-timestamps`), which remain available for a future session if you ever want to revisit them. The only remaining item in this document is the manual "Regression checklist" below, which is for you to drive through in the running app, not something to implement.
 
 ---
 

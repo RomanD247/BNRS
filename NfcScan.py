@@ -5,10 +5,7 @@ from sqlalchemy.orm import Session
 import crud
 from models import User, Equipment, Rental
 from database import SessionLocal
-from smartcard.System import readers
-from smartcard.util import toHexString
 import time
-from smartcard.Exceptions import CardConnectionException, NoCardException
 from pylibdmtx.pylibdmtx import encode
 from PIL import Image, ImageDraw, ImageFont
 from usb_hid_scanner import USBHIDScanner
@@ -20,7 +17,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 db = SessionLocal()
-scanning_active = False  # Global flag to control card scanning
 
 def _create_datamatrix_image(data: str, text_lines: list[str]) -> Image.Image | None:
     """
@@ -187,41 +183,6 @@ def _create_datamatrix_image(data: str, text_lines: list[str]) -> Image.Image | 
         return None
     except Exception as e:
         print(f"Error: Unexpected error creating Data Matrix image: {str(e)}")
-        return None
-
-def get_card_uid():
-    """
-    Reads UID from a card using CCID reader
-    
-    Returns:
-        Card UID as string or None if no card detected
-    """
-    try:
-        rdrs = readers()
-        if not rdrs:
-            print("No PC/SC readers found")
-            return None
-            
-        reader = rdrs[0]
-        conn = reader.createConnection()
-        conn.connect()
-        
-        # Command to get UID
-        GET_UID = [0xFF, 0xCA, 0x00, 0x00, 0x00]
-        data, sw1, sw2 = conn.transmit(GET_UID)
-        
-        if sw1 == 0x90 and sw2 == 0x00:
-            uid = toHexString(data).replace(' ', '').lower()  # Convert to lowercase
-            print("Card UID:", uid)
-            conn.disconnect()
-            return uid
-        
-        conn.disconnect()
-        return None
-    except (CardConnectionException, NoCardException):
-        return None
-    except Exception as e:
-        print(f"Error reading card: {str(e)}")
         return None
 
 async def get_usb_hid_input(prompt_message: str) -> tuple[str, str]:

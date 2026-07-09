@@ -21,10 +21,11 @@ Example usage:
     
     # Create standardized duration data
     duration_data = create_duration_dict(display, seconds)
-    # Returns: {'duration': '2:15:30', 'duration_seconds': 95730.0}
+    # Returns: {'duration': '1:02:35', 'duration_seconds': 95730.0}
 """
 
 import datetime
+import math
 from typing import Tuple, Optional
 
 
@@ -114,7 +115,13 @@ def format_duration_from_seconds(total_seconds: float) -> str:
     """
     if total_seconds <= 0:
         return "0:00:00"
-    
+
+    # int() raises OverflowError/ValueError on inf/nan - this mirrors the
+    # "Active rental" sentinel calculate_duration_data() returns for an
+    # ongoing rental (float('inf')), rather than crashing the caller.
+    if math.isinf(total_seconds) or math.isnan(total_seconds):
+        return "Active rental"
+
     # Convert to integer seconds for calculation
     seconds = int(total_seconds)
     

@@ -48,7 +48,7 @@ Scanning supports **two modes**, selected in `scanner_config.json` (`"scanner_mo
 - `keyboard` — legacy keyboard-wedge mode where the scanner types the code into a focused input.
 
 Files:
-- **[NfcScan.py](NfcScan.py)** — the central scanner + rental orchestration module (largest file). `get_nfc_input()` is the mode-routing entry point: it reads `scanner_mode` and dispatches to `get_usb_hid_input()` or `get_nfc_input_keyboard()`, returning a `(data, status)` tuple. `nfc_equipment_rental_workflow()` is the full scan-to-rent / scan-to-return flow. This file **also** generates the printable Data Matrix PNGs (via `pylibdmtx.encode`) and contains legacy NFC-card reading via `pyscard`.
+- **[NfcScan.py](NfcScan.py)** — the central scanner + rental orchestration module (largest file). `get_nfc_input()` is the mode-routing entry point: it reads `scanner_mode` and dispatches to `get_usb_hid_input()` or `get_nfc_input_keyboard()`, returning a `(data, status)` tuple. `nfc_equipment_rental_workflow()` is the full scan-to-rent / scan-to-return flow. This file **also** generates the printable Data Matrix PNGs (via `pylibdmtx.encode`).
 - **[usb_hid_scanner.py](usb_hid_scanner.py)** — `USBHIDScanner` class: connect/disconnect, read & parse HID reports into a lowercase string.
 - **[scanner_config.py](scanner_config.py)** — load/save/merge `scanner_config.json`, mode get/set, VID/PID validation. Default device is VID `4602` (0x11FA) / PID `33282` (0x8202).
 - **[scanner_error_dialogs.py](scanner_error_dialogs.py)** / **[scanner_logging.py](scanner_logging.py)** — user-facing error dialogs and logging setup (writes `logs/scanner.log`).

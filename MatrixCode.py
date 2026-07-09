@@ -7,10 +7,8 @@ This module provides functions for updating NFC codes for users and equipment
 in the rental system database.
 """
 
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
 from models import User, Equipment
-from database import DATABASE_URL
+from database import SessionLocal
 
 
 def update_user_codes():
@@ -29,11 +27,10 @@ def update_user_codes():
             'error': str | None
         }
     """
-    # Create database connection
-    engine = create_engine(DATABASE_URL, echo=False)
-    SessionLocal = sessionmaker(bind=engine)
+    # Uses the shared engine from database.py (matrixcode-engine-leak) instead
+    # of creating a new one per call that was never disposed.
     session = SessionLocal()
-    
+
     try:
         # Get all users from users table
         users = session.query(User).all()
@@ -89,11 +86,10 @@ def update_equipment_codes():
             'error': str | None
         }
     """
-    # Create database connection
-    engine = create_engine(DATABASE_URL, echo=False)
-    SessionLocal = sessionmaker(bind=engine)
+    # Uses the shared engine from database.py (matrixcode-engine-leak) instead
+    # of creating a new one per call that was never disposed.
     session = SessionLocal()
-    
+
     try:
         # Get all equipment from equipment table
         equipment_items = session.query(Equipment).all()

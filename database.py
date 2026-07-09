@@ -1,3 +1,4 @@
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -19,7 +20,9 @@ if getattr(sys, "frozen", False) and not (APP_DIR / "rental.db").exists():
         shutil.copy(bundled_db, APP_DIR / "rental.db")
 
 # Creating a DB Engine
-engine = create_engine(DATABASE_URL, echo=True)
+# echo defaults off - it was printing every SQL statement + params to the
+# console on every rent/return. Opt in with BNRS_SQL_ECHO=1 when debugging.
+engine = create_engine(DATABASE_URL, echo=os.environ.get("BNRS_SQL_ECHO", "") == "1")
 
 
 @event.listens_for(engine, "connect")
