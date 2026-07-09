@@ -119,5 +119,20 @@ def main():
 
 
 if __name__ == "__main__":
-    success = main()
+    # Standalone script mode: no pytest, so conftest.py's autouse
+    # isolated_scanner_config fixture never runs - redirect CONFIG_FILE
+    # ourselves so this invocation can't rewrite the live scanner_config.json
+    # (step1-script-mode-runners-not-actually-isolated).
+    import tempfile
+    import shutil
+    import os
+    import scanner_config
+    _original_config_file = scanner_config.CONFIG_FILE
+    _temp_dir = tempfile.mkdtemp()
+    scanner_config.CONFIG_FILE = os.path.join(_temp_dir, "test_scanner_config.json")
+    try:
+        success = main()
+    finally:
+        scanner_config.CONFIG_FILE = _original_config_file
+        shutil.rmtree(_temp_dir, ignore_errors=True)
     exit(0 if success else 1)
