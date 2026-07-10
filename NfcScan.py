@@ -681,7 +681,7 @@ async def get_user_input_with_selection(equipment=None):
         options.append(display_text)
     
     with dialog, ui.card().style('width: 450px'):
-        with ui.row().classes('w-full justify-between items-center'):
+        with ui.row().classes('w-full justify-between items-center no-wrap'):
             ui.label('Select User').style('font-size: 150%')
             ui.button(icon='close', on_click=on_cancel).props('flat round')
         
@@ -1107,7 +1107,7 @@ async def nfc_equipment_rental_workflow(update_callback=None):
             confirmed.set_result(False)
         
         with dialog, ui.card():
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 ui.label(text='Equipment Return').style('font-size: 200%')
                 ui.button(icon='close', on_click=on_cancel).props('flat round')
             with ui.separator():
@@ -1162,7 +1162,7 @@ async def nfc_equipment_rental_workflow(update_callback=None):
             comment_text = e.value
         
         with dialog, ui.card():
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 ui.label('Rental Confirmation').style('font-size: 200%')
                 ui.button(icon='close', on_click=on_cancel).props('flat round')
             

@@ -65,7 +65,7 @@ def show_add_etype_dialog(main_dropdown, main_data, on_select, filter_callback=N
             ui.notify(f'Error adding equipment type: {e}', type='error')
 
     with ui.dialog() as dialog, ui.card():
-        with ui.row().classes('w-full justify-between items-center'):
+        with ui.row().classes('w-full justify-between items-center no-wrap'):
             ui.label(text='Adding a new equipment type').style('font-size: 200%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
         ui.label(text='Enter equipment type name:')
@@ -79,11 +79,22 @@ def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
     refresh_etypes()
 
     nfc_value = None
-    nfc_label = None
+    nfc_icon = None
+    nfc_text = None
     selected_etype_name = None
 
+    def set_nfc_status(has_code, text):
+        # Uses ui.icon()/ui.label() rather than raw ui.html() ligature text -
+        # ui.html() content goes through the browser's HTML sanitizer, which
+        # strips the material-icons class and leaves the literal ligature
+        # text ("check_box") on screen instead of the glyph
+        # (sanitizer-strips-icon-ligature-class).
+        nfc_icon.set_name('check_box' if has_code else 'check_box_outline_blank')
+        nfc_icon.set_text_color('green-500' if has_code else 'red-500')
+        nfc_text.set_text(text)
+
     async def scan_nfc():
-        nonlocal nfc_value, nfc_label
+        nonlocal nfc_value
         nfc_value, scan_status = await get_nfc_input("Scan Data Matrix Code")
         nfc_value = nfc_value.lower() if nfc_value else None
         if nfc_value:
@@ -93,11 +104,11 @@ def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
                 suffix = '' if existing_equipment.status else ' (deactivated)'
                 ui.notify(f'Data Matrix Code already registered to equipment {existing_equipment.name}{suffix}', type='warning')
                 nfc_value = None
-                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
+                set_nfc_status(False, 'Pass: Not set')
             else:
-                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Code scanned</b>'
+                set_nfc_status(True, 'Code scanned')
         else:
-            nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
+            set_nfc_status(False, 'Pass: Not set')
 
     def select_etype(item):
         nonlocal selected_etype_name
@@ -129,7 +140,7 @@ def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
             ui.notify(f'Error: {e}', type='error')
 
     with ui.dialog() as dialog, ui.card():
-        with ui.row().classes('w-full justify-between items-center'):
+        with ui.row().classes('w-full justify-between items-center no-wrap'):
             ui.label(text='Adding new equipment').style('font-size: 200%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
         ui.label(text='Enter equipment name:')
@@ -151,7 +162,9 @@ def show_add_equipment_dialog(filter_callback=None, lists_update_callback=None):
         ui.separator()
         with ui.row().classes('w-full justify-between items-center'):
             ui.button('Scan Data Matrix Code', on_click=scan_nfc)
-            nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
+            with ui.row().classes('items-center gap-1'):
+                nfc_icon = ui.icon('check_box_outline_blank', color='red-500')
+                nfc_text = ui.label('Pass: Not set').classes('text-bold')
             
         ui.separator() 
         ui.button(text='Add new equipment', on_click=add_equipment).style('width: 300px; margin-left: 30px')
@@ -304,7 +317,7 @@ def show_import_equipment_dialog(callback=None):
             ui.notify(f'Import error: {e}', type='error')
                 
     with ui.dialog() as dialog, ui.card().classes('w-96'):
-        with ui.row().classes('w-full justify-between items-center'):
+        with ui.row().classes('w-full justify-between items-center no-wrap'):
             ui.label(text='Import equipment from CSV').style('font-size: 150%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
         

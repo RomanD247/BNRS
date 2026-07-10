@@ -19,8 +19,8 @@ def edit_etypes_dialog():
         # Create a fresh session to ensure we get updated data
         with SessionLocal() as fresh_db:
             with ui.dialog() as dialog, ui.card().style('width: 600px; height: 800px'):
-                with ui.row().classes('w-full justify-between items-center'):
-                    ui.label('Select an equipment type to edit').classes('text-h6 q-mb-md w-540')
+                with ui.row().classes('w-full justify-between items-center no-wrap'):
+                    ui.label('Select an equipment type to edit').classes('text-h6 q-mb-md')
                     ui.button(icon='close', on_click=dialog.close).props('flat round')
                 
                 # Create a scroll area for the equipment types list

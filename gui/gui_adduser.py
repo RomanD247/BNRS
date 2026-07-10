@@ -65,7 +65,7 @@ def show_add_department_dialog(callback=None):
             ui.notify(f'Error adding department: {e}', type='error')
 
     with ui.dialog() as dialog, ui.card():
-        with ui.row().classes('w-full justify-between items-center'):
+        with ui.row().classes('w-full justify-between items-center no-wrap'):
             ui.label(text='Adding a new department').style('font-size: 200%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
         ui.label(text='Enter department name:')
@@ -79,11 +79,22 @@ def show_add_user_dialog(callback=None):
     refresh_departments()
 
     nfc_value = None
-    nfc_label = None
+    nfc_icon = None
+    nfc_text = None
     selected_dep_name = None
 
+    def set_nfc_status(has_code, text):
+        # Uses ui.icon()/ui.label() rather than raw ui.html() ligature text -
+        # ui.html() content goes through the browser's HTML sanitizer, which
+        # strips the material-icons class and leaves the literal ligature
+        # text ("check_box") on screen instead of the glyph
+        # (sanitizer-strips-icon-ligature-class).
+        nfc_icon.set_name('check_box' if has_code else 'check_box_outline_blank')
+        nfc_icon.set_text_color('green-500' if has_code else 'red-500')
+        nfc_text.set_text(text)
+
     async def scan_nfc():
-        nonlocal nfc_value, nfc_label
+        nonlocal nfc_value
         nfc_value, scan_status = await get_nfc_input("Scan Data Matrix Code")
         nfc_value = nfc_value.lower() if nfc_value else None
         if nfc_value:
@@ -93,11 +104,11 @@ def show_add_user_dialog(callback=None):
                 suffix = '' if existing_user.status else ' (deactivated)'
                 ui.notify(f'Data Matrix Code already registered to user {existing_user.name}{suffix}', type='warning')
                 nfc_value = None
-                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
+                set_nfc_status(False, 'Pass: Not set')
             else:
-                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Code scanned</b>'
+                set_nfc_status(True, 'Code scanned')
         else:
-            nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
+            set_nfc_status(False, 'Pass: Not set')
 
     def select_department(item):
         nonlocal selected_dep_name
@@ -129,7 +140,7 @@ def show_add_user_dialog(callback=None):
         top: 20%;
         transform: none;
     '''):
-        with ui.row().classes('w-full justify-between items-center'):
+        with ui.row().classes('w-full justify-between items-center no-wrap'):
             ui.label(text='Adding a new employee').style('font-size: 200%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
         ui.label(text='Enter your name:')
@@ -147,7 +158,9 @@ def show_add_user_dialog(callback=None):
         # ui.separator()
         # with ui.row().classes('w-full justify-between items-center'):
         #     ui.button('Scan Data Matrix Code', on_click=scan_nfc)
-        #     nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
+        #     with ui.row().classes('items-center gap-1'):
+        #         nfc_icon = ui.icon('check_box_outline_blank', color='red-500')
+        #         nfc_text = ui.label('Pass: Not set').classes('text-bold')
             
             
         ui.separator() 

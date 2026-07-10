@@ -76,7 +76,7 @@ class ScannerErrorDialogs:
         
         with dialog, ui.card().style('width: 500px; max-width: 90vw;'):
             # Header
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 with ui.row().classes('items-center gap-2'):
                     ui.icon('error', size='32px').style('color: #d32f2f;')
                     ui.label('Scanner Not Found').style('font-size: 24px; font-weight: bold; color: #d32f2f;')
@@ -171,7 +171,7 @@ class ScannerErrorDialogs:
         
         with dialog, ui.card().style('width: 450px; max-width: 90vw;'):
             # Header
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 with ui.row().classes('items-center gap-2'):
                     ui.icon('schedule', size='32px').style('color: #f57c00;')
                     ui.label('Scan Timeout').style('font-size: 24px; font-weight: bold; color: #f57c00;')
@@ -229,7 +229,7 @@ class ScannerErrorDialogs:
         
         with dialog, ui.card().style('width: 450px; max-width: 90vw;'):
             # Header
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 with ui.row().classes('items-center gap-2'):
                     ui.icon('usb_off', size='32px').style('color: #d32f2f;')
                     ui.label('Scanner Disconnected').style('font-size: 24px; font-weight: bold; color: #d32f2f;')
@@ -287,7 +287,7 @@ class ScannerErrorDialogs:
         
         with dialog, ui.card().style('width: 450px; max-width: 90vw;'):
             # Header
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 with ui.row().classes('items-center gap-2'):
                     ui.icon('warning', size='32px').style('color: #f57c00;')
                     ui.label('Invalid Scan Data').style('font-size: 24px; font-weight: bold; color: #f57c00;')
@@ -359,7 +359,7 @@ class ScannerErrorDialogs:
         
         with dialog, ui.card().style('width: 550px; max-width: 90vw;'):
             # Header
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 with ui.row().classes('items-center gap-2'):
                     ui.icon('lock', size='32px').style('color: #d32f2f;')
                     ui.label('Permission Denied').style('font-size: 24px; font-weight: bold; color: #d32f2f;')

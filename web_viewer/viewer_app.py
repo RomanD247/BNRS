@@ -131,7 +131,7 @@ def show_rental_history():
     """Shows rental history in a dialog"""
     with ui.dialog().classes('max-w-6xl') as dialog:
         with ui.card().style('width: 1400px; max-width: none'):
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 ui.label('Rental History').style('font-size: 24px; font-weight: bold')
                 ui.button(icon='close', on_click=dialog.close).props('flat round')
             

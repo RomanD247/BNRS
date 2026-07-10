@@ -75,7 +75,7 @@ async def show_scanner_config_dialog():
             return False
     
     with ui.dialog() as dialog, ui.card().style('width: 700px; max-height: 80vh'):
-        with ui.row().classes('w-full justify-between items-center'):
+        with ui.row().classes('w-full justify-between items-center no-wrap'):
             ui.label('Scanner Configuration').style('font-size: 150%; font-weight: bold')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
         

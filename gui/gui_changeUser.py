@@ -20,8 +20,8 @@ def edit_users_dialog():
         # Create a fresh session to ensure we get updated data
         with SessionLocal() as fresh_db:
             with ui.dialog() as dialog, ui.card().style('width: 600px; height: 800px'):
-                with ui.row().classes('w-full justify-between items-center'):
-                    ui.label('Select a user to edit').classes('text-h6 q-mb-md, w-540')
+                with ui.row().classes('w-full justify-between items-center no-wrap'):
+                    ui.label('Select a user to edit').classes('text-h6 q-mb-md')
                     ui.button(icon='close', on_click=dialog.close).props('flat round')
                 
                 # Create a scroll area for the user list
@@ -91,15 +91,19 @@ def show_edit_form_for_user(user, parent_dialog=None):
             # Captured separately from nfc_value (M14) - lets apply_changes
             # tell "admin re-scanned a new code" apart from "left it untouched".
             original_nfc = fresh_user.nfc
-            nfc_label = None
+            nfc_icon = None
+            nfc_text = None
 
             def refresh_nfc_label():
                 has_code = bool(nfc_value) and nfc_value != crud.CLEAR_NFC
-                nfc_label.content = (
-                    '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Code scanned</b>'
-                    if has_code else
-                    '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>'
-                )
+                # Uses ui.icon()/ui.label() rather than raw ui.html() ligature
+                # text - ui.html() content goes through the browser's HTML
+                # sanitizer, which strips the material-icons class and leaves
+                # the literal ligature text ("check_box") on screen instead of
+                # the glyph (sanitizer-strips-icon-ligature-class).
+                nfc_icon.set_name('check_box' if has_code else 'check_box_outline_blank')
+                nfc_icon.set_text_color('green-500' if has_code else 'red-500')
+                nfc_text.set_text('Code scanned' if has_code else 'Pass: Not set')
 
             async def scan_nfc():
                 nonlocal nfc_value
@@ -168,7 +172,10 @@ def show_edit_form_for_user(user, parent_dialog=None):
                         ui.button('Clear code', on_click=clear_code).props('flat')
                         if fresh_user.nfc:
                             ui.button(icon='download', on_click=download_qr_code).props('flat round').tooltip('Download QR Code')
-                    nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Code scanned</b>' if nfc_value else '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Pass: Not set</b>')
+                    with ui.row().classes('items-center gap-1'):
+                        nfc_icon = ui.icon('check_box_outline_blank', color='red-500')
+                        nfc_text = ui.label('Pass: Not set').classes('text-bold')
+                    refresh_nfc_label()
 
                 with ui.row().classes('justify-end'):
                     ui.button('Cancel', on_click=edit_dialog.close).classes('q-mr-sm')

@@ -8,7 +8,10 @@ a = Analysis(
         (os.path.join(SPECPATH, 'bnrs', 'Lib', 'site-packages', 'pylibdmtx', 'libdmtx-64.dll'), '.'),
     ],
     datas=[
-        (os.path.join(SPECPATH, 'rental.db'), '.'),
+        # rental.db is intentionally NOT bundled: the app creates a fresh,
+        # empty rental.db next to the exe on first launch (database.py, via
+        # APP_DIR + Base.metadata.create_all). Keeps the live DB an external,
+        # editable file rather than seeding it from committed test data.
         (os.path.join(SPECPATH, 'scanner_config.default.json'), '.'),
         (os.path.join(SPECPATH, 'bnrs', 'Lib', 'site-packages', 'nicegui'), 'nicegui/'),
         (os.path.join(SPECPATH, 'web_viewer'), 'web_viewer/'),
@@ -30,7 +33,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='WenglorMEL Rental System 2.1.5',
+    name='WenglorMEL Rental System 2.2.0',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

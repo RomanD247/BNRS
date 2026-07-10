@@ -122,7 +122,7 @@ def show_user_rental_statistics():
     """Shows user rental statistics report"""
     with ui.dialog() as dialog:
         with ui.card().style('max-width: none; width: 800px'):
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 ui.label('User Rental Statistics').classes('text-h5')
                 ui.button(icon='close', on_click=dialog.close).props('flat round')
             
@@ -245,7 +245,7 @@ def show_equipment_type_statistics():
     """Shows equipment type statistics report"""
     with ui.dialog() as dialog:
         with ui.card().style('max-width: none; width: 800px'):
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 ui.label('Device Type Statistics').classes('text-h5')
                 ui.button(icon='close', on_click=dialog.close).props('flat round')
             
@@ -361,7 +361,7 @@ def show_equipment_name_statistics():
     """Shows equipment name statistics report"""
     with ui.dialog() as dialog:
         with ui.card().style('max-width: none; width: 1000px'):
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 ui.label('Device Name Statistics').classes('text-h5')
                 ui.button(icon='close', on_click=dialog.close).props('flat round')
             
@@ -501,7 +501,7 @@ def show_rental_history():
     """Shows full rental history report"""
     with ui.dialog().classes('max-w-5xl') as dialog:
         with ui.card().style('width: 1400px; max-width: none'):
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 ui.label('Rental History').classes('text-h5')
                 ui.button(icon='close', on_click=dialog.close).props('flat round')
             
@@ -672,7 +672,7 @@ def show_department_rental_statistics():
     """Shows department rental statistics report"""
     with ui.dialog() as dialog:
         with ui.card().style('max-width: none; width: 1000px'):
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 ui.label('Department Rental Statistics').classes('text-h5')
                 ui.button(icon='close', on_click=dialog.close).props('flat round')
             
@@ -793,7 +793,7 @@ def show_feedback_entries():
     """Shows all feedback entries in a table"""
     with ui.dialog() as dialog:
         with ui.card().style('max-width: none; width: 1000px'):
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 ui.label('Feedback Entries').classes('text-h5')
                 ui.button(icon='close', on_click=dialog.close).props('flat round')
             

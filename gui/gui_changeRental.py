@@ -37,8 +37,8 @@ def edit_rentals_dialog():
         # Create a fresh session to ensure we get updated data
         with SessionLocal() as fresh_db:
             with ui.dialog() as dialog, ui.card().style('max-width: none; width: 1200px; height: 600px'):
-                with ui.row().classes('w-full justify-between items-center'):
-                    ui.label('Select a rental record to edit').classes('text-h6 q-mb-md, w-1140')
+                with ui.row().classes('w-full justify-between items-center no-wrap'):
+                    ui.label('Select a rental record to edit').classes('text-h6 q-mb-md')
                     ui.button(icon='close', on_click=dialog.close).props('flat round')
                 
                 # Create a scroll area for the rental list

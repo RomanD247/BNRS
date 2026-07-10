@@ -28,7 +28,7 @@ from gui.gui_reports import get_user_report_button, get_equipment_report_button,
 from gui.gui_scanner_config import show_scanner_config_dialog
 from NfcScan import nfc_equipment_rental_workflow, get_nfc_input, generate_all_users_codes, generate_all_equipment_codes
 from MatrixCode import update_user_codes, update_equipment_codes
-from scanner_logging import setup_logging
+from scanner_logging import setup_logging, LOG_DIR
 
 import asyncio
 import os
@@ -47,7 +47,7 @@ from models import User
 
 db = SessionLocal()
 
-VERSION = "2.1.5"
+VERSION = "2.2.0"
 
 # Hidden admin-panel gesture (main.py CLAUDE.md: "not real auth" - a UX gate,
 # not a security boundary). Password overridable via env var without touching
@@ -148,7 +148,13 @@ class State:
 state = State()
 
 # Dark Mode
-dark_mode = ui.dark_mode()
+# NOTE: do NOT create this (or any) UI element in the global scope. Doing so
+# flips NiceGUI into "script mode" (nicegui/context.py), which renders the
+# index by re-executing sys.argv[0] as a Python script. That crashes a frozen
+# one-file build (sys.argv[0] is the exe binary -> "source code string cannot
+# contain null bytes" -> HTTP 500). It's created inside main() instead, and
+# main() is passed as the root page function to ui.run().
+dark_mode = None
 def toggle_dark_mode(button):
     dark_mode.value = not dark_mode.value
     if dark_mode.value:
@@ -261,7 +267,7 @@ def show_rent_dialog(equipment):
         transform: none;
         width: 450px;
     '''):
-        with ui.row().classes('w-full justify-between items-center'):
+        with ui.row().classes('w-full justify-between items-center no-wrap'):
             ui.label(text='Rent equipment').style('font-size: 150%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
         with ui.row().classes('w-full justify-between items-center'):
@@ -307,7 +313,7 @@ def show_return_dialog(rental):
         refresh_with_filters()
 
     with ui.dialog() as dialog, ui.card().style('width: 350px'):
-        with ui.row().classes('w-full justify-between items-center'):
+        with ui.row().classes('w-full justify-between items-center no-wrap'):
             ui.label(text='Return equipment').style('font-size: 200%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
         with ui.row().classes('w-full justify-between items-center'):
@@ -457,7 +463,7 @@ class CodesGenerationDialog:
     def open(self):
         """Opens the dialog window"""
         with ui.dialog() as self.dialog, ui.card().style('width: 400px'):
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 ui.label('Data Matrix Codes operations').style('font-size: 150%')
                 ui.button(icon='close', on_click=self.dialog.close).props('flat round')
             
@@ -599,13 +605,17 @@ def open_codes_dialog():
     dialog.open()
 
 def create_password_dialog():
-    """Creates dialogs for entering a password and successful entry."""
+    """Creates the password and admin-panel dialogs.
+
+    Returns (password_dialog, clear_password_field) so the opener can clear
+    the field before showing the dialog.
+    """
     password_dialog = ui.dialog().props('persistent')
     success_dialog = ui.dialog()
 
     with success_dialog:
         with ui.card().style('max-width: none; width: 500px; height: 600px'):
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 ui.label('Admin panel').style('font-size: 200%; font-weight: bold')
                 ui.button(icon='close', on_click=success_dialog.close).props('flat round')
             ui.separator()
@@ -663,12 +673,53 @@ def create_password_dialog():
         top: 20%;
         transform: none;
         '''):
-            with ui.row().classes('w-full justify-between items-center'):
+            with ui.row().classes('w-full justify-between items-center no-wrap'):
                 ui.label('Enter password:')
                 ui.button(icon='close', on_click=password_dialog.close).props('flat round')
-            password_input = ui.input(password=True)
+            # IMPORTANT: do NOT use password=True here. A type=password field
+            # makes the embedded webview (Chromium/WebView2) offer to autofill
+            # the saved admin password as a "preview" overlay. That preview is
+            # NOT exposed to the DOM .value and only commits on a user gesture,
+            # so the field looks pre-filled with the correct password on reopen
+            # while the server still sees '' — every submit fails ("wrong") and
+            # it cannot be cleared in code. Instead we use a normal text input
+            # masked with CSS (-webkit-text-security), so it displays as dots
+            # without being a password field the browser will ever autofill.
+            password_input = ui.input().props(
+                'autofocus autocomplete=off input-style="-webkit-text-security: disc"'
+            )
+            password_input.on('keydown.enter', lambda: check_password(password_input))
             ui.button('Enter', on_click=lambda: check_password(password_input))
-    
+
+    def clear_password_field():
+        # Ensure the field is empty no matter where leftover text lives:
+        # - Server/store side: a bare set_value('') is silently skipped by
+        #   BindableProperty (nicegui binding.py) when the server already
+        #   holds '' — exactly the ghost case. Forcing a real change
+        #   (None -> '') guarantees an update message that overwrites the
+        #   client's element store. This also defeats nicegui input.js's
+        #   beforeUnmount write-back, which copies the live input text back
+        #   into that store when the dialog closes and can resurrect it on
+        #   the next open.
+        # - DOM side: getHtmlElement() IS the native <input> (nicegui sets
+        #   the QInput 'for' prop to the element's html id), so clear it and
+        #   dispatch an 'input' event to re-sync '' to the server. Do NOT use
+        #   getElement().$el here: ui.input renders a multi-root component,
+        #   so $el is a text node and .querySelector() throws. The delayed
+        #   passes catch text the webview injects after the dialog appears.
+        password_input.value = None  # make the next set_value('') a real change
+        password_input.set_value('')
+        ui.run_javascript(
+            f'const clearPw = () => {{'
+            f' const inp = getHtmlElement({password_input.id});'
+            f' if (inp && inp.value !== "") {{ inp.value = "";'
+            f' inp.dispatchEvent(new Event("input", {{bubbles: true}})); }} }};'
+            f' clearPw(); setTimeout(clearPw, 50); setTimeout(clearPw, 300);'
+        )
+
+    password_dialog.on('show', clear_password_field)
+    password_dialog.on('hide', clear_password_field)
+
     def check_password(input_field):
         if input_field.value == ADMIN_PASSWORD:
             password_dialog.close()
@@ -676,8 +727,8 @@ def create_password_dialog():
         else:
             ui.notify('Wrong password', color='negative')
         input_field.set_value('')
-    
-    return password_dialog
+
+    return password_dialog, clear_password_field
 
 def get_long_hold_callbacks():
     """
@@ -685,7 +736,7 @@ def get_long_hold_callbacks():
     ADMIN_CLICK_WINDOW_SEC seconds:
       - on_click: increments counter if clicks are within time window
     """
-    password_dialog = create_password_dialog()
+    password_dialog, clear_password_field = create_password_dialog()
     click_count = 0
     last_click_time = 0
 
@@ -698,6 +749,12 @@ def get_long_hold_callbacks():
         click_count += 1
         last_click_time = now
         if click_count >= ADMIN_CLICK_COUNT:
+            # Clear BEFORE opening: QDialog emits 'show' only ~300ms after the
+            # content is already visible, so the 'show' handler alone would
+            # let leftover text flash (or even be submitted) first. Clearing
+            # here makes the remounted input render from an already-clean
+            # state; the 'show'/'hide' handlers remain as defense-in-depth.
+            clear_password_field()
             password_dialog.open()
             click_count = 0  # reset counter
 
@@ -722,7 +779,7 @@ def show_feedback_dialog():
         dialog.close()
     
     with ui.dialog() as dialog, ui.card().classes('w-96'):
-        with ui.row().classes('w-full justify-between items-center'):
+        with ui.row().classes('w-full justify-between items-center no-wrap'):
             ui.label("Submit Feedback").style('font-size: 150%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
         
@@ -760,7 +817,7 @@ def show_add_nfc_dialog():
     transform: none;
     width: 500px;
 '''):
-        with ui.row().classes('w-full justify-between items-center'):
+        with ui.row().classes('w-full justify-between items-center no-wrap'):
             ui.label('Adding Code to User').style('font-size: 150%')
             ui.button(icon='close', on_click=dialog.close).props('flat round')
 
@@ -786,6 +843,16 @@ def show_add_nfc_dialog():
         # To store NFC value
         nfc_value = None
 
+        def set_nfc_status(has_code, text):
+            # Uses ui.icon()/ui.label() rather than raw ui.html() ligature text -
+            # ui.html() content goes through the browser's HTML sanitizer, which
+            # strips the material-icons class and leaves the literal ligature
+            # text ("check_box") on screen instead of the glyph
+            # (sanitizer-strips-icon-ligature-class).
+            nfc_icon.set_name('check_box' if has_code else 'check_box_outline_blank')
+            nfc_icon.set_text_color('green-500' if has_code else 'red-500')
+            nfc_text.set_text(text)
+
         async def scan_nfc():
             nonlocal nfc_value
             nfc_value, scan_status = await get_nfc_input("Scan a Code")
@@ -798,11 +865,11 @@ def show_add_nfc_dialog():
                 if existing_user:
                     ui.notify(f'Code already registered to user {existing_user.name}', type='warning')
                     nfc_value = None
-                    nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Code: Not set</b>'
+                    set_nfc_status(False, 'Code: Not set')
                 else:
-                    nfc_label.content = '<i class="material-icons" font-weight=bold style="color: green;">check_box</i> <b>Code scanned</b>'
+                    set_nfc_status(True, 'Code scanned')
             else:
-                nfc_label.content = '<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Code: Not set</b>'
+                set_nfc_status(False, 'Code: Not set')
 
         def on_save():
             nonlocal selected_user_id, nfc_value
@@ -826,7 +893,9 @@ def show_add_nfc_dialog():
 
         with ui.row().classes('w-full justify-between items-center q-mb-md'):
             ui.button('Scan Data Matrix Code', on_click=scan_nfc)
-            nfc_label = ui.html('<i class="material-icons" font-weight=bold style="color: red;">check_box_outline_blank</i> <b>Code: Not set</b>')
+            with ui.row().classes('items-center gap-1'):
+                nfc_icon = ui.icon('check_box_outline_blank', color='red-500')
+                nfc_text = ui.label('Code: Not set').classes('text-bold')
 
         with ui.row().classes('justify-end'):
             ui.button('Apply', on_click=on_save).classes('bg-primary')
@@ -834,7 +903,8 @@ def show_add_nfc_dialog():
     dialog.open()
 
 def main():
-    global available_container, rented_container
+    global available_container, rented_container, dark_mode
+    dark_mode = ui.dark_mode()  # created here (per client) not globally - see note above
     ui.query('body').style('font-family: Helvetica') #Font for the whole app
     # Get the list of equipment types once at startup
     state.etypes = get_all_etypes(db)
@@ -954,26 +1024,35 @@ if __name__ in {'__main__', '__mp_main__'}:
                     viewer_cmd = [sys.executable, "--web-viewer"]
                 else:
                     viewer_cmd = [sys.executable, os.path.abspath(__file__), "--web-viewer"]
+                # Capture the viewer subprocess's own stdout/stderr (uvicorn's
+                # startup banner and any unhandled-exception traceback behind
+                # an "Internal Server Error") to a file - DEVNULL previously
+                # discarded it, leaving no way to diagnose viewer failures.
+                viewer_log_file = open(LOG_DIR / "web_viewer.log", "w", encoding="utf-8")
                 viewer_process = subprocess.Popen(
                     viewer_cmd,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
+                    stdout=viewer_log_file,
+                    stderr=subprocess.STDOUT,
                     creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
                 )
+                # Popen duplicates the handle for the child at the OS level,
+                # so closing our copy doesn't affect the child's writes.
+                viewer_log_file.close()
                 os.environ[VIEWER_LAN_IP_ENV_VAR] = _get_lan_ip()
                 print(f"Web viewer started in background (PID: {viewer_process.pid})")
                 print(f"Access viewer at: http://{os.environ[VIEWER_LAN_IP_ENV_VAR]}:8585")
         except Exception as e:
             print(f"Could not start web viewer: {e}")
 
-    main()
-
     try:
-        ui.run(reload=False, title=f'WenglorMEL Rental System {VERSION}', favicon=FAVICON_PATH, window_size=(1800, 1000), port=15716, native=True)
+        # Pass main as the root page function (do NOT call main() beforehand):
+        # this keeps NiceGUI out of script mode so it never re-executes the
+        # (binary) exe to render the page in a frozen build.
+        ui.run(main, reload=False, title=f'WenglorMEL Rental System {VERSION}', favicon=FAVICON_PATH, window_size=(1800, 1000), port=15716, native=True)
     finally:
         # Clean up: stop viewer when main app closes
         if viewer_process:
             viewer_process.terminate()
             print("Web viewer stopped")
 
-    # Build: pyinstaller "WenglorMEL Rental System 2.1.5.spec"
+    # Build: pyinstaller "WenglorMEL Rental System 2.2.0.spec"
